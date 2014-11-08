@@ -1,0 +1,291 @@
+/****************************************************************
+
+    MAME / MESS functions
+
+****************************************************************/
+
+#include "mamedef.h"
+//#include "sndintrf.h"
+//#include "streams.h"
+#include "ym2413.h"
+#include "emu2413.h"
+#include "2413intf.h"
+
+#ifdef ENABLE_ALL_CORES
+#define EC_MAME		0x01	// YM2413 core from MAME
+#endif
+#define EC_EMU2413	0x00	// EMU2413 core from in_vgm, value 0 because it's better than MAME
+
+/* for stream system */
+typedef struct _ym2413_state ym2413_state;
+struct _ym2413_state
+{
+	//sound_stream *	stream;
+	void *			chip;
+};
+
+extern UINT8 CHIP_SAMPLING_MODE;
+extern INT32 CHIP_SAMPLE_RATE;
+static UINT8 EMU_CORE = 0x00;
+
+#define MAX_CHIPS	0x02
+static ym2413_state YM2413Data[MAX_CHIPS];
+
+/*INLINE ym2413_state *get_safe_token(const device_config *device)
+{
+	assert(device != NULL);
+	assert(device->token != NULL);
+	assert(device->type == SOUND);
+	assert(sound_get_type(device) == SOUND_YM2413);
+	return (ym2413_state *)device->token;
+}*/
+
+#ifdef UNUSED_FUNCTION
+void YM2413DAC_update(int chip,stream_sample_t **inputs, stream_sample_t **_buffer,int length)
+{
+    INT16 *buffer = _buffer[0];
+    static int out = 0;
+
+    if ( ym2413[chip].reg[0x0F] & 0x01 )
+    {
+        out = ((ym2413[chip].reg[0x10] & 0xF0) << 7);
+    }
+    while (length--) *(buffer++) = out;
+}
+#endif
+
+//static STREAM_UPDATE( ym2413_stream_update )
+void ym2413_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
+{
+	ym2413_state *info = &YM2413Data[ChipID];
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		ym2413_update_one(info->chip, outputs, samples);
+		break;
+#endif
+	case EC_EMU2413:
+		OPLL_calc_stereo(info->chip, outputs, samples);
+		break;
+	}
+}
+
+static void _stream_update(void *param, int interval)
+{
+	ym2413_state *info = (ym2413_state *)param;
+	/*stream_update(info->stream);*/
+	
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		ym2413_update_one(info->chip, DUMMYBUF, 0);
+		break;
+#endif
+	case EC_EMU2413:
+		OPLL_calc_stereo(info->chip, DUMMYBUF, 0);
+		break;
+	}
+}
+
+//static DEVICE_START( ym2413 )
+int device_start_ym2413(UINT8 ChipID, int clock)
+{
+	//ym2413_state *info = get_safe_token(device);
+	ym2413_state *info;
+	int rate;
+	
+	if (ChipID >= MAX_CHIPS)
+		return 0;
+	
+	info = &YM2413Data[ChipID];
+	rate = clock/72;
+	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
+		CHIP_SAMPLING_MODE == 0x02)
+		rate = CHIP_SAMPLE_RATE;
+	/* emulator create */
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		info->chip = ym2413_init(clock, rate);
+		//assert_always(info->chip != NULL, "Error creating YM2413 chip");
+
+		/* stream system initialize */
+		//info->stream = stream_create(device,0,2,rate,info,ym2413_stream_update);
+
+		ym2413_set_update_handler(info->chip, _stream_update, info);
+		break;
+#endif
+	case EC_EMU2413:
+		info->chip = OPLL_new(clock, rate);
+		break;
+	}
+ 
+
+
+
+/*#if 0
+	int i, tst;
+	char name[40];
+
+	num = intf->num;
+
+	tst = YM3812_sh_start (msound);
+	if (tst)
+		return 1;
+
+	for (i=0;i<num;i++)
+	{
+		ym2413_reset (i);
+
+		ym2413[i].DAC_stream = stream_create(device, 0, 1, device->clock/72, i, YM2413DAC_update);
+
+		if (ym2413[i].DAC_stream == -1)
+			return 1;
+	}
+	return 0;
+#endif*/
+	return rate;
+}
+
+//static DEVICE_STOP( ym2413 )
+void device_stop_ym2413(UINT8 ChipID)
+{
+	//ym2413_state *info = get_safe_token(device);
+	ym2413_state *info = &YM2413Data[ChipID];
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		ym2413_shutdown(info->chip);
+		break;
+#endif
+	case EC_EMU2413:
+		OPLL_delete(info->chip);
+		break;
+	}
+}
+
+//static DEVICE_RESET( ym2413 )
+void device_reset_ym2413(UINT8 ChipID)
+{
+	//ym2413_state *info = get_safe_token(device);
+	ym2413_state *info = &YM2413Data[ChipID];
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		ym2413_reset_chip(info->chip);
+		break;
+#endif
+	case EC_EMU2413:
+		OPLL_reset(info->chip);
+		break;
+	}
+}
+
+
+//WRITE8_DEVICE_HANDLER( ym2413_w )
+void ym2413_w(UINT8 ChipID, offs_t offset, UINT8 data)
+{
+	//ym2413_state *info = get_safe_token(device);
+	ym2413_state *info = &YM2413Data[ChipID];
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		ym2413_write(info->chip, offset & 1, data);
+		break;
+#endif
+	case EC_EMU2413:
+		OPLL_writeIO(info->chip, offset & 1, data);
+		break;
+	}
+}
+
+//WRITE8_DEVICE_HANDLER( ym2413_register_port_w )
+void ym2413_register_port_w(UINT8 ChipID, offs_t offset, UINT8 data)
+{
+	ym2413_w(ChipID, 0, data);
+}
+//WRITE8_DEVICE_HANDLER( ym2413_data_port_w )
+void ym2413_data_port_w(UINT8 ChipID, offs_t offset, UINT8 data)
+{
+	ym2413_w(ChipID, 1, data);
+}
+
+
+void ym2413_set_emu_core(UINT8 Emulator)
+{
+#ifdef ENABLE_ALL_CORES
+	EMU_CORE = (Emulator < 0x02) ? Emulator : 0x00;
+#else
+	EMU_CORE = EC_EMU2413;
+#endif
+	
+	return;
+}
+
+void ym2413_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
+{
+	ym2413_state *info = &YM2413Data[ChipID];
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		ym2413_set_mutemask(info->chip, MuteMask);
+		break;
+#endif
+	case EC_EMU2413:
+		OPLL_SetMuteMask(info->chip, MuteMask);
+		break;
+	}
+	
+	return;
+}
+
+void ym2413_set_panning(UINT8 ChipID, INT16* PanVals)
+{
+	ym2413_state *info = &YM2413Data[ChipID];
+	UINT8 CurChn;
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		break;
+#endif
+	case EC_EMU2413:
+		for (CurChn = 0x00; CurChn < 0x0E; CurChn ++)
+			OPLL_set_pan(info->chip, CurChn, PanVals[CurChn]);
+		break;
+	}
+	
+	return;
+}
+
+/**************************************************************************
+ * Generic get_info
+ **************************************************************************/
+
+/*DEVICE_GET_INFO( ym2413 )
+{
+	switch (state)
+	{
+		// --- the following bits of info are returned as 64-bit signed integers ---
+		case DEVINFO_INT_TOKEN_BYTES:					info->i = sizeof(ym2413_state);				break;
+
+		// --- the following bits of info are returned as pointers to data or functions ---
+		case DEVINFO_FCT_START:							info->start = DEVICE_START_NAME( ym2413 );				break;
+		case DEVINFO_FCT_STOP:							info->stop = DEVICE_STOP_NAME( ym2413 );				break;
+		case DEVINFO_FCT_RESET:							info->reset = DEVICE_RESET_NAME( ym2413 );				break;
+
+		// --- the following bits of info are returned as NULL-terminated strings ---
+		case DEVINFO_STR_NAME:							strcpy(info->s, "YM2413");							break;
+		case DEVINFO_STR_FAMILY:					strcpy(info->s, "Yamaha FM");						break;
+		case DEVINFO_STR_VERSION:					strcpy(info->s, "1.0");								break;
+		case DEVINFO_STR_SOURCE_FILE:						strcpy(info->s, __FILE__);							break;
+		case DEVINFO_STR_CREDITS:					strcpy(info->s, "Copyright Nicola Salmoria and the MAME Team"); break;
+	}
+}*/
