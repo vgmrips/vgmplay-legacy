@@ -10,7 +10,9 @@
 //#include "sndintrf.h"
 //#include "streams.h"
 #include "262intf.h"
+#ifdef ENABLE_ALL_CORES
 #include "ymf262.h"
+#endif
 
 #define OPLTYPE_IS_OPL3
 #include "adlibemu.h"
@@ -27,7 +29,7 @@ struct _ymf262_state
 	//sound_stream *	stream;
 	//emu_timer *		timer[2];
 	void *			chip;
-	const ymf262_interface *intf;
+	//const ymf262_interface *intf;
 	//const device_config *device;
 };
 
@@ -101,7 +103,7 @@ void ymf262_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	}
 }
 
-static void _stream_update(void *param, int interval)
+static void _stream_update(void *param/*, int interval*/)
 {
 	ymf262_state *info = (ymf262_state *)param;
 	//stream_update(info->stream);
@@ -114,8 +116,7 @@ static void _stream_update(void *param, int interval)
 		break;
 #endif
 	case EC_DBOPL:
-		// not neccessary
-		//adlib_OPL3_getsample(info->chip, DUMMYBUF, 0);
+		adlib_OPL3_getsample(info->chip, DUMMYBUF, 0);
 		break;
 	}
 }
@@ -124,7 +125,7 @@ static void _stream_update(void *param, int interval)
 //static DEVICE_START( ymf262 )
 int device_start_ymf262(UINT8 ChipID, int clock)
 {
-	static const ymf262_interface dummy = { 0 };
+	//static const ymf262_interface dummy = { 0 };
 	//ymf262_state *info = get_safe_token(device);
 	ymf262_state *info;
 	int rate;
@@ -139,13 +140,14 @@ int device_start_ymf262(UINT8 ChipID, int clock)
 		rate = CHIP_SAMPLE_RATE;
 
 	//info->intf = device->static_config ? (const ymf262_interface *)device->static_config : &dummy;
-	info->intf = &dummy;
+	//info->intf = &dummy;
 	//info->device = device;
 
 	/* stream system initialize */
 	switch(EMU_CORE)
 	{
 #ifdef ENABLE_ALL_CORES
+	case EC_MAME:
 		info->chip = ymf262_init(clock,rate);
 		//assert_always(info->chip != NULL, "Error creating YMF262 chip");
 
@@ -161,7 +163,7 @@ int device_start_ymf262(UINT8 ChipID, int clock)
 		break;
 #endif
 	case EC_DBOPL:
-		info->chip = adlib_OPL3_init(clock, rate);
+		info->chip = adlib_OPL3_init(clock, rate, _stream_update, info);
 		break;
 	}
 	
@@ -291,8 +293,11 @@ void ymf262_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 		break;
 #endif
 	case EC_DBOPL:
+		adlib_OPL3_set_mute_mask(info->chip, MuteMask);
 		break;
 	}
+	
+	return;
 }
 
 

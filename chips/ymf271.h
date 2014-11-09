@@ -2,14 +2,14 @@
 
 //#include "devcb.h"
 
-typedef struct _ymf271_interface ymf271_interface;
-struct _ymf271_interface
-{
-	//devcb_read8 ext_read;		/* external memory read */
-	//devcb_write8 ext_write;	/* external memory write */
-	//void (*irq_callback)(const device_config *device, int state);	/* irq callback */
-	void (*irq_callback)(int state);	/* irq callback */
-};
+//typedef struct _ymf271_interface ymf271_interface;
+//struct _ymf271_interface
+//{
+//	//devcb_read8 ext_read;		/* external memory read */
+//	//devcb_write8 ext_write;	/* external memory write */
+//	//void (*irq_callback)(const device_config *device, int state);	/* irq callback */
+//	void (*irq_callback)(int state);	/* irq callback */
+//};
 
 /*READ8_DEVICE_HANDLER( ymf271_r );
 WRITE8_DEVICE_HANDLER( ymf271_w );

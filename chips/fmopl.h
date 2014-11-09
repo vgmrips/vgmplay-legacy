@@ -41,7 +41,7 @@ typedef INT8 OPLSAMPLE;
 //typedef void (*OPL_TIMERHANDLER)(void *param,int timer,attotime period);
 typedef void (*OPL_TIMERHANDLER)(void *param,int timer,int period);
 typedef void (*OPL_IRQHANDLER)(void *param,int irq);
-typedef void (*OPL_UPDATEHANDLER)(void *param,int min_interval_us);
+typedef void (*OPL_UPDATEHANDLER)(void *param/*,int min_interval_us*/);
 typedef void (*OPL_PORTHANDLER_W)(void *param,unsigned char data);
 typedef unsigned char (*OPL_PORTHANDLER_R)(void *param);
 

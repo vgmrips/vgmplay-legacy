@@ -139,6 +139,11 @@ void k053260_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 
 	/* precache some values */
 	for ( i = 0; i < 4; i++ ) {
+		if (ic->channels[i].Muted)
+		{
+			play[i] = 0;
+			continue;
+		}
 		rom[i]= &ic->rom[ic->channels[i].start + ( ic->channels[i].bank << 16 )];
 		delta[i] = ic->delta_table[ic->channels[i].rate];
 		lvol[i] = ic->channels[i].volume * ic->channels[i].pan;
@@ -220,6 +225,8 @@ void k053260_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 
 	/* update the regs now */
 	for ( i = 0; i < 4; i++ ) {
+		if (ic->channels[i].Muted)
+			continue;
 		ic->channels[i].pos = pos[i];
 		ic->channels[i].play = play[i];
 		ic->channels[i].ppcm_data = ppcm_data[i];
@@ -290,6 +297,9 @@ int device_start_k053260(UINT8 ChipID, int clock)
 	/* setup SH1 timer if necessary */
 	//if ( ic->intf->irq )
 	//	device->machine().scheduler().timer_pulse( attotime::from_hz(device->clock()) * 32, ic->intf->irq, "ic->intf->irq" );
+	
+	for (i = 0; i < 4; i ++)
+		ic->channels[i].Muted = 0x00;
 	
 	return rate;
 }

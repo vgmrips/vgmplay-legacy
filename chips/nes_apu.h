@@ -48,16 +48,16 @@ WRITE8_DEVICE_HANDLER( nes_psg_w );
 
 DECLARE_LEGACY_SOUND_DEVICE(NES, nesapu);*/
 
-UINT8 nes_psg_r(UINT8 ChipID, offs_t offset);
-void nes_psg_w(UINT8 ChipID, offs_t offset, UINT8 data);
+UINT8 nes_psg_r(void* chip, offs_t offset);
+void nes_psg_w(void* chip, offs_t offset, UINT8 data);
 
-void nes_psg_update_sound(UINT8 ChipID, stream_sample_t **outputs, int samples);
-int device_start_nesapu(UINT8 ChipID, int clock);
-void device_stop_nesapu(UINT8 ChipID);
-void device_reset_nesapu(UINT8 ChipID);
+void nes_psg_update_sound(void* chip, stream_sample_t **outputs, int samples);
+void* device_start_nesapu(int clock, int rate);
+void device_stop_nesapu(void* chip);
+void device_reset_nesapu(void* chip);
 
-void nesapu_write_ram(UINT8 ChipID, offs_t DataStart, offs_t DataLength, const UINT8* RAMData);
+void nesapu_set_rom(void* chip, const UINT8* ROMData);
 
-void nesapu_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
+void nesapu_set_mute_mask(void* chip, UINT32 MuteMask);
 
 #endif /* __NES_APU_H__ */

@@ -159,7 +159,7 @@ static YMF278BChip YMF278BData[MAX_CHIPS];
 static UINT32 ROMFileSize = 0x00;
 static UINT8* ROMFile = NULL;
 
-extern char* AppPathExt;
+char* FindFile(const char* FileName);	// from VGMPlay_Intf.h/VGMPlay.c
 
 
 #define EG_SH	16	// 16.16 fixed point (EG timing)
@@ -677,10 +677,8 @@ void ymf278b_pcm_update(UINT8 ChipID, stream_sample_t** outputs, int samples)
 			// TODO prob doesn't happen in real chip
 			//volLeft  = std::max(0, volLeft);
 			//volRight = std::max(0, volRight);
-			/*if (volLeft < 0)
- 				volLeft = 0;
-			if (volRight < 0)
-				volRight = 0;*/
+			volLeft &= 0x3FF;	// catch negative Volume values in a hardware-like way
+			volRight &= 0x3FF;	// (anything beyond 0x100 results in *0)
 
 			outputs[0][j] += (sample * chip->volume[volLeft] ) >> 17;
 			outputs[1][j] += (sample * chip->volume[volRight]) >> 17;
@@ -1097,8 +1095,8 @@ void ymf278b_clearRam(YMF278BChip* chip)
 
 static void ymf278b_load_rom(YMF278BChip *chip)
 {
-	const char ROM_FILENAME[] = "yrw801.rom";
-	char FileStr[0x100];
+	const char* ROM_FILENAME = "yrw801.rom";
+	char* FileName;
 	FILE* hFile;
 	
 	if (! ROMFileSize)
@@ -1107,9 +1105,16 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 		ROMFile = (UINT8*)malloc(ROMFileSize);
 		memset(ROMFile, 0xFF, ROMFileSize);
 		
-		strcpy(FileStr, AppPathExt);
-		strcat(FileStr, ROM_FILENAME);
-		hFile = fopen(FileStr, "rb");
+		FileName = FindFile(ROM_FILENAME);
+		if (FileName != NULL)
+		{
+			hFile = fopen(FileName, "rb");
+			free(FileName);
+		}
+		else
+		{
+			hFile = NULL;
+		}
 		if (hFile != NULL)
 		{
 			fread(ROMFile, 0x01, ROMFileSize, hFile);
@@ -1117,7 +1122,7 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 		}
 		else
 		{
-			printf("Warning! OPL4 Sample ROM (%s) not found!", ROM_FILENAME);
+			printf("Warning! OPL4 Sample ROM (%s) not found!\n", ROM_FILENAME);
 		}
 	}
 	
@@ -1133,7 +1138,7 @@ static void ymf278b_init(YMF278BChip *chip, int clock, void (*cb)(int))
 	int rate;
 	
 	rate = clock / 768;
-	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
+	if (((CHIP_SAMPLING_MODE & 0x01) && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	chip->fmchip = ymf262_init(clock, rate);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ay8910.h"
+#include "emu2149.h"
 
 void ym2203_update_request(void *param);
 
@@ -26,8 +27,7 @@ DEVICE_GET_INFO( ym2203 );
 void ym2203_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
 void ym2203_stream_update_ay(UINT8 ChipID, stream_sample_t **outputs, int samples);
 
-int device_start_ym2203(UINT8 ChipID, int clock, unsigned char AYDisable, unsigned char AYFlags,
-						int* AYrate);
+int device_start_ym2203(UINT8 ChipID, int clock, UINT8 AYDisable, UINT8 AYFlags, int* AYrate);
 void device_stop_ym2203(UINT8 ChipID);
 void device_reset_ym2203(UINT8 ChipID);
 
@@ -39,4 +39,5 @@ UINT8 ym2203_read_port_r(UINT8 ChipID, offs_t offset);
 void ym2203_control_port_w(UINT8 ChipID, offs_t offset, UINT8 data);
 void ym2203_write_port_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
+void ym2203_set_ay_emu_core(UINT8 Emulator);
 void ym2203_set_mute_mask(UINT8 ChipID, UINT32 MuteMaskFM, UINT32 MuteMaskAY);

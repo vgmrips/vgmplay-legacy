@@ -14,6 +14,8 @@
 #include "ym2151.h"
 
 
+#define NULL	((void *)0)
+
 typedef struct _ym2151_state ym2151_state;
 struct _ym2151_state
 {
@@ -21,7 +23,7 @@ struct _ym2151_state
 	//emu_timer *				timer[2];
 	void *					chip;
 	UINT8					lastreg;
-	const ym2151_interface *intf;
+	//const ym2151_interface *intf;
 };
 
 
@@ -51,18 +53,18 @@ void ym2151_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 
 
 //static STATE_POSTLOAD( ym2151intf_postload )
-static void ym2151intf_postload(UINT8 ChipID)
+/*static void ym2151intf_postload(UINT8 ChipID)
 {
 	//ym2151_state *info = (ym2151_state *)param;
 	ym2151_state *info = &YM2151Data[ChipID];
 	ym2151_postload(info->chip);
-}
+}*/
 
 
 //static DEVICE_START( ym2151 )
 int device_start_ym2151(UINT8 ChipID, int clock)
 {
-	static const ym2151_interface dummy = { 0 };
+	//static const ym2151_interface dummy = { 0 };
 	
 	//ym2151_state *info = get_safe_token(device);
 	ym2151_state *info;
@@ -77,7 +79,7 @@ int device_start_ym2151(UINT8 ChipID, int clock)
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	//info->intf = device->static_config ? (const ym2151_interface *)device->static_config : &dummy;
-	info->intf = &dummy;
+	//info->intf = &dummy;
 
 	/* stream setup */
 	//info->stream = stream_create(device,0,2,rate,info,ym2151_update);
@@ -86,10 +88,9 @@ int device_start_ym2151(UINT8 ChipID, int clock)
 	//assert_always(info->chip != NULL, "Error creating YM2151 chip");
 
 	//state_save_register_postload(device->machine, ym2151intf_postload, info);
-	ym2151intf_postload(ChipID);
 
-	ym2151_set_irq_handler(info->chip,info->intf->irqhandler);
-	ym2151_set_port_write_handler(info->chip,info->intf->portwritehandler);
+	//ym2151_set_irq_handler(info->chip,info->intf->irqhandler);
+	//ym2151_set_port_write_handler(info->chip,info->intf->portwritehandler);
 	
 	return rate;
 }

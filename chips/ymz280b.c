@@ -18,6 +18,13 @@
   256 steps total level and 16 steps panpot can be set
   Voice signal is output in stereo 16-bit 2's complement MSB-first format
 
+  TODO:
+  - Is memory handling 100% correct? At the moment, Konami firebeat.c is the only
+    hardware currently emulated that uses external handlers.
+    It also happens to be the only one using 16-bit PCM.
+
+    Some other drivers (eg. bishi.c, bfm_sc4/5.c) also use ROM readback.
+
 */
 
 
@@ -108,12 +115,17 @@ struct _ymz280b_state
 	UINT8 irq_mask;					/* current IRQ mask */
 	UINT8 irq_enable;				/* current IRQ enable */
 	UINT8 keyon_enable;				/* key on enable */
+	UINT8 ext_mem_enable;			/* external memory enable */
+	UINT8 ext_readlatch;			/* external memory prefetched data */
+	UINT32 ext_mem_address_hi;
+	UINT32 ext_mem_address_mid;
+	UINT32 ext_mem_address;			/* where the CPU can read the ROM */
+	
 	double master_clock;			/* master clock frequency */
 	double rate;
 	//void (*irq_callback)(const device_config *, int);		/* IRQ callback */
 	void (*irq_callback)(int);		/* IRQ callback */
 	struct YMZ280BVoice	voice[8];	/* the 8 voices */
-	UINT32 rom_readback_addr;		/* where the CPU can read the ROM */
 	//devcb_resolved_read8 ext_ram_read;		/* external RAM read handler */
 	//devcb_resolved_write8 ext_ram_write;	/* external RAM write handler */
 
@@ -236,7 +248,7 @@ INLINE void update_volumes(struct YMZ280BVoice *voice)
 
 
 //static STATE_POSTLOAD( YMZ280B_state_save_update_step )
-void YMZ280B_state_save_update_step(void *param)
+/*void YMZ280B_state_save_update_step(void *param)
 {
 	ymz280b_state *chip = (ymz280b_state *)param;
 	int j;
@@ -248,7 +260,7 @@ void YMZ280B_state_save_update_step(void *param)
 		//	timer_set(machine, attotime_zero, chip, 0, update_irq_state_cb[j]);
 			update_irq_state_timer_common(param, j);
 	}
-}
+}*/
 
 
 INLINE UINT8 ymz280b_read_memory(UINT8 *base, UINT32 size, UINT32 offset)
@@ -558,6 +570,7 @@ static int generate_pcm16(struct YMZ280BVoice *voice, UINT8 *base, UINT32 size, 
 			/* fetch the current value */
 			//val = (INT16)((base[position / 2 + 1] << 8) + base[position / 2 + 0]);
 			val = (INT16)((ymz280b_read_memory(base, size, position / 2 + 0) << 8) + ymz280b_read_memory(base, size, position / 2 + 1));
+			// Note: Last MAME updates say it's: ((position / 2 + 1) << 8) + (position / 2 + 0);
 
 			/* output to the buffer, scaling by the volume */
 			*buffer++ = val;
@@ -817,7 +830,7 @@ int device_start_ymz280b(UINT8 ChipID, int clock)
 	
 	chip->rate = chip->master_clock * 2.0;
 	// disabled until the frequency calculation gets fixed
-	/*if ((CHIP_SAMPLING_MODE == 0x01 && chip->rate < CHIP_SAMPLE_RATE) ||
+	/*if (((CHIP_SAMPLING_MODE & 0x01) && chip->rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		chip->rate = (double)CHIP_SAMPLE_RATE;*/
 	
@@ -876,7 +889,6 @@ int device_start_ymz280b(UINT8 ChipID, int clock)
 		chip->voice[chn].Muted = 0x00;
 
 	//state_save_register_postload(device->machine, YMZ280B_state_save_update_step, chip);
-	YMZ280B_state_save_update_step(chip);
 
 #if MAKE_WAVS
 	chip->wavresample = wav_open("resamp.wav", INTERNAL_SAMPLE_RATE, 2);
@@ -936,7 +948,7 @@ void device_reset_ymz280b(UINT8 ChipID)
 	chip->irq_mask = 0x00;
 	chip->irq_enable = 0x00;
 	chip->keyon_enable = 0x00;
-	chip->rom_readback_addr = 0x000000;
+	chip->ext_mem_address = 0x000000;
 	for (curvoc = 0; curvoc < 8; curvoc ++)
 	{
 		voice = &chip->voice[curvoc];
@@ -1153,26 +1165,28 @@ static void write_to_register(ymz280b_state *chip, int data)
 				break;
 
 			case 0x84:		/* ROM readback / RAM write (high) */
-				chip->rom_readback_addr &= 0xffff;
-				chip->rom_readback_addr |= (data<<16);
+				chip->ext_mem_address_hi = data << 16;
 				break;
 
-			case 0x85:		/* ROM readback / RAM write (med) */
-				chip->rom_readback_addr &= 0xff00ff;
-				chip->rom_readback_addr |= (data<<8);
+			case 0x85:		/* ROM readback / RAM write (middle) */
+				chip->ext_mem_address_mid = data << 8;
 				break;
 
-			case 0x86:		/* ROM readback / RAM write (low) */
-				chip->rom_readback_addr &= 0xffff00;
-				chip->rom_readback_addr |= data;
+			case 0x86:      /* ROM readback / RAM write (low) -> update latch */
+				chip->ext_mem_address = chip->ext_mem_address_hi | chip->ext_mem_address_mid | data;
+				if (chip->ext_mem_enable)
+					chip->ext_readlatch = ymz280b_read_memory(chip->region_base, chip->region_size, chip->ext_mem_address);
 				break;
 
 			case 0x87:		/* RAM write */
-				/*if (!chip->ext_ram_write.isnull())
-					chip->ext_ram_write(chip->rom_readback_addr, data);
-				else
-					logerror("YMZ280B attempted RAM write to %X\n", chip->rom_readback_addr);*/
-				chip->rom_readback_addr = (chip->rom_readback_addr + 1) & 0xffffff;
+				if (chip->ext_mem_enable)
+				{
+					/*if (!chip->ext_ram_write.isnull())
+						chip->ext_ram_write(chip->ext_mem_address, data);
+					else
+						logerror("YMZ280B attempted RAM write to %X\n", chip->ext_mem_address);*/
+					chip->ext_mem_address = (chip->ext_mem_address + 1) & 0xffffff;
+				}
 				break;
 
 			case 0xfe:		/* IRQ mask */
@@ -1181,6 +1195,7 @@ static void write_to_register(ymz280b_state *chip, int data)
 				break;
 
 			case 0xff:		/* IRQ enable, test, etc */
+				chip->ext_mem_enable = (data & 0x40) >> 6;
 				chip->irq_enable = (data & 0x10) >> 4;
 				update_irq_state(chip);
 
@@ -1226,15 +1241,6 @@ static int compute_status(ymz280b_state *chip)
 {
 	UINT8 result;
 
-	/* ROM/RAM readback? */
-	if (chip->current_register == 0x86)
-	{
-		//result = chip->region_base[chip->rom_readback_addr];
-		result = ymz280b_read_memory(chip->region_base, chip->region_size, chip->rom_readback_addr);
-		chip->rom_readback_addr = (chip->rom_readback_addr + 1) & 0xffffff;
-		return result;
-	}
-
 	/* force an update */
 	//stream_update(chip->stream);
 
@@ -1263,16 +1269,16 @@ UINT8 ymz280b_r(UINT8 ChipID, offs_t offset)
 
 	if ((offset & 1) == 0)
 	{
-		/* read from external memory */
-		UINT8 result;
-		/*if (chip->ext_ram_read.isnull())
-			result = chip->ext_ram_read(chip->rom_readback_addr);
-		else
-			result = ymz280b_read_memory(chip->region_base, chip->region_size, chip->rom_readback_addr);*/
-		result = 0x00;
+		UINT8 ret;
+		
+		if (! chip->ext_mem_enable)
+			return 0xff;
 
-		chip->rom_readback_addr = (chip->rom_readback_addr + 1) & 0xffffff;
-		return result;
+		/* read from external memory */
+		ret = chip->ext_readlatch;
+		ret = ymz280b_read_memory(chip->region_base, chip->region_size, chip->ext_mem_address);
+		chip->ext_mem_address = (chip->ext_mem_address + 1) & 0xffffff;
+		return ret;
 	}
 	else
 	{

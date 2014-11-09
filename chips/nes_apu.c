@@ -47,14 +47,13 @@
 #include "mamedef.h"
 #include <malloc.h>
 #include <memory.h>
+#include <stddef.h>	// for NULL
 //#include "emu.h"
 //#include "streams.h"
 #include "nes_apu.h"
 //#include "cpu/m6502/m6502.h"
 
 #include "nes_defs.h"
-
-#define NULL	((void *)0)
 
 /* GLOBAL CONSTANTS */
 #define  SYNCS_MAX1     0x20
@@ -76,8 +75,10 @@ struct _nesapu_state
 	//sound_stream *stream;
 };
 
-#define MAX_CHIPS	0x02
-static nesapu_state NESAPUData[MAX_CHIPS];
+static UINT8 DPCMBase0 = 0x01;
+
+//#define MAX_CHIPS	0x02
+//static nesapu_state NESAPUData[MAX_CHIPS];
 
 /*INLINE nesapu_state *get_safe_token(running_device *device)
 {
@@ -143,6 +144,7 @@ static int8 apu_square(nesapu_state *info, square_t *chan)
 	int env_delay;
 	int sweep_delay;
 	int8 output;
+	uint8 freq_index;
 
 	/* reg0: 0-3=volume, 4=envelope, 5=hold, 6-7=duty cycle
     ** reg1: 0-2=sweep shifts, 3=sweep inc/dec, 4-6=sweep length, 7=sweep on
@@ -189,7 +191,17 @@ static int8 apu_square(nesapu_state *info, square_t *chan)
 		}
 	}
 
-	if ((0 == (chan->regs[1] & 8) && (chan->freq >> 16) > freq_limit[chan->regs[1] & 7])
+//	if ((0 == (chan->regs[1] & 8) && (chan->freq >> 16) > freq_limit[chan->regs[1] & 7])
+//		 || (chan->freq >> 16) < 4)
+//		return 0;
+	
+	// Thanks to Delek for the fix
+	if (chan->regs[1] & 0x80)
+		freq_index = chan->regs[1] & 7;	//If sweeping is enabled, I choose it as normal.
+	else
+		freq_index = 7;	//If sweeping is disabled, I choose the lower limit.
+	
+	if ((0 == (chan->regs[1] & 8) && (chan->freq >> 16) > freq_limit[freq_index])
 		 || (chan->freq >> 16) < 4)
 		return 0;
 
@@ -345,6 +357,7 @@ INLINE void apu_dpcmreset(dpcm_t *chan)
 	chan->bits_left = chan->length << 3;
 	chan->irq_occurred = FALSE;
 	chan->enabled = TRUE; /* Fixed * Proper DPCM channel ENABLE/DISABLE flag behaviour*/
+	// Note: according to NSFPlay, it does NOT do that
 	chan->vol = 0; /* Fixed * DPCM DAC resets itself when restarted */
 }
 
@@ -359,8 +372,10 @@ static int8 apu_dpcm(nesapu_state *info, dpcm_t *chan)
     ** reg2: 8 bits of 64-byte aligned address offset : $C000 + (value * 64)
     ** reg3: length, (value * 16) + 1
     */
+	if (chan->Muted)
+		return 0;
 
-	if (chan->enabled && ! chan->Muted)
+	if (chan->enabled)
 	{
 		freq = dpcm_clocks[chan->regs[0] & 0x0F];
 		chan->phaseacc -= (float) info->apu_incsize; /* # of cycles per sample */
@@ -394,6 +409,9 @@ static int8 apu_dpcm(nesapu_state *info, dpcm_t *chan)
 				//chan->cur_byte = info->APU.dpcm.memory->read_byte(chan->address);
 				chan->cur_byte = info->APU.dpcm.memory[chan->address];
 				chan->address++;
+				// On overflow, the address is set to 8000
+				if (chan->address >= 0x10000)
+					chan->address -= 0x8000;
 				chan->length--;
 			}
 
@@ -406,10 +424,20 @@ static int8 apu_dpcm(nesapu_state *info, dpcm_t *chan)
 		}
 	}
 
-	if (chan->vol > 63)
-		chan->vol = 63;
-	else if (chan->vol < -64)
-		chan->vol = -64;
+	if (! DPCMBase0)
+	{
+		if (chan->vol > 63)
+			chan->vol = 63;
+		else if (chan->vol < -64)
+			chan->vol = -64;
+	}
+	else
+	{
+		if (chan->vol > 127)
+			chan->vol = 127;
+		else if (chan->vol < 0)
+			chan->vol = 0;
+	}
 
 	return (int8) (chan->vol);
 	//return (int8) 0;
@@ -446,6 +474,8 @@ INLINE void apu_regwrite(nesapu_state *info,int address, uint8 value)
 
 		if (info->APU.squ[chan].enabled)
 		{
+		// TODO: Test, if it sounds better with or without it.
+		//	info->APU.squ[chan].adder = 0;	// Thanks to Delek
 			info->APU.squ[chan].vbl_length = info->vbl_times[value >> 3];
 			info->APU.squ[chan].env_vol = 0;
 			info->APU.squ[chan].freq = ((((value & 7) << 8) + info->APU.squ[chan].regs[2]) + 1) << 16;
@@ -465,7 +495,8 @@ INLINE void apu_regwrite(nesapu_state *info,int address, uint8 value)
 
 		break;
 
-	case 0x4009:
+	//case 0x4009:
+	case APU_WRC1:
 		/* unused */
 		info->APU.tri.regs[1] = value;
 		break;
@@ -516,6 +547,7 @@ INLINE void apu_regwrite(nesapu_state *info,int address, uint8 value)
 
 	case APU_WRD2:
 		info->APU.noi.regs[2] = value;
+		info->APU.noi.cur_pos = 0;	// Thanks to Delek for this fix.
 		break;
 
 	case APU_WRD3:
@@ -538,7 +570,10 @@ INLINE void apu_regwrite(nesapu_state *info,int address, uint8 value)
 	case APU_WRE1: /* 7-bit DAC */
 		//info->APU.dpcm.regs[1] = value - 0x40;
 		info->APU.dpcm.regs[1] = value & 0x7F;
-		info->APU.dpcm.vol = (info->APU.dpcm.regs[1]-64);
+		if (! DPCMBase0)
+			info->APU.dpcm.vol = (info->APU.dpcm.regs[1]-64);
+		else
+			info->APU.dpcm.vol = info->APU.dpcm.regs[1];
 		break;
 
 	case APU_WRE2:
@@ -626,20 +661,30 @@ INLINE void apu_update(nesapu_state *info, stream_sample_t **buffer16, int sampl
 
 	while (samples--)
 	{
-		accum = apu_square(info, &info->APU.squ[0]);
+		/*accum = apu_square(info, &info->APU.squ[0]);
 		accum += apu_square(info, &info->APU.squ[1]);
 		accum += apu_triangle(info, &info->APU.tri);
 		accum += apu_noise(info, &info->APU.noi);
 		accum += apu_dpcm(info, &info->APU.dpcm);
 
-		/* 8-bit clamps */
+		// 8-bit clamps
 		if (accum > 127)
 			accum = 127;
 		else if (accum < -128)
 			accum = -128;
 
 		*(bufL++)=accum<<8;
-		*(bufR++)=accum<<8;
+		*(bufR++)=accum<<8;*/
+
+		// These volumes should match NSFPlay's NES core better
+		accum = apu_square(info, &info->APU.squ[0]) << 8;	// << 8 * 1.0
+		accum += apu_square(info, &info->APU.squ[1]) << 8;	// << 8 * 1.0
+		accum += apu_triangle(info, &info->APU.tri) * 0xC0;	// << 8 * 0.75
+		accum += apu_noise(info, &info->APU.noi) * 0xC0;	// << 8 * 0.75
+		accum += apu_dpcm(info, &info->APU.dpcm) * 0xC0;	// << 8 * 0.75
+
+		*(bufL++)=accum;
+		*(bufR++)=accum;
 	}
 }
 
@@ -685,24 +730,24 @@ INLINE void apu_write(nesapu_state *info,int address, uint8 value)
 
 /* REGISTER READ/WRITE FUNCTIONS */
 //READ8_DEVICE_HANDLER( nes_psg_r )
-UINT8 nes_psg_r(UINT8 ChipID, offs_t offset)
+UINT8 nes_psg_r(void* chip, offs_t offset)
 {
 	//return apu_read(get_safe_token(device),offset);
-	return apu_read(&NESAPUData[ChipID], offset);
+	return apu_read((nesapu_state*)chip, offset);
 }
 //WRITE8_DEVICE_HANDLER( nes_psg_w )
-void nes_psg_w(UINT8 ChipID, offs_t offset, UINT8 data)
+void nes_psg_w(void* chip, offs_t offset, UINT8 data)
 {
 	//apu_write(get_safe_token(device),offset,data);
-	apu_write(&NESAPUData[ChipID], offset, data);
+	apu_write((nesapu_state*)chip, offset, data);
 }
 
 /* UPDATE APU SYSTEM */
 //static STREAM_UPDATE( nes_psg_update_sound )
-void nes_psg_update_sound(UINT8 ChipID, stream_sample_t **outputs, int samples)
+void nes_psg_update_sound(void* chip, stream_sample_t **outputs, int samples)
 {
 	//nesapu_state *info = (nesapu_state *)param;
-	nesapu_state *info = &NESAPUData[ChipID];
+	nesapu_state *info = (nesapu_state*)chip;
 	//apu_update(info, outputs[0], samples);
 	apu_update(info, outputs, samples);
 }
@@ -711,18 +756,21 @@ void nes_psg_update_sound(UINT8 ChipID, stream_sample_t **outputs, int samples)
 /* INITIALIZE APU SYSTEM */
 #define SCREEN_HZ	60
 //static DEVICE_START( nesapu )
-int device_start_nesapu(UINT8 ChipID, int clock)
+void* device_start_nesapu(int clock, int rate)
 {
 	//const nes_interface *intf = (const nes_interface *)device->baseconfig().static_config();
 	//nesapu_state *info = get_safe_token(device);
 	nesapu_state *info;
-	int rate = clock / 4;
+	//int rate = clock / 4;
 	//int i;
 
-	if (ChipID >= MAX_CHIPS)
-		return 0;
+//	if (ChipID >= MAX_CHIPS)
+//		return 0;
 	
-	info = &NESAPUData[ChipID];
+	info = (nesapu_state*)malloc(sizeof(nesapu_state));
+	if (info == NULL)
+		return NULL;
+	
 	/* Initialize global variables */
 	//info->samps_per_sync = rate / ATTOSECONDS_TO_HZ(device->machine->primary_screen->frame_period().attoseconds);
 	info->samps_per_sync = rate / SCREEN_HZ;
@@ -743,8 +791,7 @@ int device_start_nesapu(UINT8 ChipID, int clock)
 	/* Initialize individual chips */
 	//(info->APU.dpcm).memory = cputag_get_address_space(device->machine, intf->cpu_tag, ADDRESS_SPACE_PROGRAM);
 	// no idea how to obtain this
-	info->APU.dpcm.memory = (UINT8*)malloc(0x10000);
-	memset(info->APU.dpcm.memory, 0x00, 0x10000);
+	info->APU.dpcm.memory = NULL;
 
 	//info->stream = stream_create(device, 0, 1, rate, info, nes_psg_update_sound);
 
@@ -811,44 +858,49 @@ int device_start_nesapu(UINT8 ChipID, int clock)
 	info->APU.noi.Muted = 0x00;
 	info->APU.dpcm.Muted = 0x00;
 	
-	return rate;
+	return info;
 }
 
-void device_stop_nesapu(UINT8 ChipID)
+void device_stop_nesapu(void* chip)
 {
-	nesapu_state *info = &NESAPUData[ChipID];
+	nesapu_state *info = (nesapu_state*)chip;
 	
-	if (info->APU.dpcm.memory != NULL)
-		free(info->APU.dpcm.memory);
+	info->APU.dpcm.memory = NULL;
 	
 	return;
 }
 
-void device_reset_nesapu(UINT8 ChipID)
+void device_reset_nesapu(void* chip)
 {
-	nesapu_state *info = &NESAPUData[ChipID];
-	void* MemoryBak;
+	nesapu_state *info = (nesapu_state*)chip;
+	const UINT8* MemPtr;
+	UINT8 CurReg;
 	
-	MemoryBak = info->APU.dpcm.memory;
+	MemPtr = info->APU.dpcm.memory;
 	memset(&info->APU, 0x00, sizeof(apu_t));
-	info->APU.dpcm.memory = MemoryBak;
+	info->APU.dpcm.memory = MemPtr;
 	apu_dpcmreset(&info->APU.dpcm);
 	
-	return;
-}
-
-void nesapu_write_ram(UINT8 ChipID, offs_t DataStart, offs_t DataLength, const UINT8* RAMData)
-{
-	nesapu_state *info = &NESAPUData[ChipID];
+	for (CurReg = 0x00; CurReg < 0x18; CurReg ++)
+		apu_write(info, CurReg, 0x00);
 	
-	memcpy(info->APU.dpcm.memory + DataStart, RAMData, DataLength);
+	apu_write(info, 0x15, 0x00);
+	apu_write(info, 0x15, 0x0F);
 	
 	return;
 }
 
-void nesapu_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
+void nesapu_set_rom(void* chip, const UINT8* ROMData)
 {
-	nesapu_state *info = &NESAPUData[ChipID];
+	nesapu_state *info = (nesapu_state*)chip;
+	info->APU.dpcm.memory = ROMData;
+	
+	return;
+}
+
+void nesapu_set_mute_mask(void* chip, UINT32 MuteMask)
+{
+	nesapu_state *info = (nesapu_state*)chip;
 	
 	info->APU.squ[0].Muted = (MuteMask >> 0) & 0x01;
 	info->APU.squ[1].Muted = (MuteMask >> 1) & 0x01;

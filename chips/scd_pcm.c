@@ -27,8 +27,8 @@ extern INT32 CHIP_SAMPLE_RATE;
 #define MAX_CHIPS	0x02
 static struct pcm_chip_ PCM_Chip[MAX_CHIPS];
 
-static unsigned char VolTabIsInit = 0x00;
-static int PCM_Volume_Tab[256 * 256];
+/*static unsigned char VolTabIsInit = 0x00;
+static int PCM_Volume_Tab[256 * 256];*/
 
 //unsigned char Ram_PCM[64 * 1024];
 //int PCM_Enable;
@@ -42,9 +42,9 @@ static int PCM_Volume_Tab[256 * 256];
 int PCM_Init(UINT8 ChipID, int Rate)
 {
 	struct pcm_chip_ *chip = &PCM_Chip[ChipID];
-	int i, j, out;
+	int i/*, j, out*/;
 	
-	if (! VolTabIsInit)
+	/*if (! VolTabIsInit)
 	{
 		for (i = 0; i < 0x100; i++)
 		{
@@ -64,8 +64,9 @@ int PCM_Init(UINT8 ChipID, int Rate)
 			}
 		}
 		VolTabIsInit = 0x01;
-	}
+	}*/
 	
+	chip->Smpl0Patch = 0;
 	for (i = 0; i < 8; i ++)
 		chip->Channel[i].Muted = 0x00;
 	
@@ -394,6 +395,10 @@ int PCM_Update(UINT8 ChipID, int **buf, int Length)
 					else
 					{
 						CH->Data = chip->RAM[Addr];
+						// this improves the sound of Cosmic Fantasy Stories,
+						// although it's definately false behaviour
+						if (! CH->Data && chip->Smpl0Patch)
+							CH->Data = -0x7F;
 						bufL[j] += CH->Data * CH->MUL_L;
 						bufR[j] += CH->Data * CH->MUL_R;
 					}
@@ -444,12 +449,14 @@ int device_start_rf5c164(UINT8 ChipID, int clock)
 		return 0;
 	
 	chip = &PCM_Chip[ChipID];
-	rate = clock / 384;
-	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
+	rate = (clock & 0x7FFFFFFF) / 384;
+	if (((CHIP_SAMPLING_MODE & 0x01) && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	
 	PCM_Init(ChipID, rate);
+	PCM_Chip[ChipID].Smpl0Patch = (clock & 0x80000000) >> 31;
+	
 	/* allocate the stream */
 	//chip->stream = stream_create(device, 0, 2, device->clock / 384, chip, rf5c68_update);
 	

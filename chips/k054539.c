@@ -1,19 +1,9 @@
 /*********************************************************
 
-    Konami 054539 PCM Sound Chip
+    Konami 054539 (TOP) PCM Sound Chip
 
     A lot of information comes from Amuse.
     Big thanks to them.
-
-
-
-CHANNEL_DEBUG enables the following keys:
-
-    PAD.   : toggle debug mode
-    PAD0   : toggle chip    (0 / 1)
-    PAD4,6 : select channel (0 - 7)
-    PAD8,2 : adjust gain    (00=0.0 10=1.0, 20=2.0, etc.)
-    PAD5   : reset gain factor to 1.0
 
 *********************************************************/
 
@@ -29,7 +19,6 @@ CHANNEL_DEBUG enables the following keys:
 
 #define NULL	((void *)0)
 
-#define CHANNEL_DEBUG 0
 #define VERBOSE 0
 #define LOG(x) do { if (VERBOSE) logerror x; } while (0)
 
@@ -50,19 +39,26 @@ CHANNEL_DEBUG enables the following keys:
      00: type (b2-3), reverse (b5)
      01: loop (b0)
 
-   214: keyon (b0-7 = channel 0-7)
-   215: keyoff          ""
-   22c: channel active? ""
-   22d: data read/write port
-   22e: rom/ram select (00..7f == rom banks, 80 = ram)
-   22f: enable pcm (b0), disable register ram updating (b7)
+   214: Key on (b0-7 = channel 0-7)
+   215: Key off          ""
+   225: ?
+   227: Timer frequency
+   228: ?
+   229: ?
+   22a: ?
+   22b: ?
+   22c: Channel active? (b0-7 = channel 0-7)
+   22d: Data read/write port
+   22e: ROM/RAM select (00..7f == ROM banks, 80 = Reverb RAM)
+   22f: Global control:
+		.......x - Enable PCM
+		......x. - Timer related?
+		...x.... - Enable ROM/RAM readback from 0x22d
+		..x..... - Timer output enable?
+		x....... - Disable register RAM updates
 
-   The chip has a 0x4000 bytes reverb buffer (the ram from 0x22e).
-   The reverb delay is actually an offset in this buffer.  This driver
-   uses some tricks (doubling the buffer size so that the longest
-   reverbs don't fold over the sound to output, and adding a space at
-   the end to fold back overflows in) to be able to do frame-based
-   rendering instead of sample-based.
+	The chip has an optional 0x8000 byte reverb buffer.
+	The reverb delay is actually an offset in this buffer.
 */
 
 typedef struct _k054539_channel k054539_channel;
@@ -160,113 +156,100 @@ void k054539_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		-64<<8, -49<<8, -36<<8, -25<<8, -16<<8, -9<<8, -4<<8, -1<<8
 	};
 
-	int ch, reverb_pos;
-	short *rbase;
+	INT16 *rbase = (INT16 *)info->ram;
 	unsigned char *rom;
 	UINT32 rom_mask;
-
+	int i, ch;
+	double lval, rval;
 	unsigned char *base1, *base2;
 	k054539_channel *chan;
-	stream_sample_t *bufl, *bufr;
-	UINT32 cur_pos, cur_pfrac;
-	int cur_val, cur_pval;
-	int delta, rdelta, fdelta, pdelta;
-	int vol, bval, pan, i;
-
-	double gain, lvol, rvol, rbvol;
-
-	reverb_pos = info->reverb_pos;
-	rbase = (short *)(info->ram);
+	int delta, vol, bval, pan;
+	double cur_gain, lvol, rvol, rbvol;
+	int rdelta;
+	UINT32 cur_pos;
+	int fdelta, pdelta;
+	int cur_pfrac, cur_val, cur_pval;
 
 	memset(outputs[0], 0, samples*sizeof(*outputs[0]));
 	memset(outputs[1], 0, samples*sizeof(*outputs[1]));
 
+	if(!(info->regs[0x22f] & 1))
+		return;
+
 	rom = info->rom;
 	rom_mask = info->rom_mask;
 
-	if(!(info->regs[0x22f] & 1)) return;
+	for(i = 0; i != samples; i++) {
+		if(!(info->k054539_flags & K054539_DISABLE_REVERB))
+			lval = rval = rbase[info->reverb_pos];
+		else
+			lval = rval = 0;
+		rbase[info->reverb_pos] = 0;
 
-	info->reverb_pos = (reverb_pos + samples) & 0x3fff;
+		for(ch=0; ch<8; ch++)
+			if(info->regs[0x22c] & (1<<ch) && ! info->Muted[ch]) {
+				base1 = info->regs + 0x20*ch;
+				base2 = info->regs + 0x200 + 0x2*ch;
+				chan = info->channels + ch;
 
+				delta = base1[0x00] | (base1[0x01] << 8) | (base1[0x02] << 16);
 
-	for(ch=0; ch<8; ch++)
-		if ((info->regs[0x22c] & (1<<ch)) && ! info->Muted[ch])
-		{
-			base1 = info->regs + 0x20*ch;
-			base2 = info->regs + 0x200 + 0x2*ch;
-			chan = info->channels + ch;
-//*
-			delta = base1[0x00] | (base1[0x01] << 8) | (base1[0x02] << 16);
+				vol = base1[0x03];
 
-			vol = base1[0x03];
+				bval = vol + base1[0x04];
+				if (bval > 255)
+					bval = 255;
 
-			bval = vol + base1[0x04];
-			if (bval > 255) bval = 255;
+				pan = base1[0x05];
+				// DJ Main: 81-87 right, 88 middle, 89-8f left
+				if (pan >= 0x81 && pan <= 0x8f)
+					pan -= 0x81;
+				else if (pan >= 0x11 && pan <= 0x1f)
+					pan -= 0x11;
+				else
+					pan = 0x18 - 0x11;
 
-			pan = base1[0x05];
-// DJ Main: 81-87 right, 88 middle, 89-8f left
-if (pan >= 0x81 && pan <= 0x8f)
-pan -= 0x81;
-else
-			if (pan >= 0x11 && pan <= 0x1f) pan -= 0x11; else pan = 0x18 - 0x11;
+				cur_gain = info->k054539_gain[ch];
 
-			gain = info->k054539_gain[ch];
+				lvol = info->voltab[vol] * info->pantab[pan] * cur_gain;
+				if (lvol > VOL_CAP)
+					lvol = VOL_CAP;
 
-			lvol = info->voltab[vol] * info->pantab[pan] * gain;
-			if (lvol > VOL_CAP) lvol = VOL_CAP;
+				rvol = info->voltab[vol] * info->pantab[0xe - pan] * cur_gain;
+				if (rvol > VOL_CAP)
+					rvol = VOL_CAP;
 
-			rvol = info->voltab[vol] * info->pantab[0xe - pan] * gain;
-			if (rvol > VOL_CAP) rvol = VOL_CAP;
+				rbvol= info->voltab[bval] * cur_gain / 2;
+				if (rbvol > VOL_CAP)
+					rbvol = VOL_CAP;
 
-			rbvol= info->voltab[bval] * gain / 2;
-			if (rbvol > VOL_CAP) rbvol = VOL_CAP;
+				rdelta = (base1[6] | (base1[7] << 8)) >> 3;
+				rdelta = (rdelta + info->reverb_pos) & 0x3fff;
 
-/*
-    INT x FLOAT could be interpreted as INT x (int)FLOAT instead of (float)INT x FLOAT on some compilers
-    causing precision loss. (rdelta - 0x2000) wraps around on zero reverb and the scale factor should
-    actually be 1/freq_ratio because the target is an offset to the reverb buffer not sample source.
-*/
-			rdelta = (base1[6] | (base1[7] << 8)) >> 3;
-//          rdelta = (reverb_pos + (int)((rdelta - 0x2000) * info->freq_ratio)) & 0x3fff;
-			rdelta = (int)(rdelta + reverb_pos) & 0x3fff;
+				cur_pos = (base1[0x0c] | (base1[0x0d] << 8) | (base1[0x0e] << 16)) & rom_mask;
 
-			cur_pos = (base1[0x0c] | (base1[0x0d] << 8) | (base1[0x0e] << 16)) & rom_mask;
+				if(base2[0] & 0x20) {
+					delta = -delta;
+					fdelta = +0x10000;
+					pdelta = -1;
+				} else {
+					fdelta = -0x10000;
+					pdelta = +1;
+				}
 
-			bufl = outputs[0];
-			bufr = outputs[1];
-//*
+				if(cur_pos != chan->pos) {
+					chan->pos = cur_pos;
+					cur_pfrac = 0;
+					cur_val = 0;
+					cur_pval = 0;
+				} else {
+					cur_pfrac = chan->pfrac;
+					cur_val = chan->val;
+					cur_pval = chan->pval;
+				}
 
-			if(base2[0] & 0x20) {
-				delta = -delta;
-				fdelta = +0x10000;
-				pdelta = -1;
-			} else {
-				fdelta = -0x10000;
-				pdelta = +1;
-			}
-
-			if(cur_pos != chan->pos) {
-				chan->pos = cur_pos;
-				cur_pfrac = 0;
-				cur_val = 0;
-				cur_pval = 0;
-			} else {
-				cur_pfrac = chan->pfrac;
-				cur_val = chan->val;
-				cur_pval = chan->pval;
-			}
-
-#define UPDATE_CHANNELS																	\
-			do {																		\
-				*bufl++ += (INT16)(cur_val*lvol);										\
-				*bufr++ += (INT16)(cur_val*rvol);										\
-				rbase[rdelta++] += (INT16)(cur_val*rbvol);										\
-				rdelta &= 0x3fff;										\
-			} while(0)
-
-			switch(base2[0] & 0xc) {
-			case 0x0: { // 8bit pcm
-				for(i=0; i<samples; i++) {
+				switch(base2[0] & 0xc) {
+				case 0x0: { // 8bit pcm
 					cur_pfrac += delta;
 					while(cur_pfrac & ~0xffff) {
 						cur_pfrac += fdelta;
@@ -274,27 +257,22 @@ else
 
 						cur_pval = cur_val;
 						cur_val = (INT16)(rom[cur_pos] << 8);
+						if(cur_val == (INT16)0x8000 && (base2[1] & 1)) {
+							cur_pos = (base1[0x08] | (base1[0x09] << 8) | (base1[0x0a] << 16)) & rom_mask;
+							cur_val = (INT16)(rom[cur_pos] << 8);
+						}
 						if(cur_val == (INT16)0x8000) {
-							if(base2[1] & 1) {
-								cur_pos = (base1[0x08] | (base1[0x09] << 8) | (base1[0x0a] << 16)) & rom_mask;
-								cur_val = (INT16)(rom[cur_pos] << 8);
-								if(cur_val != (INT16)0x8000)
-									continue;
-							}
 							k054539_keyoff(info, ch);
-							goto end_channel_0;
+							cur_val = 0;
+							break;
 						}
 					}
-
-					UPDATE_CHANNELS;
+					break;
 				}
-			end_channel_0:
-				break;
-			}
-			case 0x4: { // 16bit pcm lsb first
-				pdelta <<= 1;
 
-				for(i=0; i<samples; i++) {
+				case 0x4: { // 16bit pcm lsb first
+					pdelta <<= 1;
+
 					cur_pfrac += delta;
 					while(cur_pfrac & ~0xffff) {
 						cur_pfrac += fdelta;
@@ -302,32 +280,27 @@ else
 
 						cur_pval = cur_val;
 						cur_val = (INT16)(rom[cur_pos] | rom[cur_pos+1]<<8);
+						if(cur_val == (INT16)0x8000 && (base2[1] & 1)) {
+							cur_pos = (base1[0x08] | (base1[0x09] << 8) | (base1[0x0a] << 16)) & rom_mask;
+							cur_val = (INT16)(rom[cur_pos] | rom[cur_pos+1]<<8);
+						}
 						if(cur_val == (INT16)0x8000) {
-							if(base2[1] & 1) {
-								cur_pos = (base1[0x08] | (base1[0x09] << 8) | (base1[0x0a] << 16)) & rom_mask;
-								cur_val = (INT16)(rom[cur_pos] | rom[cur_pos+1]<<8);
-								if(cur_val != (INT16)0x8000)
-									continue;
-							}
 							k054539_keyoff(info, ch);
-							goto end_channel_4;
+							cur_val = 0;
+							break;
 						}
 					}
-
-					UPDATE_CHANNELS;
-				}
-			end_channel_4:
-				break;
-			}
-			case 0x8: { // 4bit dpcm
-				cur_pos <<= 1;
-				cur_pfrac <<= 1;
-				if(cur_pfrac & 0x10000) {
-					cur_pfrac &= 0xffff;
-					cur_pos |= 1;
+					break;
 				}
 
-				for(i=0; i<samples; i++) {
+				case 0x8: { // 4bit dpcm
+					cur_pos <<= 1;
+					cur_pfrac <<= 1;
+					if(cur_pfrac & 0x10000) {
+						cur_pfrac &= 0xffff;
+						cur_pos |= 1;
+					}
+
 					cur_pfrac += delta;
 					while(cur_pfrac & ~0xffff) {
 						cur_pfrac += fdelta;
@@ -335,17 +308,15 @@ else
 
 						cur_pval = cur_val;
 						cur_val = rom[cur_pos>>1];
-						if(cur_val == 0x88) {
-							if(base2[1] & 1) {
-								cur_pos = ((base1[0x08] | (base1[0x09] << 8) | (base1[0x0a] << 16)) & rom_mask) << 1;
-								cur_val = rom[cur_pos>>1];
-								if(cur_val != 0x88)
-									goto next_iter;
-							}
-							k054539_keyoff(info, ch);
-							goto end_channel_8;
+						if(cur_val == 0x88 && (base2[1] & 1)) {
+							cur_pos = ((base1[0x08] | (base1[0x09] << 8) | (base1[0x0a] << 16)) & rom_mask) << 1;
+							cur_val = rom[cur_pos>>1];
 						}
-					next_iter:
+						if(cur_val == 0x88) {
+							k054539_keyoff(info, ch);
+							cur_val = 0;
+							break;
+						}
 						if(cur_pos & 1)
 							cur_val >>= 4;
 						else
@@ -357,104 +328,35 @@ else
 							cur_val = 32767;
 					}
 
-					UPDATE_CHANNELS;
+					cur_pfrac >>= 1;
+					if(cur_pos & 1)
+						cur_pfrac |= 0x8000;
+					cur_pos >>= 1;
+					break;
 				}
-			end_channel_8:
-				cur_pfrac >>= 1;
-				if(cur_pos & 1)
-					cur_pfrac |= 0x8000;
-				cur_pos >>= 1;
-				break;
-			}
-			default:
-				LOG(("Unknown sample type %x for channel %d\n", base2[0] & 0xc, ch));
-				break;
-			}
-			chan->pos = cur_pos;
-			chan->pfrac = cur_pfrac;
-			chan->pval = cur_pval;
-			chan->val = cur_val;
-			if(k054539_regupdate(info)) {
-				base1[0x0c] = cur_pos     & 0xff;
-				base1[0x0d] = cur_pos>> 8 & 0xff;
-				base1[0x0e] = cur_pos>>16 & 0xff;
-			}
-		}
+				default:
+					LOG(("Unknown sample type %x for channel %d\n", base2[0] & 0xc, ch));
+					break;
+				}
+				lval += cur_val * lvol;
+				rval += cur_val * rvol;
+				rbase[(rdelta + info->reverb_pos) & 0x1fff] += (INT16)(cur_val*rbvol);
 
-	//* drivers should be given the option to disable reverb when things go terribly wrong
-	if(!(info->k054539_flags & K054539_DISABLE_REVERB))
-	{
-		for(i=0; i<samples; i++) {
-			short val = rbase[(i+reverb_pos) & 0x3fff];
-			outputs[0][i] += val;
-			outputs[1][i] += val;
-		}
+				chan->pos = cur_pos;
+				chan->pfrac = cur_pfrac;
+				chan->pval = cur_pval;
+				chan->val = cur_val;
+
+				if(k054539_regupdate(info)) {
+					base1[0x0c] = cur_pos     & 0xff;
+					base1[0x0d] = cur_pos>> 8 & 0xff;
+					base1[0x0e] = cur_pos>>16 & 0xff;
+				}
+			}
+		info->reverb_pos = (info->reverb_pos + 1) & 0x1fff;
+		outputs[0][i] = (INT32)lval;
+		outputs[1][i] = (INT32)rval;
 	}
-
-	if(reverb_pos + samples > 0x4000) {
-		i = 0x4000 - reverb_pos;
-		memset(rbase + reverb_pos, 0, i*2);
-		memset(rbase, 0, (samples-i)*2);
-	} else
-		memset(rbase + reverb_pos, 0, samples*2);
-
-	#if CHANNEL_DEBUG
-	{
-		static const char gc_msg[32] = "chip :                         ";
-		static int gc_active=0, gc_chip=0, gc_pos[2]={0,0};
-		double *gc_fptr;
-		char *gc_cptr;
-		double gc_f0;
-		int gc_i, gc_j, gc_k, gc_l;
-
-		if (device->machine().input().code_pressed_once(KEYCODE_DEL_PAD))
-		{
-			gc_active ^= 1;
-			if (!gc_active) popmessage(NULL);
-		}
-
-		if (gc_active)
-		{
-			if (device->machine().input().code_pressed_once(KEYCODE_0_PAD)) gc_chip ^= 1;
-
-			gc_i = gc_pos[gc_chip];
-			gc_j = 0;
-			if (device->machine().input().code_pressed_once(KEYCODE_4_PAD)) { gc_i--; gc_j = 1; }
-			if (device->machine().input().code_pressed_once(KEYCODE_6_PAD)) { gc_i++; gc_j = 1; }
-			if (gc_j) { gc_i &= 7; gc_pos[gc_chip] = gc_i; }
-
-			if (device->machine().input().code_pressed_once(KEYCODE_5_PAD))
-				info->k054539_gain[gc_i] = 1.0;
-			else
-			{
-				gc_fptr = &info->k054539_gain[gc_i];
-				gc_f0 = *gc_fptr;
-				gc_j = 0;
-				if (device->machine().input().code_pressed_once(KEYCODE_2_PAD)) { gc_f0 -= 0.1; gc_j = 1; }
-				if (device->machine().input().code_pressed_once(KEYCODE_8_PAD)) { gc_f0 += 0.1; gc_j = 1; }
-				if (gc_j) { if (gc_f0 < 0) gc_f0 = 0; *gc_fptr = gc_f0; }
-			}
-
-			gc_fptr = &info->k054539_gain[0] + 8;
-			gc_cptr = gc_msg + 7;
-			for (gc_j=-8; gc_j; gc_j++)
-			{
-				gc_k = (int)(gc_fptr[gc_j] * 10);
-				gc_l = gc_k / 10;
-				gc_k = gc_k % 10;
-				gc_cptr[0] = gc_l + '0';
-				gc_cptr[1] = gc_k + '0';
-				gc_cptr += 3;
-			}
-			gc_i = (gc_i + gc_i*2 + 6);
-			gc_msg[4] = gc_chip + '0';
-			gc_msg[gc_i  ] = '[';
-			gc_msg[gc_i+3] = ']';
-			popmessage("%s", gc_msg);
-			gc_msg[gc_i+3] = gc_msg[gc_i] = ' ';
-		}
-	}
-	#endif
 }
 
 
@@ -470,19 +372,18 @@ static int k054539_init_chip(k054539_state *info, int clock)
 {
 	//int i;
 
+	if (clock < 1000000)	// if < 1 MHz, then it's the sample rate, not the clock
+		clock *= 384;	// (for backwards compatibility with old VGM logs)
 	info->clock = clock;
 	// most of these are done in device_reset
 //	memset(info->regs, 0, sizeof(info->regs));
 //	memset(info->k054539_posreg_latch, 0, sizeof(info->k054539_posreg_latch)); //*
 	info->k054539_flags |= K054539_UPDATE_AT_KEYON; //* make it default until proven otherwise
 
-	// Real size of 0x4000, the addon is to simplify the reverb buffer computations
-	//info->ram = auto_alloc_array(device->machine(), unsigned char, 0x4000*2+device->clock()/50*2);
-	info->ram = (unsigned char*)malloc(0x4000 * 2 + info->clock / 50 * 2);
+	info->ram = (unsigned char*)malloc(0x4000);
 //	info->reverb_pos = 0;
 //	info->cur_ptr = 0;
-	//memset(info->ram, 0, 0x4000*2+device->clock()/50*2);
-//	memset(info->ram, 0, 0x4000 * 2 + info->clock / 50 * 2);
+//	memset(info->ram, 0, 0x4000);
 
 	/*const memory_region *region = (info->intf->rgnoverride != NULL) ? device->machine().region(info->intf->rgnoverride) : device->region();
 	info->rom = *region;
@@ -503,13 +404,13 @@ static int k054539_init_chip(k054539_state *info, int clock)
 		// 480 hz is TRUSTED by gokuparo disco stage - the looping sample doesn't line up otherwise
 	//	device->machine().scheduler().timer_pulse(attotime::from_hz(480), FUNC(k054539_irq), 0, info);
 
-	//info->stream = device->machine().sound().stream_alloc(*device, 0, 2, device->clock(), info, k054539_update);
+	//info->stream = device->machine().sound().stream_alloc(*device, 0, 2, device->clock() / 384, info, k054539_update);
 
 	//device->save_item(NAME(info->regs));
 	//device->save_pointer(NAME(info->ram), 0x4000);
 	//device->save_item(NAME(info->cur_ptr));
 	
-	return info->clock;
+	return info->clock / 384;
 }
 
 //WRITE8_DEVICE_HANDLER( k054539_w )
@@ -535,9 +436,7 @@ void k054539_w(UINT8 ChipID, offs_t offset, UINT8 data)
 		if(info->regs[0x22c] & (1<<voice))
 		{
 			if (reg >= 0xc && reg <= 0xe)
-			{
 				return;
-			}
 		}
 	}
 #endif
@@ -602,6 +501,17 @@ void k054539_w(UINT8 ChipID, offs_t offset, UINT8 data)
 					k054539_keyoff(info, ch);
 		break;
 
+		/*case 0x227:
+		{
+			attotime period = attotime::from_hz((float)(38 + data) * (clock()/384.0f/14400.0f)) / 2.0f;
+
+			m_timer->adjust(period, 0, period);
+
+			m_timer_state = 0;
+			m_timer_handler(m_timer_state);
+		}*/
+		break;
+
 		case 0x22d:
 			if(regbase[0x22e] == 0x80)
 				info->cur_zone[info->cur_ptr] = data;
@@ -617,6 +527,14 @@ void k054539_w(UINT8 ChipID, offs_t offset, UINT8 data)
 			info->cur_limit = data == 0x80 ? 0x4000 : 0x20000;
 			info->cur_ptr = 0;
 		break;
+		
+		/*case 0x22f:
+			if (!(data & 0x20)) // Disable timer output?
+			{
+				m_timer_state = 0;
+				m_timer_handler(m_timer_state);
+			}
+		break;*/
 
 		default:
 #if 0
@@ -642,9 +560,7 @@ void k054539_w(UINT8 ChipID, offs_t offset, UINT8 data)
 static void reset_zones(k054539_state *info)
 {
 	int data = info->regs[0x22e];
-	info->cur_zone =
-		data == 0x80 ? info->ram :
-		info->rom + 0x20000*data;
+	info->cur_zone = data == 0x80 ? info->ram : info->rom + 0x20000*data;
 	info->cur_limit = data == 0x80 ? 0x4000 : 0x20000;
 }
 
@@ -729,7 +645,7 @@ void device_stop_k054539(UINT8 ChipID)
 	k054539_state *info = &K054539Data[ChipID];
 	
 	free(info->rom);	info->rom = NULL;
-	free(info->ram);
+	free(info->ram);	info->ram = NULL;
 	
 	return;
 }
@@ -744,7 +660,7 @@ void device_reset_k054539(UINT8 ChipID)
 	
 	info->reverb_pos = 0;
 	info->cur_ptr = 0;
-	memset(info->ram, 0, 0x4000 * 2 + info->clock / 50 * 2);
+	memset(info->ram, 0, 0x4000);
 	
 	return;
 }

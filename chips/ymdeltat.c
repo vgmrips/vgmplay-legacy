@@ -276,7 +276,7 @@ value:   START, REC, MEMDAT, REPEAT, SPOFF, x,x,RESET   meaning:
 		/* handle emulation mode */
 		if(DELTAT->emulation_mode == YM_DELTAT_EMULATION_MODE_YM2610)
 		{
-			v |= 0x01;		/*  YM2610 always uses ROM as an external memory and doesn't tave ROM/RAM memory flag bit. */
+			v |= 0x01;		/*  YM2610 always uses ROM as an external memory and doesn't have ROM/RAM memory flag bit. */
 		}
 
 		DELTAT->pan = &DELTAT->output_pointer[(v>>6)&0x03];
@@ -446,18 +446,18 @@ void YM_DELTAT_ADPCM_Reset(YM_DELTAT *DELTAT,int pan,int emulation_mode)
 			(DELTAT->status_set_handler)(DELTAT->status_change_which_chip, DELTAT->status_change_BRDY_bit);
 }
 
-void YM_DELTAT_postload(YM_DELTAT *DELTAT,UINT8 *regs)
+/*void YM_DELTAT_postload(YM_DELTAT *DELTAT,UINT8 *regs)
 {
 	int r;
 
-	/* to keep adpcml */
+	// to keep adpcml
 	DELTAT->volume = 0;
-	/* update */
+	// update
 	for(r=1;r<16;r++)
 		YM_DELTAT_ADPCM_Write(DELTAT,r,regs[r]);
 	DELTAT->reg[0] = regs[0];
 
-	/* current rom data */
+	// current rom data
 	if (DELTAT->memory)
 		DELTAT->now_data = *(DELTAT->memory + (DELTAT->now_addr>>1) );
 
@@ -474,7 +474,7 @@ void YM_DELTAT_savestate(YM_DELTAT *DELTAT)
 	state_save_register_device_item(device, 0, DELTAT->adpcmd);
 	state_save_register_device_item(device, 0, DELTAT->adpcml);
 #endif
-}
+}*/
 
 
 #define YM_DELTAT_Limit(val,max,min)	\
@@ -535,7 +535,7 @@ INLINE void YM_DELTAT_synthesis_from_external_memory(YM_DELTAT *DELTAT)
 			/* WARNING: */
 			/* Side effect: we should take the size of the mapped ROM into account */
 			//DELTAT->now_addr &= ( (1<<(24+1))-1);
-			DELTAT->now_addr &= (DELTAT->memory_size << 1) - 1;
+			DELTAT->now_addr &= DELTAT->memory_mask;
 			
 
 			/* store accumulator value */
@@ -662,3 +662,15 @@ value:   START, REC, MEMDAT, REPEAT, SPOFF, x,x,RESET   meaning:
 	return;
 }
 
+void YM_DELTAT_calc_mem_mask(YM_DELTAT* DELTAT)
+{
+	UINT32 MaskSize;
+	
+	MaskSize = 0x01;
+	while(MaskSize < DELTAT->memory_size)
+		MaskSize <<= 1;
+	
+	DELTAT->memory_mask = (MaskSize << 1) - 1;	// it's Mask<<1 because of the nibbles
+	
+	return;
+}

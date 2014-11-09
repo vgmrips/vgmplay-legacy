@@ -168,8 +168,7 @@ typedef struct
 	UINT32		noise_tab[32];			/* 17bit Noise Generator periods */
 
 	//void (*irqhandler)(const device_config *device, int irq);		/* IRQ function handler */
-	void (*irqhandler)(int irq);		/* IRQ function handler */
-	write8_device_func porthandler;		/* port write function handler */
+	//write8_device_func porthandler;		/* port write function handler */
 
 	//const device_config *device;
 	unsigned int clock;					/* chip clock in Hz (passed from 2151intf.c) */
@@ -795,7 +794,7 @@ INLINE void envelope_KONKOFF(YM2151Operator * op, int v)
 
 #ifdef USE_MAME_TIMERS
 
-static TIMER_CALLBACK( irqAon_callback )
+/*static TIMER_CALLBACK( irqAon_callback )
 {
 	YM2151 *chip = (YM2151 *)ptr;
 	int oldstate = chip->irqlinestate;
@@ -846,7 +845,7 @@ static TIMER_CALLBACK( timer_callback_a )
 		timer_set(machine, attotime_zero,chip,0,irqAon_callback);
 	}
 	if (chip->irq_enable & 0x80)
-		chip->csm_req = 2;		/* request KEY ON / KEY OFF sequence */
+		chip->csm_req = 2;		// request KEY ON / KEY OFF sequence
 }
 static TIMER_CALLBACK( timer_callback_b )
 {
@@ -858,7 +857,7 @@ static TIMER_CALLBACK( timer_callback_b )
 		chip->status |= 2;
 		timer_set(machine, attotime_zero,chip,0,irqBon_callback);
 	}
-}
+}*/
 #if 0
 static TIMER_CALLBACK( timer_callback_chip_busy )
 {
@@ -1122,7 +1121,6 @@ void ym2151_write_reg(void *_chip, int r, int v)
 				int oldstate = chip->status & 3;
 				chip->status &= ~1;
 				//if ((oldstate==1) && (chip->irqhandler)) (*chip->irqhandler)(chip->device, 0);
-				if ((oldstate==1) && (chip->irqhandler)) (*chip->irqhandler)(0);
 #endif
 			}
 
@@ -1135,7 +1133,6 @@ void ym2151_write_reg(void *_chip, int r, int v)
 				int oldstate = chip->status & 3;
 				chip->status &= ~2;
 				//if ((oldstate==2) && (chip->irqhandler)) (*chip->irqhandler)(chip->device, 0);
-				if ((oldstate==2) && (chip->irqhandler)) (*chip->irqhandler)(0);
 #endif
 			}
 
@@ -1208,12 +1205,11 @@ void ym2151_write_reg(void *_chip, int r, int v)
 			chip->ct = v >> 6;
 			chip->lfo_wsel = v & 3;
 			//if (chip->porthandler) (*chip->porthandler)(chip->device, 0 , chip->ct );
-			if (chip->porthandler) (*chip->porthandler)(0 , chip->ct);
 			break;
 
 		default:
 #ifdef _DEBUG
-			logerror("YM2151 Write %02x to undocumented register #%02x\n",v,r);
+			//logerror("YM2151 Write %02x to undocumented register #%02x\n",v,r);
 #endif
 			break;
 		}
@@ -1399,7 +1395,7 @@ int ym2151_read_status( void *_chip )
 *   state save support for MAME
 */
 //STATE_POSTLOAD( ym2151_postload )
-void ym2151_postload(void *param)
+/*void ym2151_postload(void *param)
 {
 	YM2151 *YM2151_chip = (YM2151 *)param;
 	int j;
@@ -1408,7 +1404,7 @@ void ym2151_postload(void *param)
 		set_connect(&YM2151_chip->oper[j*4], j, YM2151_chip->connect[j]);
 }
 
-/*static void ym2151_state_save_register( YM2151 *chip, const device_config *device )
+static void ym2151_state_save_register( YM2151 *chip, const device_config *device )
 {
 	int j;
 
@@ -1506,13 +1502,13 @@ void ym2151_postload(void *param)
 	state_save_register_postload(device->machine, ym2151_postload, chip);
 }*/
 #else
-STATE_POSTLOAD( ym2151_postload )
+/*STATE_POSTLOAD( ym2151_postload )
 {
 }
 
 static void ym2151_state_save_register( YM2151 *chip, const device_config *device )
 {
-}
+}*/
 #endif
 
 
@@ -1542,8 +1538,8 @@ void * ym2151_init(int clock, int rate)
 	PSG->clock = clock;
 	/*rate = clock/64;*/
 	PSG->sampfreq = rate ? rate : 44100;	/* avoid division by 0 in init_chip_tables() */
-	PSG->irqhandler = NULL;					/* interrupt handler  */
-	PSG->porthandler = NULL;				/* port write handler */
+	//PSG->irqhandler = NULL;					/* interrupt handler  */
+	//PSG->porthandler = NULL;				/* port write handler */
 	init_chip_tables( PSG );
 
 	PSG->lfo_timer_add = (1<<LFO_SH) * (clock/64.0) / PSG->sampfreq;
@@ -2425,7 +2421,6 @@ void ym2151_update_one(void *chip, SAMP **buffers, int length)
 				int oldstate = PSG->status & 3;
 				PSG->status |= 2;
 				//if ((!oldstate) && (PSG->irqhandler)) (*PSG->irqhandler)(chip->device, 1);
-				if ((!oldstate) && (PSG->irqhandler)) (*PSG->irqhandler)(1);
 			}
 		}
 	}
@@ -2504,7 +2499,6 @@ void ym2151_update_one(void *chip, SAMP **buffers, int length)
 					int oldstate = PSG->status & 3;
 					PSG->status |= 1;
 					//if ((!oldstate) && (PSG->irqhandler)) (*PSG->irqhandler)(chip->device, 1);
-					if ((!oldstate) && (PSG->irqhandler)) (*PSG->irqhandler)(1);
 				}
 				if (PSG->irq_enable & 0x80)
 					PSG->csm_req = 2;	/* request KEY ON / KEY OFF sequence */
@@ -2515,7 +2509,7 @@ void ym2151_update_one(void *chip, SAMP **buffers, int length)
 	}
 }
 
-void ym2151_set_irq_handler(void *chip, void(*handler)(int irq))
+/*void ym2151_set_irq_handler(void *chip, void(*handler)(int irq))
 {
 	YM2151 *PSG = (YM2151 *)chip;
 	PSG->irqhandler = handler;
@@ -2525,7 +2519,7 @@ void ym2151_set_port_write_handler(void *chip, write8_device_func handler)
 {
 	YM2151 *PSG = (YM2151 *)chip;
 	PSG->porthandler = handler;
-}
+}*/
 
 void ym2151_set_mutemask(void *chip, UINT32 MuteMask)
 {

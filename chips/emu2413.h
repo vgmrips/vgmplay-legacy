@@ -63,7 +63,9 @@ typedef struct __OPLL_SLOT {
 /* opll */
 typedef struct __OPLL {
 
-  e_uint32 adr ;
+  e_uint8 vrc7_mode;
+  e_uint8 adr ;
+  //e_uint32 adr ;
   e_int32 out ;
 
 #ifndef EMU2413_COMPACTION
@@ -139,6 +141,7 @@ EMU2413_API void OPLL_getDefaultPatch(e_int32 type, e_int32 num, OPLL_PATCH *) ;
 //EMU2413_API e_uint32 OPLL_setMask(OPLL *, e_uint32 mask) ;
 //EMU2413_API e_uint32 OPLL_toggleMask(OPLL *, e_uint32 mask) ;
 void OPLL_SetMuteMask(OPLL* opll, e_uint32 MuteMask);
+void OPLL_SetChipMode(OPLL* opll, e_uint8 Mode);
 
 #define dump2patch OPLL_dump2patch
 

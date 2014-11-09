@@ -1,4 +1,4 @@
-VGM Spec v1.61
+VGM Spec v1.71 beta
 ==============
 VGM (Video Game Music) is a sample-accurate sound logging format for the Sega
 Master System, the Sega Game Gear and possibly many other machines (e.g. Sega
@@ -9,7 +9,7 @@ The normal file extension is .vgm but files can also be GZip compressed into
 uncompressed files with either extension. (ZLib's GZIO library makes this
 trivial to implement.)
 
-The format starts with a 192 byte header:
+The format starts with a 256 byte header:
 
       00  01  02  03   04  05  06  07   08  09  0A  0B  0C  0D  0E  0F
 0x00 ["Vgm " ident   ][EoF offset     ][Version        ][SN76489 clock  ]
@@ -23,17 +23,25 @@ The format starts with a 192 byte header:
 0x80 [GB DMG clock   ][NES APU clock  ][MultiPCM clock ][uPD7759 clock  ]
 0x90 [OKIM6258 clock ][OF][KF][CF] *** [OKIM6295 clock ][K051649 clock  ]
 0xA0 [K054539 clock  ][HuC6280 clock  ][C140 clock     ][K053260 clock  ]
-0xB0 [Pokey clock    ][QSound clock   ] *** *** *** ***  *** *** *** ***
+0xB0 [Pokey clock    ][QSound clock   ][SCSP clock     ][Extra Hdr ofs  ]
+0xC0  *** *** *** ***  *** *** *** ***  *** *** *** ***  *** *** *** ***
+0xD0  *** *** *** ***  *** *** *** ***  *** *** *** ***  *** *** *** ***
+0xE0  *** *** *** ***  *** *** *** ***  *** *** *** ***  *** *** *** ***
+0xF0  *** *** *** ***  *** *** *** ***  *** *** *** ***  *** *** *** ***
 
-- Unused space (marked with *) is reserved for future expansion, and should be
+- Unused space (marked with *) is reserved for future expansion, and must be
   zero.
 - All integer values are *unsigned* and written in "Intel" byte order (Little
   Endian), so for example 0x12345678 is written as 0x78 0x56 0x34 0x12.
 - All pointer offsets are written as relative to the current position in the
   file, so for example the GD3 offset at 0x14 in the header is the file
   position of the GD3 tag minus 0x14.
-- The header must have at least 64 bytes. If the VGM data starts at an offset
-  that is lower than 0xC0, all overlapping header values will be zero.
+- All header sizes are valid for all versions from 1.50 on, as long as header
+  has at least 64 bytes. If the VGM data starts at an offset that is lower
+  than 0x100, all overlapping header bytes have to be handled as they were
+  zero.
+- VGMs run with a rate of 44100 samples per second. All sample values use this
+  unit.
 
 0x00: "Vgm " (0x56 0x67 0x6d 0x20) file identification (32 bits)
 0x04: Eof offset (32 bits)
@@ -41,7 +49,7 @@ The format starts with a 192 byte header:
         This is mainly used to find the next track when concatanating
         player stubs and multiple files.
 0x08: Version number (32 bits)
-        Version number in BCD-Code. e.g. Version 1.61 is stored as 0x00000161.
+        Version number in BCD-Code. e.g. Version 1.71 is stored as 0x00000171.
         This is used for backwards compatibility in players, and defines which
         header values are valid.
 0x0C: SN76489 clock (32 bits)
@@ -104,18 +112,18 @@ The format starts with a 192 byte header:
         bit 2   stereo on/off (on when bit clear)
         bit 3   /8 Clock Divider on/off (on when bit clear)
         bit 4-7 reserved (must be zero)
-        For version 1.51 and earlier files, all the flags should not be set.
+        For version 1.50 and earlier files, all the flags should not be set.
         If the PSG is not used then this may be omitted (left at zero).
 [VGM 1.10 additions:]
 0x2C: YM2612 clock (32 bits)
         Input clock rate in Hz for the YM2612 chip. A typical value is 7670454.
         It should be 0 if there us no YM2612 chip used.
-        For version 1.01 and earlier files, the YM2612 clock rate should be
+        For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2612.
 0x30: YM2151 clock (32 bits)
         Input clock rate in Hz for the YM2151 chip. A typical value is 3579545.
         It should be 0 if there us no YM2151 chip used.
-        For version 1.01 and earlier files, the YM2151 clock rate should be
+        For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2151.
 [VGM 1.50 additions:]
 0x34: VGM data offset (32 bits)
@@ -229,12 +237,15 @@ The format starts with a 192 byte header:
         The resulting number of loops that are played is calculated as
         following: NumLoops = ProgramNumLoops * LoopModifier / 0x10
         Default is 0, which is equal to 0x10.
+[VGM 1.61 additions:]
 0x80: GameBoy DMG clock (32 bits)
         Input clock rate in Hz for the GameBoy DMG chip, LR35902. A typical
         value is 4194304. It should be 0 if there is no GB DMG chip used.
 0x84: NES APU clock (32 bits)
         Input clock rate in Hz for the NES APU chip, N2A03. A typical value is
         1789772. It should be 0 if there is no NES APU chip used.
+        Note: Bit 31 is used to enable the FDS sound addon. Set to enable,
+        clear to disable.
 0x88: MultiPCM clock (32 bits)
         Input clock rate in Hz for the MultiPCM chip. A typical value is
         8053975. It should be 0 if there is no MultiPCM chip used.
@@ -275,8 +286,8 @@ The format starts with a 192 byte header:
         Input clock rate in Hz for the K051649 chip. A typical value is
         1500000. It should be 0 if there is no K051649 chip used.
 0xA0: K054539 clock (32 bits)
-        Input clock rate in Hz for the K054539 chip. A typical value is 48000.
-        It should be 0 if there is no K054539 chip used.
+        Input clock rate in Hz for the K054539 chip. A typical value is
+        18432000. It should be 0 if there is no K054539 chip used.
 0xA4: HuC6280 clock (32 bits)
         Input clock rate in Hz for the HuC6280 chip. A typical value is
         3579545. It should be 0 if there is no HuC6280 chip used.
@@ -292,7 +303,15 @@ The format starts with a 192 byte header:
 0xB4: QSound clock (32 bits)
         Input clock rate in Hz for the QSound chip. A typical value is 4000000.
         It should be 0 if there is no QSound chip used.
-0xB8: reserved
+[VGM 1.71 additions:]
+0xB8: SCSP clock (32 bits)
+        Input clock rate in Hz for the SCSP chip. A typical value is 44100.
+        It should be 0 if there is no SCSP chip used.
+[VGM 1.70 additions:]
+0xBC: Extra Header Offset
+        Relative offset to the extra header or 0 if no extra header is present.
+[VGM 1.71 additions:]
+0xC0: reserved
         Reserved bytes for future use. They must be 0.
 
 
@@ -327,6 +346,7 @@ written to the chips or timing information. A command is one of:
   0x64 cc nn nn : override length of 0x62/0x63
                   cc - command (0x62/0x63)
                   nn - delay in samples
+                  [Note: Not yet implemented. Am I really sure about this?]
   0x66       : end of sound data
   0x67 ...   : data block: see below
   0x68 ...   : PCM RAM write: see below
@@ -340,19 +360,27 @@ written to the chips or timing information. A command is one of:
   0xB1 aa dd : RF5C164, write value dd to register aa
   0xB2 ad dd : PWM, write value ddd to register a (d is MSB, dd is LSB)
   0xB3 aa dd : GameBoy DMG, write value dd to register aa
+               Note: The register 00 equals to GameBoy address FF10.
   0xB4 aa dd : NES APU, write value dd to register aa
+               Note: Registers 00-1F equal to NES address 4000-401F,
+                     registers 20-3E equal to NES address 4080-409E,
+                     register 3F equals to NES address 4023,
+                     registers 40-7F equal to NES address 4040-407F.
   0xB5 aa dd : MultiPCM, write value dd to register aa
   0xB6 aa dd : uPD7759, write value dd to register aa
-  0xB7 aa dd : OKIM6258, write value dd to register aa
+  0xB7 aa dd : OKIM	6258, write value dd to register aa
   0xB8 aa dd : OKIM6295, write value dd to register aa
   0xB9 aa dd : HuC6280, write value dd to register aa
   0xBA aa dd : K053260, write value dd to register aa
   0xBB aa dd : Pokey, write value dd to register aa
-  0xBC aa dd : QSound, write value dd to port aa
   0xC0 aaaa dd : Sega PCM, write value dd to memory offset aaaa
   0xC1 aaaa dd : RF5C68, write value dd to memory offset aaaa
   0xC2 aaaa dd : RF5C164, write value dd to memory offset aaaa
   0xC3 cc aaaa : MultiPCM, write set bank offset aaaa to channel cc
+  0xC4 mmll rr : QSound, write value mmll to register rr
+                 (mm - data MSB, ll - data LSB)
+  0xC5 mmll dd : SCSP, write value dd to memory offset mmll
+                 (mm - offset MSB, ll - offset LSB)
   0xD0 pp aa dd : YMF278B port pp, write value dd to register aa
   0xD1 pp aa dd : YMF271 port pp, write value dd to register aa
   0xD2 pp aa dd : SCC1 port pp, write value dd to register aa
@@ -368,9 +396,9 @@ Some ranges are reserved for future use, with different numbers of operands:
                            Note: was one operand only til v1.60
   0xA1..0xAF dd dd       : two operands, reserved for future use
                            Note: used for dual-chip support (see below)
-  0xBD..0xBF dd dd       : two operands, reserved for future use
-  0xC4..0xCF dd dd dd    : three operands, reserved for future use
-  0xD2..0xDF dd dd dd    : three operands, reserved for future use
+  0xBC..0xBF dd dd       : two operands, reserved for future use
+  0xC6..0xCF dd dd dd    : three operands, reserved for future use
+  0xD5..0xDF dd dd dd    : three operands, reserved for future use
   0xE1..0xFF dd dd dd dd : four operands, reserved for future use
 
 On encountering these, the correct number of bytes should be skipped.
@@ -405,6 +433,7 @@ types are:
   data block format for compressed streams:
     tt (8 bits) = compression type
                     00 - n-Bit-Compression
+                    01 - DPCM-Compression
     ss ss ss ss (32 bits) = size of uncompressed data
     (attr) = attribute bytes used by the decompression-algorithm
     n-Bit-Compression:
@@ -415,6 +444,11 @@ types are:
                         01 - shift left (low bits aren't used)
                         02 - use table (uses a decompression table)
         aa aa (16 bits) = value that is added (ignored if table is used)
+    DPCM-Compression:
+        bd (8 bits) = Bits decompressed
+        bc (8 bits) = Bits compressed
+        st (8 bits) = [reserved for future use]
+        aa aa (16 bits) = start value
     (data) = compressed data, of size (block size - 0x0A - attr size)
 7F     : Compression Table
     tt (8 bits) = compression type (see above)
@@ -433,16 +467,26 @@ types are:
   of the ROM. This is done by saving multiple small ROM data blocks.
   The start address is the ROM offset where the data will be written, the
   ROM size is used to allocate space for the ROM (and some chips rely on it).
-C0..FF : RAM writes
+C0..DF : RAM writes (for RAM with up to 64 KB)
   data block format for direct RAM writes:
-    ss ss (16 bits) = start address of data (affected by a chip's registers)
-    (data) = ROM data, of size (block size - 0x02)
+    ss ss (16 bits) = start address of data (affected by a chip's banking
+                      registers)
+    (data) = RAM data, of size (block size - 0x02)
+E0..FF : RAM writes (for RAM with more than 64 KB)
+  data block format for direct RAM writes:
+    ss ss ss ss (32 bits) = start address of data (affected by a chip's banking
+                            registers)
+    (data) = RAM data, of size (block size - 0x04)
 
 00 = YM2612 PCM data for use with associated commands
 01 = RF5C68 PCM data for use with associated commands
 02 = RF5C164 PCM data for use with associated commands
 03 = PWM PCM data for use with associated commands
-40..7E = same as 00..3E, just compressed
+04 = OKIM6258 ADPCM data for use with associated commands
+05 = HuC6280 PCM data for use with associated commands
+06 = SCSP PCM data for use with associated commands
+07 = NES APU DPCM data for use with associated commands
+40..7E = same as 00..3E, but compressed
 80 = Sega PCM ROM data
 81 = YM2608 DELTA-T ROM data
 82 = YM2610 ADPCM ROM data
@@ -462,6 +506,7 @@ C0..FF : RAM writes
 C0 = RF5C68 RAM write
 C1 = RF5C164 RAM write
 C2 = NES APU RAM write
+E0 = SCSP RAM write
 
 All unknown types must be skipped by the player.
 
@@ -476,7 +521,7 @@ data blocks to the RAM of a PCM chip. The data block format is:
 where:
   0x68 = VGM command
   0x66 = compatibility command to make older players stop parsing the stream
-  cc   = chip type (equal to data block types 00..3F)
+  cc   = chip type (see data block types 00..3F)
   oo oo oo (24 bits) = read offset in data block
   dd dd dd (24 bits) = write offset in chip's ram (affected by chip's
                         registers)
@@ -504,9 +549,13 @@ Note: Stream ID 0xFF is reserved and ignored unless noted otherwise.
 Setup Stream Control:
   0x90 ss tt pp cc
       ss = Stream ID
-      tt = Chip Type (see clock-order at header, e.g. YM2612 = 0x02)
+      tt = Chip Type (see clock-order in header, e.g. YM2612 = 0x02)
             bit 7 is used to select the 2nd chip
       pp cc = write command/register cc at port pp
+      Note: For chips that use Channel Select Registers (like the RF5C-family
+            and the HuC6280), the format is pp cd where pp is the channel
+            number, c is the channel register and d is the data register.
+            If you set pp to FF, the channel select write is skipped.
 
 Set Stream Data:
   0x91 ss dd ll bb
@@ -537,6 +586,7 @@ Start Stream:
             01 - length = number of commands
             02 - length in msec
             03 - play until end of data
+            1? - (bit 4) Reverse Mode
             8? - (bit 7) Loop (automatically restarts when finished)
       ll = Data Length
 
@@ -548,17 +598,18 @@ Stop Stream:
 Start Stream (fast call):
   0x95 ss bb bb ff
       ss = Stream ID
-      bb = Block ID (number of the data block that's part of the data bank set
+      bb = Block ID (number of the data block that is part of the data bank set
             with command 0x91)
       ff = Flags
             bit 0 - Loop (see command 0x93, mm bit 7)
+            bit 4 - Reverse Mode (see command 0x93)
 
 General Note to the DAC Stream Control:
 Although it may be quite hard to press already streamed data into these
 commands, it makes it very easy to write vgm-creation tools that need to stream
 something. (like YM2612 DAC drums/voices/etc.)
-The use of the DAC Stream Control is NOT limited to chips such as YM2612 and
-PWM.
+The DAC Stream Control can use with almost all chips and is NOT limited to
+chips such as YM2612 and PWM.
 
 
 Dual Chip Support
@@ -566,21 +617,75 @@ Dual Chip Support
 These chips support two instances of a chip in one vgm:
 PSG, YM2413, YM2612, YM2151, YM2203, YM2608, YM2610, YM3812, YM3526, Y8950,
 YMZ280B, YMF262, YMF278B, YMF271, AY8910, GameBoy DMG, NES APU, MultiPCM,
-uPD7759, OKIM6258, OKIM6295, K051649, K054539, HuC6280, C140
+uPD7759, OKIM6258, OKIM6295, K051649, K054539, HuC6280, C140, K053260, Pokey,
+SCSP
 
 Dual chip support is activated by setting bit 30 (0x40000000) in the chip's
-clock value. (Note: The PSG needs this bit for T6W28 mode.)
+clock value. (Note: The PSG needs this bit set for T6W28 mode.)
 
-Dual Chip Supprt #1:
+Dual Chip Support #1:
 The second chip instance is controlled via seperate commands.
 
-The second PSG uses 0x30 (0x3F for GG Stereo).
-All chips of the YM-family use 0xAn. n is the last digit of the main command.
+The second SN76489 PSG uses 0x30 (0x3F for GG Stereo).
+All chips of the YM-family that use command 0x5n use 0xAn for the second chip.
+n is the last digit of the main command.
 e.g. 0x52 (1st chip) -> 0xA2 (2nd chip)
 
-Dual Chip Supprt #2:
+Dual Chip Support #2:
 All other chips use bit 7 (0x80) of the first parameter byte to distinguish
 between the 1st and 2nd chip. (0x00-7F = Chip 1, 0x80-0xFF = chip 2)
+
+Note: The SegaPCM chip has the 2nd-chip-bit in the high byte of the address
+parameter. This is the second parameter byte.
+
+
+Extra Header
+------------
+With VGM v1.70, there was an extra header added. This one has to be placed
+between the usual header and the actual VGM data.
+
+This is the format of the extra header:
+
+      00  01  02  03   04  05  06  07   08  09  0A  0B  0C  0D  0E  0F
+0x00 [Header Size    ][ChpClock Offset][ChpVol Offset  ]
+
+Header Size is the size of the extra header. It has to be 4 or larger,
+depending in the needed offsets.
+
+Then there are two offsets that point to extra header data for:
+- additional Chip Clocks for second chips
+- user-defined chip volumes
+
+
+Chip Clock Header
+-----------------
+1 byte   - Entry Count (chips with extra clocks)
+[5 bytes - List Entry 1]
+[5 bytes - List Entry 2]
+...
+
+Each list entry has the format:
+1 byte  - Chip ID (chip order follows the header)
+4 bytes - clock for second chip of the type above
+
+
+Chip Volume Header
+------------------
+1 byte   - Entry Count (chips with user-defined volumes)
+[4 bytes - List Entry 1]
+[4 bytes - List Entry 2]
+...
+
+Each list entry has the format:
+1 byte  - Chip ID (chip order follows the header)
+          Note: If bit 7 is set, it's the volume for a paired chip.
+                (e.g. the AY-part of the YM2203)
+1 byte  - Flags
+          Note: If bit 0 is set, it's the volume for the second chip.
+2 bytes - volume for the chip
+          Note: If Bit 15 is 0, this is an absolute volume setting.
+                If Bit 15 is 1, it's relative and the chip volume gets
+                multiplied by ((Value & 0x7FFF) / 0x0100).
 
 
 History
@@ -647,5 +752,20 @@ HuC6280, C140, K053260, Pokey and Q-Sound chips added.
 Changed number of operands from 1 to 2 for reserved commands 0x40-0x4E.
 Although they're still unused, old players might handle future vgm versions
 wrongly.
+
+All changes done by Valley Bell.
+
+[1.70]
+Added extra header with seperate chip clocks for the second one of dual chips
+and chip volume adjustments.
+
+All changes done by Valley Bell.
+
+[1.71]
+SCSP added.
+
+Data blocks (type 0x) for OKIM6258, HuC6280, SCSP and NES added.
+VGM v1.61 players should support the data block of their respective chips
+despite their late addition.
 
 All changes done by Valley Bell.

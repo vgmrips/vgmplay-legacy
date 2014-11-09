@@ -359,7 +359,7 @@ int device_start_pwm(UINT8 ChipID, int clock)
 	
 	chip = &PWM_Chip[ChipID];
 	rate = 22020;	// that's the rate the PWM is mostly used
-	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
+	if (((CHIP_SAMPLING_MODE & 0x01) && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	chip->clock = clock;

@@ -24,7 +24,9 @@
 //#include "streams.h"
 //#include "cpuintrf.h"
 #include "3812intf.h"
+#ifdef ENABLE_ALL_CORES
 #include "fmopl.h"
+#endif
 
 #define OPLTYPE_IS_OPL2
 #include "adlibemu.h"
@@ -43,7 +45,7 @@ struct _ym3812_state
 	//sound_stream *	stream;
 	//emu_timer *		timer[2];
 	void *			chip;
-	const ym3812_interface *intf;
+	//const ym3812_interface *intf;
 	//const device_config *device;
 };
 
@@ -118,7 +120,7 @@ void ym3812_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	}
 }
 
-static void _stream_update(void * param, int interval)
+static void _stream_update(void * param/*, int interval*/)
 {
 	ym3812_state *info = (ym3812_state *)param;
 	//stream_update(info->stream);
@@ -131,8 +133,7 @@ static void _stream_update(void * param, int interval)
 		break;
 #endif
 	case EC_DBOPL:
-		// not neccessary
-		//adlib_OPL2_getsample(info->chip, DUMMYBUF, 0);
+		adlib_OPL2_getsample(info->chip, DUMMYBUF, 0);
 		break;
 	}
 }
@@ -141,7 +142,7 @@ static void _stream_update(void * param, int interval)
 //static DEVICE_START( ym3812 )
 int device_start_ym3812(UINT8 ChipID, int clock)
 {
-	static const ym3812_interface dummy = { 0 };
+	//static const ym3812_interface dummy = { 0 };
 	//ym3812_state *info = get_safe_token(device);
 	ym3812_state *info;
 	int rate;
@@ -150,12 +151,12 @@ int device_start_ym3812(UINT8 ChipID, int clock)
 		return 0;
 	
 	info = &YM3812Data[ChipID];
-	rate = clock/72;
+	rate = (clock & 0x7FFFFFFF)/72;
 	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	//info->intf = device->static_config ? (const ym3812_interface *)device->static_config : &dummy;
-	info->intf = &dummy;
+	//info->intf = &dummy;
 	//info->device = device;
 
 	/* stream system initialize */
@@ -163,7 +164,7 @@ int device_start_ym3812(UINT8 ChipID, int clock)
 	{
 #ifdef ENABLE_ALL_CORES
 	case EC_MAME:
-		info->chip = ym3812_init(clock,rate);
+		info->chip = ym3812_init(clock & 0x7FFFFFFF,rate);
 		//assert_always(info->chip != NULL, "Error creating YM3812 chip");
 
 		//info->stream = stream_create(device,0,1,rate,info,ym3812_stream_update);
@@ -178,7 +179,7 @@ int device_start_ym3812(UINT8 ChipID, int clock)
 		break;
 #endif
 	case EC_DBOPL:
-		info->chip = adlib_OPL2_init(clock, rate);
+		info->chip = adlib_OPL2_init(clock & 0x7FFFFFFF, rate, _stream_update, info);
 		break;
 	}
 	
@@ -302,8 +303,11 @@ void ym3812_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 		break;
 #endif
 	case EC_DBOPL:
+		adlib_OPL2_set_mute_mask(info->chip, MuteMask);
 		break;
 	}
+	
+	return;
 }
 
 

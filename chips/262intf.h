@@ -1,12 +1,12 @@
 #pragma once
 
 
-typedef struct _ymf262_interface ymf262_interface;
+/*typedef struct _ymf262_interface ymf262_interface;
 struct _ymf262_interface
 {
 	//void (*handler)(const device_config *device, int irq);
 	void (*handler)(int irq);
-};
+};*/
 
 
 /*READ8_DEVICE_HANDLER( ymf262_r );
@@ -27,7 +27,7 @@ void ymf262_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
 int device_start_ymf262(UINT8 ChipID, int clock);
 void device_stop_ymf262(UINT8 ChipID);
 void device_reset_ymf262(UINT8 ChipID);
-	
+
 UINT8 ymf262_r(UINT8 ChipID, offs_t offset);
 void ymf262_w(UINT8 ChipID, offs_t offset, UINT8 data);
 

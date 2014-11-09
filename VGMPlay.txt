@@ -13,7 +13,7 @@ Supported files types are:
 
 Supported chips
 ---------------
-- SN76496** (PSG) and T6W28** (NGP custom)
+- SN76496** (Sega PSG) and T6W28** (NeoGeo Pocket custom)
 - YM2413* (OPLL)
 - YM2612 (OPN2)
 - YM2151 (OPM)
@@ -26,29 +26,31 @@ Supported chips
 - YM3526* (OPL)
 - Y8950* (MSX AUDIO)
 - YMF262* (OP3)
-- YMF278B (OPL4)
+- YMF278B (OPL4) !
 - YMF271 (OPLX)
 - YMZ280B
 - RF5C164 (Sega MegaCD PCM)
 - PWM (from Sega 32x)
-- AY8910 (another PSG)
+- AY8910 (MSX PSG)
 - GameBoy DMG
-- NES APU
+- NES APU (incl. FDS)
 - MultiPCM
 - UPD7759
-- OKI6258
+- OKI6258 (Sharp X68000 ADPCM)
 - OKI6295
 - K051649
 - K054539
-- HuC6280
+- HuC6280 (PC Engine)
 - C140
 - K053260
-- Pokey
+- Pokey (Atari)
 - QSound
+- SCSP (Saturn Custom Sound Processor, YMF292-F)
 
 
 * This chip can be emulated via OPL Hardware (like Soundblaster sound cards).
 ** OPL hardware emulation is available, but software emulation is prefered. Hardware emulation is used if another chip activates HW emulation or FMForce is True.
+! You need a sample ROM, called yrw801.rom, to make playback work. Place it in the directory where VGMPlay.exe lies.
 
 OPL hardware emulation can be enabled by setting the "FMPort"-entry in the ini-file.
 If you want to use FM Hardware under Windows NT/2000/XP/... you have to install PortTalk.
@@ -62,9 +64,10 @@ FM Hardware can't be logged to Wave files.
 Keys
 ----
 You can use the following keys during playback:
+Space - Pause
 Cursor Left/Right - Seek 5 seconds backward/forward
 Ctrl + Cursor Left/Right - Seek 1 minute backward/forward
-ESC - Quit the program
+ESC/Q - Quit the program
 F - Fade out
 R - Restart current Track
 PageUp/B - Previous Track
@@ -81,7 +84,8 @@ Minimum Reqiurements
 --------------------
 Software Emulation:
 
-Pentium II with at least 233 MHz
+166 MHz should be enough for SN76496 + YM2612.
+For chips with 12+ FM channels you need probably need at least 700 MHz.
 16 MB RAM (plus a size of the VGM you want to play, so for a 100 MB vgm, you need ~110 MB RAM)
 
 That allows you to play VGMs with up to 2x FM, 2x PSG or FM + PSG + PCM.
@@ -96,15 +100,17 @@ On my PII 233 MHz FM Playback takes 3.5% CPU at a maximum.
 
 Bugs
 ====
-PauseEmulation is disabled under Linux if no FM Hardware is used.
+PauseEmulation is disabled under Linux unless FM Hardware is used.
 
-Under Linux you have to double-tap ESC to quit the program. I haven't yet found a way around it.
+Under Linux you have to double-tap ESC to quit the program (or just press Q). I haven't yet found a way around it.
 
 Sometimes MAME's sound cores tend to sound strange. I already fixed some, but it's not my fault.
 
 Ubuntu refuses to run (or maybe compile) VGMPlay correctly. It either crashes upon opening a vgm file or doesn't open the sound device. (and the ini-file, too. VGMs are opened for some reason.)
-It runs fine on openSUSE. (tested with 11.1 32-bit and 11.4 64-bit)
-Note: Using Wine with the Windows-version of VGMPlay should work.
+Using Wine with the Windows-version of VGMPlay should work.
+
+It runs fine on openSUSE. (I compile and test it regularly with 12.3 64-bit. Older version were successfully tested with 11.1 32-bit and 11.4 64-bit)
+It also ran fine on the Debian system at university.
 
 
 Comments
@@ -135,6 +141,9 @@ This program was written by Valley Bell.
 - the YMF278B core was ported from openMSX
 - zlib compression by Jean-loup Gailly and Mark Adler is used
 - all custom OPL Mappers were written using MAME software emulators and the OPL2/3 programming guides by Jeffrey S. Lee and Vladimir Arnost
+- one YM2413 OPL Mapper was ported from MEKA.
 - the RF5C164 and PWM cores were ported from Gens/GS
 - the MAME YM2612 core was fixed with the help of Blargg's MAME YM2612 fix and Genesis Plus GX' YM2612 core
 - AdLibEmu (OPL2 and OPL3 core) was ported from DOSBox
+- The default HuC6280 core is from Ootake.
+- EMU2149, the alternative NES APU core and the NES FDS core were ported from rainwarrior's NSFPlay.

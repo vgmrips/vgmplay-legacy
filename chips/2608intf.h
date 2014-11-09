@@ -2,6 +2,7 @@
 
 #include "fm.h"
 #include "ay8910.h"
+#include "emu2149.h"
 
 void ym2608_update_request(void *param);
 
@@ -31,8 +32,7 @@ DEVICE_GET_INFO( ym2608 );
 void ym2608_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
 void ym2608_stream_update_ay(UINT8 ChipID, stream_sample_t **outputs, int samples);
 
-int device_start_ym2608(UINT8 ChipID, int clock, unsigned char AYDisable, unsigned char AYFlags,
-						int* AYrate);
+int device_start_ym2608(UINT8 ChipID, int clock, UINT8 AYDisable, UINT8 AYFlags, int* AYrate);
 void device_stop_ym2608(UINT8 ChipID);
 void device_reset_ym2608(UINT8 ChipID);
 
@@ -48,6 +48,7 @@ void ym2608_control_port_b_w(UINT8 ChipID, offs_t offset, UINT8 data);
 void ym2608_data_port_a_w(UINT8 ChipID, offs_t offset, UINT8 data);
 void ym2608_data_port_b_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
+void ym2608_set_ay_emu_core(UINT8 Emulator);
 void ym2608_write_data_pcmrom(UINT8 ChipID, UINT8 rom_id, offs_t ROMSize, offs_t DataStart,
 							  offs_t DataLength, const UINT8* ROMData);
 void ym2608_set_mute_mask(UINT8 ChipID, UINT32 MuteMaskFM, UINT32 MuteMaskAY);

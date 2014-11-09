@@ -14,7 +14,7 @@
 
 
 #define  NUM_CHANNELS    (8)
-#define WRITES_PER_SAMPLE	12
+#define STEAM_STEP		0x800
 
 
 
@@ -37,6 +37,7 @@ struct _mem_stream
 	UINT32 BaseAddr;
 	UINT32 EndAddr;
 	UINT32 CurAddr;
+	UINT16 CurStep;
 	const UINT8* MemPnt;
 };
 
@@ -74,24 +75,37 @@ static rf5c68_state RF5C68Data[MAX_CHIPS];
 /*    RF5C68 stream update                      */
 /************************************************/
 
-static void memstream_sample_check(rf5c68_state *chip, UINT32 addr)
+static void memstream_sample_check(rf5c68_state *chip, UINT32 addr, UINT16 Speed)
 {
 	mem_stream* ms = &chip->memstrm;
+	UINT32 SmplSpd;
 	
+	SmplSpd = (Speed >= 0x0800) ? (Speed >> 11) : 1;
 	if (addr >= ms->CurAddr)
 	{
-		if (addr - ms->CurAddr <= WRITES_PER_SAMPLE * 5)
+		// Is the stream too fast? (e.g. about to catch up the output)
+		if (addr - ms->CurAddr <= SmplSpd * 5)
 		{
-			ms->CurAddr -= WRITES_PER_SAMPLE * 2;
+			// Yes - delay the stream
+			ms->CurAddr -= SmplSpd * 4;
 			if (ms->CurAddr < ms->BaseAddr)
 				ms->CurAddr = ms->BaseAddr;
 		}
 	}
 	else
 	{
-		if (ms->CurAddr - addr <= WRITES_PER_SAMPLE * 4)
+		// Is the stream too slow? (e.g. the output is about to catch up the stream)
+		if (ms->CurAddr - addr <= SmplSpd * 5)
 		{
-			rf5c68_mem_stream_flush(chip);
+			if (ms->CurAddr + SmplSpd * 4 >= ms->EndAddr)
+			{
+				rf5c68_mem_stream_flush(chip);
+			}
+			else
+			{
+				memcpy(chip->data + ms->CurAddr, ms->MemPnt + (ms->CurAddr - ms->BaseAddr), SmplSpd * 4);
+				ms->CurAddr += SmplSpd * 4;
+			}
 		}
 	}
 	
@@ -139,7 +153,7 @@ void rf5c68_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 						chip->sample_callback(chip->device,((chan->addr >> 11)/0x2000));
 				}*/
 
-				memstream_sample_check(chip, (chan->addr >> 11) & 0xffff);
+				memstream_sample_check(chip, (chan->addr >> 11) & 0xFFFF, chan->step);
 				/* fetch the sample and handle looping */
 				sample = chip->data[(chan->addr >> 11) & 0xffff];
 				if (sample == 0xff)
@@ -171,12 +185,18 @@ void rf5c68_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 
 	if (samples && ms->CurAddr < ms->EndAddr)
 	{
-		i = WRITES_PER_SAMPLE * samples;
-		if (ms->CurAddr + i > ms->EndAddr)
-			i = ms->EndAddr - ms->CurAddr;
-		
-		memcpy(chip->data + ms->CurAddr, ms->MemPnt + (ms->CurAddr - ms->BaseAddr), i);
-		ms->CurAddr += i;
+		ms->CurStep += STEAM_STEP * samples;
+		if (ms->CurStep >= 0x0800)	// 1 << 11
+		{
+			i = ms->CurStep >> 11;
+			ms->CurStep &= 0x07FF;
+			
+			if (ms->CurAddr + i > ms->EndAddr)
+				i = ms->EndAddr - ms->CurAddr;
+			
+			memcpy(chip->data + ms->CurAddr, ms->MemPnt + (ms->CurAddr - ms->BaseAddr), i);
+			ms->CurAddr += i;
+		}
 	}
 	
 	// I think, this is completely useless
@@ -231,7 +251,7 @@ int device_start_rf5c68(UINT8 ChipID, int clock)
 	for (chn = 0; chn < NUM_CHANNELS; chn ++)
 		chip->chan[chn].Muted = 0x00;
 	
-	return clock / 384;
+	return (clock & 0x7FFFFFFF) / 384;
 }
 
 void device_stop_rf5c68(UINT8 ChipID)
@@ -272,6 +292,7 @@ void device_reset_rf5c68(UINT8 ChipID)
 	ms->BaseAddr = 0x0000;
 	ms->CurAddr = 0x0000;
 	ms->EndAddr = 0x0000;
+	ms->CurStep = 0x0000;
 	ms->MemPnt = NULL;
 }
 
@@ -400,9 +421,11 @@ void rf5c68_write_ram(UINT8 ChipID, offs_t DataStart, offs_t DataLength, const U
 	ms->BaseAddr = chip->wbank * 0x1000 | DataStart;
 	ms->CurAddr = ms->BaseAddr;
 	ms->EndAddr = ms->BaseAddr + DataLength;
+	ms->CurStep = 0x0000;
 	ms->MemPnt = RAMData;
 	
-	BytCnt = WRITES_PER_SAMPLE;
+	//BytCnt = (STEAM_STEP * 32) >> 11;
+	BytCnt = 0x40;	// SegaSonic Arcade: Run! Run! Run! needs such a high value
 	if (ms->CurAddr + BytCnt > ms->EndAddr)
 		BytCnt = ms->EndAddr - ms->CurAddr;
 	

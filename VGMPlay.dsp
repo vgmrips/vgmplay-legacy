@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Yu"stdafx.h" /FD /c
-# ADD CPP /nologo /W3 /GX /Ox /Ot /Og /Oi /Ob2 /D "NDEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /FD /c
+# ADD CPP /nologo /MD /W3 /GX /Ox /Ot /Og /Oi /Ob2 /I "zlib" /D "NDEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /D "SET_CONSOLE_TITLE" /FD /c
 # SUBTRACT CPP /Oa /Ow /YX /Yc /Yu
 # ADD BASE RSC /l 0x407 /d "NDEBUG"
 # ADD RSC /l 0x407 /d "NDEBUG"
@@ -51,7 +51,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 msvcrt.lib kernel32.lib advapi32.lib winmm.lib zdll.lib /nologo /subsystem:console /machine:I386 /nodefaultlib /libpath:"zlib"
+# ADD LINK32 msvcrt.lib kernel32.lib user32.lib advapi32.lib winmm.lib zdll.lib /nologo /subsystem:console /machine:I386 /nodefaultlib /libpath:"zlib"
 # Begin Special Build Tool
 SOURCE="$(InputPath)"
 PostBuild_Cmds=..\vgm2txt\HiddenMsg.exe Release\VGMPlay.exe
@@ -71,7 +71,7 @@ PostBuild_Cmds=..\vgm2txt\HiddenMsg.exe Release\VGMPlay.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /Yu"stdafx.h" /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "_DEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "zlib" /D "_DEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /D "SET_CONSOLE_TITLE" /FR /FD /GZ /c
 # SUBTRACT CPP /YX /Yc /Yu
 # ADD BASE RSC /l 0x407 /d "_DEBUG"
 # ADD RSC /l 0x407 /d "_DEBUG"
@@ -80,7 +80,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 msvcrtd.lib kernel32.lib advapi32.lib winmm.lib zdll.lib /nologo /subsystem:console /debug /machine:I386 /nodefaultlib /libpath:"zlib"
+# ADD LINK32 msvcrtd.lib kernel32.lib user32.lib advapi32.lib winmm.lib zdll.lib /nologo /subsystem:console /debug /machine:I386 /nodefaultlib /libpath:"zlib"
 # SUBTRACT LINK32 /profile /map
 
 !ENDIF 
@@ -162,6 +162,14 @@ SOURCE=.\Stream.h
 # End Source File
 # Begin Source File
 
+SOURCE=".\XMasFiles\SWJ-SQRC01_1C.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\VGMFile.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\VGMPlay.h
 # End Source File
 # Begin Source File
@@ -170,7 +178,7 @@ SOURCE=.\VGMPlay_Intf.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\XMasBonus.h
+SOURCE=.\XMasFiles\XMasBonus.h
 # End Source File
 # End Group
 # Begin Group "Ressourcendateien"
@@ -186,6 +194,15 @@ SOURCE=.\XMasBonus.h
 # Begin Source File
 
 SOURCE=.\chips\2413intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -198,6 +215,15 @@ SOURCE=.\chips\2413tone.h
 # Begin Source File
 
 SOURCE=.\chips\262intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -210,7 +236,17 @@ SOURCE=.\chips\281btone.h
 # Begin Source File
 
 SOURCE=.\chips\3526intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /W1 /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
 # ADD CPP /W1
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -219,7 +255,17 @@ SOURCE=.\chips\3526intf.h
 # Begin Source File
 
 SOURCE=.\chips\3812intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /W1 /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
 # ADD CPP /W1
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -228,7 +274,17 @@ SOURCE=.\chips\3812intf.h
 # Begin Source File
 
 SOURCE=.\chips\8950intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /W1 /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
 # ADD CPP /W1
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -314,6 +370,15 @@ SOURCE=.\chips\ymf278b.h
 # Begin Source File
 
 SOURCE=.\chips\2203intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -322,6 +387,15 @@ SOURCE=.\chips\2203intf.h
 # Begin Source File
 
 SOURCE=.\chips\2608intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -330,6 +404,15 @@ SOURCE=.\chips\2608intf.h
 # Begin Source File
 
 SOURCE=.\chips\2610intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -338,6 +421,15 @@ SOURCE=.\chips\2610intf.h
 # Begin Source File
 
 SOURCE=.\chips\2612intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -371,10 +463,40 @@ SOURCE=.\chips\ym2612.h
 # Begin Source File
 
 SOURCE=.\chips\2151intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\chips\2151intf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\scsp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\scsp.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\scspdsp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\scspdsp.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\scsplfo.c
+# PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 
@@ -433,6 +555,15 @@ SOURCE=.\chips\multipcm.h
 # Begin Source File
 
 SOURCE=.\chips\okim6258.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -441,6 +572,15 @@ SOURCE=.\chips\okim6258.h
 # Begin Source File
 
 SOURCE=.\chips\okim6295.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -449,6 +589,15 @@ SOURCE=.\chips\okim6295.h
 # Begin Source File
 
 SOURCE=.\chips\pwm.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -465,6 +614,15 @@ SOURCE=.\chips\qsound.h
 # Begin Source File
 
 SOURCE=.\chips\rf5c68.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -473,6 +631,15 @@ SOURCE=.\chips\rf5c68.h
 # Begin Source File
 
 SOURCE=.\chips\scd_pcm.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -481,6 +648,15 @@ SOURCE=.\chips\scd_pcm.h
 # Begin Source File
 
 SOURCE=.\chips\segapcm.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -489,6 +665,15 @@ SOURCE=.\chips\segapcm.h
 # Begin Source File
 
 SOURCE=.\chips\upd7759.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -497,6 +682,15 @@ SOURCE=.\chips\upd7759.h
 # Begin Source File
 
 SOURCE=.\chips\ymdeltat.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -505,7 +699,17 @@ SOURCE=.\chips\ymdeltat.h
 # Begin Source File
 
 SOURCE=.\chips\ymz280b.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /W1 /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
 # ADD CPP /W1
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -515,6 +719,10 @@ SOURCE=.\chips\ymz280b.h
 # Begin Group "OPL Mapper"
 
 # PROP Default_Filter "c;h"
+# Begin Source File
+
+SOURCE=.\chips\ay8910_opl.c
+# End Source File
 # Begin Source File
 
 SOURCE=.\chips\sn76496_opl.c
@@ -565,10 +773,27 @@ SOURCE=.\chips\ym2413hd.h
 # Begin Source File
 
 SOURCE=.\chips\ay8910.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\chips\ay8910.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\ay_intf.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\ay_intf.h
 # End Source File
 # Begin Source File
 
@@ -577,6 +802,31 @@ SOURCE=.\chips\c6280.c
 # Begin Source File
 
 SOURCE=.\chips\c6280.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\c6280intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\c6280intf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\emu2149.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\emu2149.h
 # End Source File
 # Begin Source File
 
@@ -596,15 +846,11 @@ SOURCE=.\chips\k051649.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\chips\nes_apu.c
+SOURCE=.\chips\Ootake_PSG.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\chips\nes_apu.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\chips\nes_defs.h
+SOURCE=.\chips\Ootake_PSG.h
 # End Source File
 # Begin Source File
 
@@ -617,6 +863,15 @@ SOURCE=.\chips\pokey.h
 # Begin Source File
 
 SOURCE=.\chips\sn76489.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -625,6 +880,15 @@ SOURCE=.\chips\sn76489.h
 # Begin Source File
 
 SOURCE=.\chips\sn76496.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -633,10 +897,67 @@ SOURCE=.\chips\sn76496.h
 # Begin Source File
 
 SOURCE=.\chips\sn764intf.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\chips\sn764intf.h
+# End Source File
+# End Group
+# Begin Group "NES Chips"
+
+# PROP Default_Filter "c;h"
+# Begin Source File
+
+SOURCE=.\chips\nes_apu.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\nes_apu.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\nes_defs.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\nes_intf.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\nes_intf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\np_nes_apu.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\np_nes_apu.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\np_nes_dmc.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\np_nes_dmc.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\np_nes_fds.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\np_nes_fds.h
 # End Source File
 # End Group
 # Begin Source File
@@ -684,6 +1005,15 @@ SOURCE=.\chips\mamedef.h
 # Begin Source File
 
 SOURCE=.\chips\panning.c
+
+!IF  "$(CFG)" == "VGMPlay - Win32 Release"
+
+# ADD CPP /Oa
+
+!ELSEIF  "$(CFG)" == "VGMPlay - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 

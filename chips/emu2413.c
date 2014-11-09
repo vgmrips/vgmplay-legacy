@@ -60,7 +60,7 @@
 #include "emu2413.h"
 #include "panning.h" // Maxim
 
-#ifdef EMU2413_COMPACTION
+/*#ifdef EMU2413_COMPACTION
 #define OPLL_TONE_NUM 1
 static unsigned char default_inst[OPLL_TONE_NUM][(16 + 3) * 16] = {
   {
@@ -80,7 +80,15 @@ static unsigned char default_inst[OPLL_TONE_NUM][(16 + 3) * 16] = {
 #include "281btone.h"
   }
 };
-#endif
+#endif*/
+
+// Note: Dump size changed to 8 per instrument, since 9-15 were unused. -VB
+#define OPLL_TONE_NUM 1
+static unsigned char default_inst[OPLL_TONE_NUM][(16 + 3) * 8] = {
+  {
+#include "2413tone.h"
+  }
+};
 
 /* Size of Sintable ( 8 -- 18 can be used. 9 recommended.) */
 #define PG_BITS 9
@@ -549,7 +557,7 @@ OPLL_dump2patch (const e_uint8 * dump, OPLL_PATCH * patch)
 void
 OPLL_getDefaultPatch (e_int32 type, e_int32 num, OPLL_PATCH * patch)
 {
-  OPLL_dump2patch (default_inst[type] + num * 16, patch);
+  OPLL_dump2patch (default_inst[type] + num * 8, patch);
 }
 
 static void
@@ -571,7 +579,7 @@ OPLL_setPatch (OPLL * opll, const e_uint8 * dump)
 
   for (i = 0; i < 19; i++)
   {
-    OPLL_dump2patch (dump + i * 16, patch);
+    OPLL_dump2patch (dump + i * 8, patch);
     memcpy (&opll->patch[i*2+0], &patch[0], sizeof (OPLL_PATCH));
     memcpy (&opll->patch[i*2+1], &patch[1], sizeof (OPLL_PATCH));
   }
@@ -839,14 +847,14 @@ update_rhythm_mode (OPLL * opll)
 {
   if (opll->patch_number[6] & 0x10)
   {
-    if (!(opll->slot_on_flag[SLOT_BD2] | (opll->reg[0x0e] & 32)))
+    if (!(opll->slot_on_flag[SLOT_BD2] | (opll->reg[0x0e] & 0x20)))
     {
       opll->slot[SLOT_BD1].eg_mode = FINISH;
       opll->slot[SLOT_BD2].eg_mode = FINISH;
       setPatch (opll, 6, opll->reg[0x36] >> 4);
     }
   }
-  else if (opll->reg[0x0e] & 32)
+  else if (opll->reg[0x0e] & 0x20)
   {
     opll->patch_number[6] = 16;
     opll->slot[SLOT_BD1].eg_mode = FINISH;
@@ -857,7 +865,7 @@ update_rhythm_mode (OPLL * opll)
 
   if (opll->patch_number[7] & 0x10)
   {
-    if (!((opll->slot_on_flag[SLOT_HH] && opll->slot_on_flag[SLOT_SD]) | (opll->reg[0x0e] & 32)))
+    if (!((opll->slot_on_flag[SLOT_HH] && opll->slot_on_flag[SLOT_SD]) | (opll->reg[0x0e] & 0x20)))
     {
       opll->slot[SLOT_HH].type = 0;
       opll->slot[SLOT_HH].eg_mode = FINISH;
@@ -865,7 +873,7 @@ update_rhythm_mode (OPLL * opll)
       setPatch (opll, 7, opll->reg[0x37] >> 4);
     }
   }
-  else if (opll->reg[0x0e] & 32)
+  else if (opll->reg[0x0e] & 0x20)
   {
     opll->patch_number[7] = 17;
     opll->slot[SLOT_HH].type = 1;
@@ -877,7 +885,7 @@ update_rhythm_mode (OPLL * opll)
 
   if (opll->patch_number[8] & 0x10)
   {
-    if (!((opll->slot_on_flag[SLOT_CYM] && opll->slot_on_flag[SLOT_TOM]) | (opll->reg[0x0e] & 32)))
+    if (!((opll->slot_on_flag[SLOT_CYM] && opll->slot_on_flag[SLOT_TOM]) | (opll->reg[0x0e] & 0x20)))
     {
       opll->slot[SLOT_TOM].type = 0;
       opll->slot[SLOT_TOM].eg_mode = FINISH;
@@ -885,7 +893,7 @@ update_rhythm_mode (OPLL * opll)
       setPatch (opll, 8, opll->reg[0x38] >> 4);
     }
   }
-  else if (opll->reg[0x0e] & 32)
+  else if (opll->reg[0x0e] & 0x20)
   {
     opll->patch_number[8] = 18;
     opll->slot[SLOT_TOM].type = 1;
@@ -904,7 +912,7 @@ update_key_status (OPLL * opll)
   for (ch = 0; ch < 9; ch++)
     opll->slot_on_flag[ch * 2] = opll->slot_on_flag[ch * 2 + 1] = (opll->reg[0x20 + ch]) & 0x10;
 
-  if (opll->reg[0x0e] & 32)
+  if (opll->reg[0x0e] & 0x20)
   {
     opll->slot_on_flag[SLOT_BD1] |= (opll->reg[0x0e] & 0x10);
     opll->slot_on_flag[SLOT_BD2] |= (opll->reg[0x0e] & 0x10);
@@ -995,6 +1003,8 @@ OPLL_new (e_uint32 clk, e_uint32 rate)
   opll = (OPLL *) calloc (sizeof (OPLL), 1);
   if (opll == NULL)
     return NULL;
+
+  opll->vrc7_mode = 0x00;
 
   for (i = 0; i < 19 * 2; i++)
     memcpy(&opll->patch[i],&null_patch,sizeof(OPLL_PATCH));
@@ -1416,6 +1426,8 @@ calc (OPLL * opll)
     if (!(opll->mask & OPLL_MASK_CH (i)) && (CAR(opll,i)->eg_mode != FINISH))
       inst += calc_slot_car (CAR(opll,i), calc_slot_mod(MOD(opll,i)));
 
+ if (! opll->vrc7_mode)
+ {
   /* CH6 */
   if (opll->patch_number[6] <= 15)
   {
@@ -1455,6 +1467,7 @@ calc (OPLL * opll)
     if (!(opll->mask & OPLL_MASK_CYM) && (CAR(opll,8)->eg_mode != FINISH))
       perc -= calc_slot_cym (CAR(opll,8), MOD(opll,7)->pgout);
   }
+ } // end if (! opll->vrc7_mode)
 
   out = inst + (perc << 1);
   return (e_int16) out;
@@ -1561,6 +1574,14 @@ OPLL_toggleMask (OPLL * opll, e_uint32 mask)
   else
     return 0;
 }*/
+
+void OPLL_SetChipMode(OPLL* opll, e_uint8 Mode)
+{
+	// Enable/Disable VRC7 Mode (with only 6 instead of 9 channels and no rhythm part)
+	opll->vrc7_mode = Mode;
+	
+	return;
+}
 
 /****************************************************
 
@@ -1689,8 +1710,10 @@ OPLL_writeReg (OPLL * opll, e_uint32 reg, e_uint32 data)
     break;
 
   case 0x0e:
+    if (opll->vrc7_mode)
+      break;
     update_rhythm_mode (opll);
-    if (data & 32)
+    if (data & 0x20)
     {
       if (data & 0x10)
         keyOn_BD (opll);
@@ -1737,6 +1760,8 @@ OPLL_writeReg (OPLL * opll, e_uint32 reg, e_uint32 data)
   case 0x17:
   case 0x18:
     ch = reg - 0x10;
+    if (opll->vrc7_mode && ch >= 6)
+      break;
     setFnumber (opll, ch, data + ((opll->reg[0x20 + ch] & 1) << 8));
     UPDATE_ALL (MOD(opll,ch));
     UPDATE_ALL (CAR(opll,ch));
@@ -1752,13 +1777,20 @@ OPLL_writeReg (OPLL * opll, e_uint32 reg, e_uint32 data)
   case 0x27:
   case 0x28:
     ch = reg - 0x20;
+    if (opll->vrc7_mode && ch >= 6)
+      break;
     setFnumber (opll, ch, ((data & 1) << 8) + opll->reg[0x10 + ch]);
     setBlock (opll, ch, (data >> 1) & 7);
     setSustine (opll, ch, (data >> 5) & 1);
-    if (data & 0x10)
-      keyOn (opll, ch);
-    else
-      keyOff (opll, ch);
+	if (ch < 0x06 || ! (opll->reg[0x0E] & 0x20))
+	{
+		// Valley Bell Fix: prevent commands 0x26-0x28 from turning
+		// the drums (BD, SD, CYM) off
+		if (data & 0x10)
+		  keyOn (opll, ch);
+		else
+		  keyOff (opll, ch);
+	}
     UPDATE_ALL (MOD(opll,ch));
     UPDATE_ALL (CAR(opll,ch));
     update_key_status (opll);
@@ -1774,9 +1806,11 @@ OPLL_writeReg (OPLL * opll, e_uint32 reg, e_uint32 data)
   case 0x36:
   case 0x37:
   case 0x38:
+    if (opll->vrc7_mode && reg >= 0x36)
+      break;
     i = (data >> 4) & 15;
     v = data & 15;
-    if ((opll->reg[0x0e] & 32) && (reg >= 0x36))
+    if ((opll->reg[0x0e] & 0x20) && (reg >= 0x36))
     {
       switch (reg)
       {
@@ -1867,6 +1901,8 @@ calc_stereo (OPLL * opll, e_int32 out[2])
     }
 
 
+ if (! opll->vrc7_mode)
+ {
   if (opll->patch_number[6] <= 15)
   {
     if (!(opll->mask & OPLL_MASK_CH (6)) && (CAR(opll,6)->eg_mode != FINISH))
@@ -2000,6 +2036,7 @@ calc_stereo (OPLL * opll, e_int32 out[2])
       }
     }
   }
+ } // end if (! opll->vrc7_mode)
 /*
   out[1] = (b[1] + b[3] + ((r[1] + r[3]) << 1)) <<3;
   out[0] = (b[2] + b[3] + ((r[2] + r[3]) << 1)) <<3;

@@ -4,7 +4,7 @@
 // (Custom Driver to handle PCM Streams of YM2612 DAC and PWM.)
 //
 // Written on 3 February 2011 by Valley Bell
-// Last Update: 25 April 2011
+// Last Update: 13 April 2014
 //
 // Only for usage in non-commercial, VGM file related software.
 
@@ -45,9 +45,11 @@ typedef struct _dac_control
 	//					4 (10) - already sent this command
 	//					7 (80) - disabled
 	UINT8 Running;
-	UINT32 Step;
-	UINT32 Pos;
+	UINT8 Reverse;
+	UINT32 Step;		// Position in Player SampleRate
+	UINT32 Pos;			// Position in Data SampleRate
 	UINT32 RemainCmds;
+	UINT32 RealPos;		// true Position in Data (== Pos, if Reverse is off)
 	UINT8 DataStep;		// always StepSize * CmdSize
 } dac_control;
 
@@ -56,7 +58,7 @@ static dac_control DACData[MAX_CHIPS];
 
 #define NULL	(void*)0
 
-static void daccontrol_SendCommand(dac_control *chip)
+INLINE void daccontrol_SendCommand(dac_control *chip)
 {
 	UINT8 Port;
 	UINT8 Command;
@@ -65,27 +67,30 @@ static void daccontrol_SendCommand(dac_control *chip)
 	
 	if (chip->Running & 0x10)	// command already sent
 		return;
-	if (chip->DataStart + chip->Pos >= chip->DataLen)
+	if (chip->DataStart + chip->RealPos >= chip->DataLen)
 		return;
 	
-	ChipData = chip->Data + (chip->DataStart + chip->Pos);
+	//if (! chip->Reverse)
+		ChipData = chip->Data + (chip->DataStart + chip->RealPos);
+	//else
+	//	ChipData = chip->Data + (chip->DataStart + chip->CmdsToSend - 1 - chip->Pos);
 	switch(chip->DstChipType)
 	{
 	// Support for the important chips
-	case 0x02:	// YM2612
+	case 0x02:	// YM2612 (16-bit Register (actually 9 Bit), 8-bit Data)
 		Port = (chip->DstCommand & 0xFF00) >> 8;
 		Command = (chip->DstCommand & 0x00FF) >> 0;
 		Data = ChipData[0x00];
 		chip_reg_write(chip->DstChipType, chip->DstChipID, Port, Command, Data);
 		break;
-	case 0x11:	// PWM
+	case 0x11:	// PWM (4-bit Register, 12-bit Data)
 		Port = (chip->DstCommand & 0x000F) >> 0;
 		Command = ChipData[0x01] & 0x0F;
 		Data = ChipData[0x00];
 		chip_reg_write(chip->DstChipType, chip->DstChipID, Port, Command, Data);
 		break;
-	// (Generic) Support for other chips (just for completeness)
-	case 0x00:	// SN76496
+	// Support for other chips (mainly for completeness)
+	case 0x00:	// SN76496 (4-bit Register, 4-bit/10-bit Data)
 		Command = (chip->DstCommand & 0x00F0) >> 0;
 		Data = ChipData[0x00] & 0x0F;
 		if (Command & 0x10)
@@ -101,27 +106,83 @@ static void daccontrol_SendCommand(dac_control *chip)
 			chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, 0x00, Port);
 		}
 		break;
+	case 0x18:	// OKIM6295 - TODO: verify
+		Command = (chip->DstCommand & 0x00FF) >> 0;
+		Data = ChipData[0x00];
+		
+		if (! Command)
+		{
+			Port = (chip->DstCommand & 0x0F00) >> 8;
+			if (Data & 0x80)
+			{
+				// Sample Start
+				// write sample ID
+				chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, Command, Data);
+				// write channel(s) that should play the sample
+				chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, Command, Port << 4);
+			}
+			else
+			{
+				// Sample Stop
+				chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, Command, Port << 3);
+			}
+		}
+		else
+		{
+			chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, Command, Data);
+		}
+		break;
+		// Generic support: 8-bit Register, 8-bit Data
 	case 0x01:	// YM2413
 	case 0x03:	// YM2151
+	case 0x06:	// YM2203
 	case 0x09:	// YM3812
 	case 0x0A:	// YM3526
 	case 0x0B:	// Y8950
 	case 0x0F:	// YMZ280B
 	case 0x12:	// AY8910
+	case 0x13:	// GameBoy DMG
+	case 0x14:	// NES APU
+//	case 0x15:	// MultiPCM
+	case 0x16:	// UPD7759
+	case 0x17:	// OKIM6258
+	case 0x1D:	// K053260 - TODO: Verify
+	case 0x1E:	// Pokey - TODO: Verify
 		Command = (chip->DstCommand & 0x00FF) >> 0;
 		Data = ChipData[0x00];
 		chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, Command, Data);
 		break;
-	case 0x06:	// YM2203
+		// Generic support: 16-bit Register, 8-bit Data
 	case 0x07:	// YM2608
 	case 0x08:	// YM2610/B
 	case 0x0C:	// YMF262
 	case 0x0D:	// YMF278B
 	case 0x0E:	// YMF271
+	case 0x19:	// K051649 - TODO: Verify
+	case 0x1A:	// K054539 - TODO: Verify
+	case 0x1C:	// C140 - TODO: Verify
 		Port = (chip->DstCommand & 0xFF00) >> 8;
 		Command = (chip->DstCommand & 0x00FF) >> 0;
 		Data = ChipData[0x00];
 		chip_reg_write(chip->DstChipType, chip->DstChipID, Port, Command, Data);
+		break;
+		// Generic support: 8-bit Register with Channel Select, 8-bit Data
+	case 0x05:	// RF5C68
+	case 0x10:	// RF5C164
+	case 0x1B:	// HuC6280
+		Port = (chip->DstCommand & 0xFF00) >> 8;
+		Command = (chip->DstCommand & 0x00FF) >> 0;
+		Data = ChipData[0x00];
+		
+		if (Port != 0xFF)	// Send Channel Select
+			chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, Command >> 4, Port);
+		// Send Data
+		chip_reg_write(chip->DstChipType, chip->DstChipID, 0x00, Command & 0x0F, Data);
+		break;
+		// Generic support: 8-bit Register, 16-bit Data
+	case 0x1F:	// QSound
+		Command = (chip->DstCommand & 0x00FF) >> 0;
+		chip_reg_write(chip->DstChipType, chip->DstChipID, ChipData[0x00], ChipData[0x01], Command);
 		break;
 	}
 	chip->Running |= 0x10;
@@ -132,18 +193,24 @@ static void daccontrol_SendCommand(dac_control *chip)
 INLINE UINT32 muldiv64round(UINT32 Multiplicand, UINT32 Multiplier, UINT32 Divisor)
 {
 	// Yes, I'm correctly rounding the values.
-	return (UINT32)(((UINT64)Multiplicand * Multiplier + Multiplier / 2) / Divisor);
+	return (UINT32)(((UINT64)Multiplicand * Multiplier + Divisor / 2) / Divisor);
 }
 
 void daccontrol_update(UINT8 ChipID, UINT32 samples)
 {
 	dac_control *chip = &DACData[ChipID];
 	UINT32 NewPos;
+	INT16 RealDataStp;
 	
 	if (chip->Running & 0x80)	// disabled
 		return;
 	if (! (chip->Running & 0x01))	// stopped
 		return;
+	
+	if (! chip->Reverse)
+		RealDataStp = chip->DataStep;
+	else
+		RealDataStp = -chip->DataStep;
 	
 	if (samples > 0x20)
 	{
@@ -153,6 +220,7 @@ void daccontrol_update(UINT8 ChipID, UINT32 samples)
 		while(chip->RemainCmds && chip->Pos < NewPos)
 		{
 			chip->Pos += chip->DataStep;
+			chip->RealPos += RealDataStp;
 			chip->RemainCmds --;
 		}
 	}
@@ -166,6 +234,7 @@ void daccontrol_update(UINT8 ChipID, UINT32 samples)
 	{
 		daccontrol_SendCommand(chip);
 		chip->Pos += chip->DataStep;
+		chip->RealPos += RealDataStp;
 		chip->Running &= ~0x10;
 		chip->RemainCmds --;
 	}
@@ -176,6 +245,10 @@ void daccontrol_update(UINT8 ChipID, UINT32 samples)
 		chip->RemainCmds = chip->CmdsToSend;
 		chip->Step = 0x00;
 		chip->Pos = 0x00;
+		if (! chip->Reverse)
+			chip->RealPos = 0x00;
+		else
+			chip->RealPos = (chip->CmdsToSend - 0x01) * chip->DataStep;
 	}
 	
 	if (! chip->RemainCmds)
@@ -228,8 +301,10 @@ void device_reset_daccontrol(UINT8 ChipID)
 	chip->StepBase = 0x00;
 	
 	chip->Running = 0x00;
+	chip->Reverse = 0x00;
 	chip->Step = 0x00;
 	chip->Pos = 0x00;
+	chip->RealPos = 0x00;
 	chip->RemainCmds = 0x00;
 	chip->DataStep = 0x00;
 	
@@ -256,6 +331,7 @@ void daccontrol_setup_chip(UINT8 ChipID, UINT8 ChType, UINT8 ChNum, UINT16 Comma
 		chip->CmdSize = 0x01;
 		break;
 	case 0x11:	// PWM
+	case 0x1F:	// QSound
 		chip->CmdSize = 0x02;
 		break;
 	default:
@@ -287,6 +363,28 @@ void daccontrol_set_data(UINT8 ChipID, UINT8* Data, UINT32 DataLen, UINT8 StepSi
 	chip->StepSize = StepSize ? StepSize : 1;
 	chip->StepBase = StepBase;
 	chip->DataStep = chip->CmdSize * chip->StepSize;
+	
+	return;
+}
+
+void daccontrol_refresh_data(UINT8 ChipID, UINT8* Data, UINT32 DataLen)
+{
+	// Should be called to fix the data pointer. (e.g. after a realloc)
+	dac_control *chip = &DACData[ChipID];
+	
+	if (chip->Running & 0x80)
+		return;
+	
+	if (DataLen && Data != NULL)
+	{
+		chip->DataLen = DataLen;
+		chip->Data = Data;
+	}
+	else
+	{
+		chip->DataLen = 0x00;
+		chip->Data = NULL;
+	}
 	
 	return;
 }
@@ -339,9 +437,15 @@ void daccontrol_start(UINT8 ChipID, UINT32 DataPos, UINT8 LenMode, UINT32 Length
 		chip->CmdsToSend = 0x00;
 		break;
 	}
+	chip->Reverse = (LenMode & 0x10) >> 4;
+	
 	chip->RemainCmds = chip->CmdsToSend;
 	chip->Step = 0x00;
 	chip->Pos = 0x00;
+	if (! chip->Reverse)
+		chip->RealPos = 0x00;
+	else
+		chip->RealPos = (chip->CmdsToSend - 0x01) * chip->DataStep;
 	
 	chip->Running &= ~0x04;
 	chip->Running |= (LenMode & 0x80) ? 0x04 : 0x00;	// set loop mode

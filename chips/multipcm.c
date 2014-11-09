@@ -800,13 +800,36 @@ void multipcm_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t D
 
 void multipcm_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 {
-	MultiPCM *ptChip = &MultiPCMData[ChipID];
+	MultiPCM* ptChip = &MultiPCMData[ChipID];
 	UINT8 CurChn;
 	
 	for (CurChn = 0; CurChn < 28; CurChn ++)
 		ptChip->Slots[CurChn].Muted = (MuteMask >> CurChn) & 0x01;
 	
 	return;
+}
+
+UINT8 multipcm_get_channels(UINT8 ChipID, UINT32* ChannelMask)
+{
+	MultiPCM* ptChip = &MultiPCMData[ChipID];
+	UINT8 CurChn;
+	UINT8 UsedChns;
+	UINT32 ChnMask;
+	
+	ChnMask = 0x00000000;
+	UsedChns = 0x00;
+	for (CurChn = 0; CurChn < 28; CurChn ++)
+	{
+		if (ptChip->Slots[CurChn].Playing)
+		{
+			ChnMask |= (1 << CurChn);
+			UsedChns ++;
+		}
+	}
+	if (ChannelMask != NULL)
+		*ChannelMask = ChnMask;
+	
+	return UsedChns;
 }
 
 

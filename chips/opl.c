@@ -340,6 +340,21 @@ static void operator_attack(op_type* op_pt)
 	op_pt->generator_pos -= num_steps_add*FIXEDPT;
 }
 
+static void operator_eg_attack_check(op_type* op_pt)
+{
+	if (((op_pt->cur_env_step + 1) & op_pt->env_step_a)==0)
+	{
+		// check if next step already reached
+		if (op_pt->a0 >= 1.0)
+		{
+			// attack phase finished, next: decay
+			op_pt->op_state = OF_TYPE_DEC;
+			op_pt->amp = 1.0;
+			op_pt->step_amp = 1.0;
+		}
+	}
+}
+
 
 typedef void (*optype_fptr)(op_type*);
 
@@ -562,7 +577,8 @@ static void disable_operator(op_type* op_pt, Bit32u act_type)
 }
 
 //void adlib_init(Bit32u samplerate)
-void* ADLIBEMU(init)(UINT32 clock, UINT32 samplerate)
+void* ADLIBEMU(init)(UINT32 clock, UINT32 samplerate,
+					 ADL_UPDATEHANDLER UpdateHandler, void* param)
 {
 	OPL_DATA* OPL;
 	//op_type* op;
@@ -574,6 +590,8 @@ void* ADLIBEMU(init)(UINT32 clock, UINT32 samplerate)
 	OPL = (OPL_DATA*)malloc(sizeof(OPL_DATA));
 	OPL->chip_clock = clock;
 	OPL->int_samplerate = samplerate;
+	OPL->UpdateHandler = UpdateHandler;
+	OPL->UpdateParam = param;
 
 	OPL->generator_add = (Bit32u)(INTFREQU*FIXEDPT/OPL->int_samplerate);
 
@@ -966,6 +984,8 @@ static void adlib_write(void *chip, Bitu idx, Bit8u val)
 	case ARC_KON_BNUM:
 		{
 		Bitu base;
+		if (OPL->UpdateHandler != NULL)	// hack for DOSBox logs
+			OPL->UpdateHandler(OPL->UpdateParam);
 		if (idx == ARC_PERC_MODE)
 		{
 #if defined(OPLTYPE_IS_OPL3)
@@ -1246,6 +1266,33 @@ void ADLIBEMU(getsample)(void *chip, INT32** sndptr, INT32 numsamples)
 	if ((OPL->adlibreg[0x105]&1)==0) max_channel = NUM_CHANNELS/2;
 #endif
 	
+	if (! samples_to_process)
+	{
+		for (cur_ch = 0; cur_ch < max_channel; cur_ch ++)
+		{
+			if ((OPL->adlibreg[ARC_PERC_MODE] & 0x20) && (cur_ch >= 6 && cur_ch < 9))
+				continue;
+			
+#if defined(OPLTYPE_IS_OPL3)
+			if (cur_ch < 9)
+				cptr = &OPL->op[cur_ch];
+			else
+				cptr = &OPL->op[cur_ch+9];	// second set is operator18-operator35
+			if (cptr->is_4op_attached)
+				continue;
+#else
+			cptr = &OPL->op[cur_ch];
+#endif
+			
+			if (cptr[0].op_state == OF_TYPE_ATT)
+				operator_eg_attack_check(&cptr[0]);
+			if (cptr[9].op_state == OF_TYPE_ATT)
+				operator_eg_attack_check(&cptr[9]);
+		}
+		
+		return;
+	}
+	
 	for (cursmp=0; cursmp<samples_to_process; cursmp+=endsamples)
 	{
 		endsamples = samples_to_process-cursmp;
@@ -1280,6 +1327,8 @@ void ADLIBEMU(getsample)(void *chip, INT32** sndptr, INT32 numsamples)
 
 		if (OPL->adlibreg[ARC_PERC_MODE]&0x20)
 		{
+			if (! (OPL->MuteChn[NUM_CHANNELS + 0]))
+			{
 			//BassDrum
 			cptr = &OPL->op[6];
 			if (OPL->adlibreg[ARC_FEEDBACK+6]&1)
@@ -1362,9 +1411,10 @@ void ADLIBEMU(getsample)(void *chip, INT32** sndptr, INT32 numsamples)
 					}
 				}
 			}
+			}	// end if (! Muted)
 
 			//TomTom (j=8)
-			if (OPL->op[8].op_state != OF_TYPE_OFF)
+			if (! (OPL->MuteChn[NUM_CHANNELS + 2]) && OPL->op[8].op_state != OF_TYPE_OFF)
 			{
 				cptr = &OPL->op[8];
 				if (cptr[0].vibrato)
@@ -1445,14 +1495,29 @@ void ADLIBEMU(getsample)(void *chip, INT32** sndptr, INT32 numsamples)
 					
 					operator_advance_drums(OPL, &OPL->op[7],vibval1[i],&OPL->op[7+9],vibval2[i],&OPL->op[8+9],vibval4[i]);
 
-					opfuncs[OPL->op[7].op_state](&OPL->op[7]);			//Hihat
-					operator_output(&OPL->op[7],0,tremval1[i]);
+					if (! (OPL->MuteChn[NUM_CHANNELS + 4]))
+					{
+						opfuncs[OPL->op[7].op_state](&OPL->op[7]);			//Hihat
+						operator_output(&OPL->op[7],0,tremval1[i]);
+					}
+					else
+						OPL->op[7].cval = 0;
 
-					opfuncs[OPL->op[7+9].op_state](&OPL->op[7+9]);		//Snare
-					operator_output(&OPL->op[7+9],0,tremval2[i]);
+					if (! (OPL->MuteChn[NUM_CHANNELS + 1]))
+					{
+						opfuncs[OPL->op[7+9].op_state](&OPL->op[7+9]);		//Snare
+						operator_output(&OPL->op[7+9],0,tremval2[i]);
+					}
+					else
+						OPL->op[7+9].cval = 0;
 
-					opfuncs[OPL->op[8+9].op_state](&OPL->op[8+9]);		//Cymbal
-					operator_output(&OPL->op[8+9],0,tremval4[i]);
+					if (! (OPL->MuteChn[NUM_CHANNELS + 3]))
+					{
+						opfuncs[OPL->op[8+9].op_state](&OPL->op[8+9]);		//Cymbal
+						operator_output(&OPL->op[8+9],0,tremval4[i]);
+					}
+					else
+						OPL->op[8+9].cval = 0;
 
 					chanval = (OPL->op[7].cval + OPL->op[7+9].cval + OPL->op[8+9].cval)*2;
 					CHANVAL_OUT
@@ -1463,7 +1528,10 @@ void ADLIBEMU(getsample)(void *chip, INT32** sndptr, INT32 numsamples)
 		for (cur_ch=max_channel-1; cur_ch>=0; cur_ch--)
 		{
 			Bitu k;
-			
+
+			if (OPL->MuteChn[cur_ch])
+				continue;
+
 			// skip drum/percussion operators
 			if ((OPL->adlibreg[ARC_PERC_MODE]&0x20) && (cur_ch >= 6) && (cur_ch < 9)) continue;
 
@@ -1932,4 +2000,16 @@ void ADLIBEMU(getsample)(void *chip, INT32** sndptr, INT32 numsamples)
 #endif*/
 
 	}
+}
+
+void ADLIBEMU(set_mute_mask)(void *chip, UINT32 MuteMask)
+{
+	OPL_DATA* OPL = (OPL_DATA*)chip;
+	
+	UINT8 CurChn;
+	
+	for (CurChn = 0; CurChn < NUM_CHANNELS + 5; CurChn ++)
+		OPL->MuteChn[CurChn] = (MuteMask >> CurChn) & 0x01;
+	
+	return;
 }

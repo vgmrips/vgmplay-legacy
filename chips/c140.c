@@ -503,9 +503,11 @@ int device_start_c140(UINT8 ChipID, int clock, int banking_type)
 	
 	//info->sample_rate=info->baserate=device->clock();
 	info->sample_rate = info->baserate = clock;
-	if ((CHIP_SAMPLING_MODE == 0x01 && info->sample_rate < CHIP_SAMPLE_RATE) ||
+	if (((CHIP_SAMPLING_MODE & 0x01) && info->sample_rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		info->sample_rate = CHIP_SAMPLE_RATE;
+	if (info->sample_rate >= 0x1000000)	// limit to 16 MHz sample rate (32 MB buffer)
+		return 0;
 
 	//info->banking_type = intf->banking_type;
 	info->banking_type = banking_type;

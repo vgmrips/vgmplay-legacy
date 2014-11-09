@@ -17,6 +17,7 @@ typedef struct waveform_32bit_stereo
 void VGMPlay_Init(void);
 void VGMPlay_Init2(void);
 void VGMPlay_Deinit(void);
+char* FindFile(const char* FileName);
 
 UINT32 GetGZFileLength(const char* FileName);
 bool OpenVGMFile(const char* FileName);
@@ -28,6 +29,9 @@ UINT32 CalcSampleMSecExt(UINT64 Value, UINT8 Mode, VGM_HEADER* FileHead);
 const char* GetChipName(UINT8 ChipID);
 const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType);
 UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType);
+
+INT32 SampleVGM2Playback(INT32 SampleVal);
+INT32 SamplePlayback2VGM(INT32 SampleVal);
 
 void PlayVGM(void);
 void StopVGM(void);

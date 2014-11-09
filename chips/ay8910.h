@@ -62,6 +62,7 @@ YMZ294: 0 I/O port
 /* TODO: implement mixing module */
 #define AY8910_RAW_OUTPUT			(8)
 
+#define AY8910_ZX_STEREO			0x80
 /*
 * This define specifies the initial state of YM2149
 * pin 26 (SEL pin). By default it is set to high,
@@ -88,17 +89,17 @@ struct _ay8910_interface
 /*READ8_DEVICE_HANDLER( ay8910_r );
 WITE8_DEVICE_HANDLER( ay8910_address_w );
 WRITE8_DEVICE_HANDLER( ay8910_data_w );*/
-UINT8 ay8910_r(UINT8 ChipID, offs_t offset);
+/*UINT8 ay8910_r(UINT8 ChipID, offs_t offset);
 void ay8910_address_w(UINT8 ChipID, offs_t offset, UINT8 data);
-void ay8910_data_w(UINT8 ChipID, offs_t offset, UINT8 data);
+void ay8910_data_w(UINT8 ChipID, offs_t offset, UINT8 data);*/
 
 /* use this when BC1 == A0; here, BC1=0 selects 'data' and BC1=1 selects 'latch address' */
 //WRITE8_DEVICE_HANDLER( ay8910_data_address_w );
-void ay8910_data_address_w(UINT8 ChipID, offs_t offset, UINT8 data);
+//void ay8910_data_address_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
 /* use this when BC1 == !A0; here, BC1=0 selects 'latch address' and BC1=1 selects 'data' */
 //WRITE8_DEVICE_HANDLER( ay8910_address_data_w );
-void ay8910_address_data_w(UINT8 ChipID, offs_t offset, UINT8 data);
+//void ay8910_address_data_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
 
 /*********** An interface for SSG of YM2203 ***********/
@@ -112,14 +113,15 @@ void ay8910_set_clock_ym(void *chip, int clock);
 void ay8910_write_ym(void *chip, int addr, int data);
 int ay8910_read_ym(void *chip);
 
-void ay8910_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
+//void ay8910_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
 void ay8910_update_one(void *param, stream_sample_t **outputs, int samples);
-int device_start_ay8910(UINT8 ChipID, int clock, unsigned char chip_type, unsigned char Flags);
+int ay8910_start(void **chip, int clock, UINT8 chip_type, UINT8 Flags);
+/*int device_start_ay8910(UINT8 ChipID, int clock, unsigned char chip_type, unsigned char Flags);
 void device_stop_ay8910(UINT8 ChipID);
-void device_reset_ay8910(UINT8 ChipID);
+void device_reset_ay8910(UINT8 ChipID);*/
 
 void ay8910_set_mute_mask_ym(void *chip, UINT32 MuteMask);
-void ay8910_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
+//void ay8910_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
 
 /*DEVICE_GET_INFO( ay8910 );
 DEVICE_GET_INFO( ay8912 );

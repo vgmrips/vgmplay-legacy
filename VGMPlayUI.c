@@ -1,8 +1,16 @@
+// TODO: Check codepage stuff (SetConsoleCP) - it looks like I don't need printc anymore
 // VGMPlayUI.c: C Source File for the Console User Interface
+
+// Note: In order to make MS VC6 NOT crash when using fprintf with stdout, stderr, etc.
+//		 if linked to msvcrt.lib, the following project setting is important:
+//		 C/C++ -> Code Generation -> Runtime libraries: Multithreaded DLL
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdarg.h>
+#include <wchar.h>
+#include <locale.h>	// for setlocale
 #include "stdbool.h"
 #include <math.h>
 
@@ -10,15 +18,16 @@
 #include <conio.h>
 #include <windows.h>
 #else
-#include <string.h>
-#include <ctype.h>
-#include <wchar.h>
-#include <limits.h>
+#include <limits.h>	// for PATH_MAX
 #include <termios.h>
-#include <pthread.h>
-#include <time.h>
-#include <unistd.h>
+#include <unistd.h>	// for STDIN_FILENO and usleep()
+#include <sys/time.h>	// for struct timeval in _kbhit()
+
+#define	Sleep(msec)	usleep(msec * 1000)
+#define _vsnwprintf	vswprintf
 #endif
+
+#define printerr(x)	fprintf(stderr, x)
 
 #include "chips/mamedef.h"
 
@@ -27,7 +36,7 @@
 #include "VGMPlay_Intf.h"
 
 #ifdef XMAS_EXTRA
-#include "XMasBonus.h"
+#include "XMasFiles/XMasBonus.h"
 #endif
 
 #ifndef WIN32
@@ -42,38 +51,57 @@ void WaveOutLinuxCallBack(void);
 #define DIR_CHR		'/'
 #define DIR_STR		"/"
 #define QMARK_CHR	'\''
+
+#ifndef SHARE_PREFIX
+#define SHARE_PREFIX	"/usr/local"
 #endif
+
+#endif
+
+#define APP_NAME	"VGM Player"
+#define APP_NAME_L	L"VGM Player"
 
 
 int main(int argc, char* argv[]);
+static void RemoveNewLines(char* String);
 static void RemoveQuotationMarks(char* String);
+static char* GetLastDirSeparator(const char* FilePath);
+static bool IsAbsolutePath(const char* FilePath);
+static char* GetFileExtention(const char* FilePath);
+static void StandardizeDirSeparators(char* FilePath);
 #ifdef WIN32
-static void FixFilenameCodepage(char* FileName);
 static void WinNT_Check(void);
 #endif
 static char* GetAppFileName(void);
-void cls(void);
+static void cls(void);
 #ifndef WIN32
-void changemode(bool);
-int _kbhit(void);
-int _getch(void);
-static void Sleep(UINT32 msec);
+static void changemode(bool);
+static int _kbhit(void);
+static int _getch(void);
 #endif
 static INT8 stricmp_u(const char *string1, const char *string2);
 static INT8 strnicmp_u(const char *string1, const char *string2, size_t count);
 static void ReadOptions(const char* AppName);
 static bool GetBoolFromStr(const char* TextStr);
-#ifdef XMAS_EXTRA
+#if defined(XMAS_EXTRA)
 static bool XMas_Extra(char* FileName, bool Mode);
+#endif
+#ifndef WIN32
+static void ConvertCP1252toUTF8(char** DstStr, const char* SrcStr);
 #endif
 static bool OpenPlayListFile(const char* FileName);
 static bool OpenMusicFile(const char* FileName);
 extern bool OpenVGMFile(const char* FileName);
 extern bool OpenOtherFile(const char* FileName);
 
-static char CharConversion(char Char, UINT8 Mode);
-static void printc(const char* format, ...);
+//#ifdef WIN32
+//static void printc(const char* format, ...);
+//#else
+#define	printc	printf
+//#endif
+static void wprintc(const wchar_t* format, ...);
 static void PrintChipStr(UINT8 ChipID, UINT8 SubType, UINT32 Clock);
+static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag);
 static void ShowVGMTag(void);
 
 static void PlayVGM_UI(void);
@@ -82,13 +110,12 @@ static long int Round(double Value);
 static double RoundSpecial(double Value, double RoundTo);
 static void PrintMinSec(UINT32 SamplePos, UINT32 SmplRate);
 
-INLINE INT32 SampleVGM2Playback(INT32 SampleVal);
-INLINE INT32 SamplePlayback2VGM(INT32 SampleVal);
-
 
 // Options Variables
-extern UINT32 SampleRate;	// Note: also used by some sound cores to determinate the chip sample rate
+extern UINT32 SampleRate;	// Note: also used by some sound cores to
+							//       determinate the chip sample rate
 
+extern UINT32 VGMPbRate;
 extern UINT32 VGMMaxLoop;
 extern UINT32 CMFMaxLoop;
 UINT32 FadeTimeN;	// normal fade time
@@ -97,14 +124,16 @@ extern UINT32 FadeTime;
 UINT32 PauseTimeJ;	// Pause Time for Jingles
 UINT32 PauseTimeL;	// Pause Time for Looping Songs
 extern UINT32 PauseTime;
+static UINT8 Show95Cmds;
 
 extern float VolumeLevel;
 extern bool SurroundSound;
 extern bool FadeRAWLog;
-UINT8 LogToWave;
-extern bool FullBufFill;
-bool PauseEmulate;
-UINT16 ForceAudioBuf;
+static UINT8 LogToWave;
+//extern bool FullBufFill;
+extern bool PauseEmulate;
+extern bool DoubleSSGVol;
+static UINT16 ForceAudioBuf;
 
 extern UINT8 ResampleMode;	// 00 - HQ both, 01 - LQ downsampling, 02 - LQ both
 extern UINT8 CHIP_SAMPLING_MODE;
@@ -115,12 +144,13 @@ extern bool UseFM;
 extern bool FMForce;
 //extern bool FMAccurate;
 extern bool FMBreakFade;
+extern float FMVol;
 
 extern CHIPS_OPTION ChipOpts[0x02];
 
 
 extern bool ThreadPauseEnable;
-extern bool ThreadPauseConfrm;
+extern volatile bool ThreadPauseConfrm;
 extern bool ThreadNoWait;	// don't reset the timer
 extern UINT16 AUDIOBUFFERU;
 extern UINT32 SMPL_P_BUFFER;
@@ -131,25 +161,28 @@ extern UINT8 OPL_CHIPS;
 //extern bool WINNT_MODE;
 UINT8 NEED_LARGE_AUDIOBUFS;
 
-extern char* AppPathExt;
+extern char* AppPaths[8];
+static char AppPathBuffer[MAX_PATH * 2];
 
-char PLFileBase[MAX_PATH];
-char PLFileName[MAX_PATH];
-UINT32 PLFileCount;
-char** PlayListFile;
-UINT32 CurPLFile;
-UINT8 NextPLCmd;
-bool FirstInit;
+static char PLFileBase[MAX_PATH];
+static char PLFileName[MAX_PATH];
+static UINT32 PLFileCount;
+static char** PlayListFile;
+static UINT32 CurPLFile;
+static UINT8 NextPLCmd;
+static UINT8 PLMode;	// set to 1 to show Playlist text
+static bool FirstInit;
 extern bool AutoStopSkip;
 
-char VgmFileName[MAX_PATH];
-UINT8 FileMode;
+static char VgmFileName[MAX_PATH];
+static UINT8 FileMode;
 extern VGM_HEADER VGMHead;
 extern UINT32 VGMDataLen;
 extern UINT8* VGMData;
 extern GD3_TAG VGMTag;
+static PreferJapTag;
 
-extern bool PauseThread;
+extern volatile bool PauseThread;
 static bool StreamStarted;
 
 extern float MasterVol;
@@ -160,7 +193,7 @@ extern INT32 VGMSmplPlayed;
 extern INT32 VGMSampleRate;
 extern UINT32 BlocksSent;
 extern UINT32 BlocksPlayed;
-bool IsRAWLog;
+static bool IsRAWLog;
 extern bool EndPlay;
 extern bool PausePlay;
 extern bool FadePlay;
@@ -173,7 +206,7 @@ extern UINT32 FadeStart;
 extern UINT32 VGMMaxLoopM;
 extern UINT32 VGMCurLoop;
 extern float VolumeLevelM;
-bool ErrorHappened;
+bool ErrorHappened;	// used by VGMPlay.c and VGMPlay_AddFmts.c
 extern float FinalVol;
 extern bool ResetPBTimer;
 
@@ -186,25 +219,63 @@ UINT8 CmdList[0x100];
 
 //extern UINT8 DISABLE_YMZ_FIX;
 extern UINT8 IsVGMInit;
+extern UINT16 Last95Drum;	// for optvgm debugging
+extern UINT16 Last95Max;	// for optvgm debugging
+extern UINT32 Last95Freq;	// for optvgm debugging
 
 static bool PrintMSHours;
 
 int main(int argc, char* argv[])
 {
-	const char* AppName;
-#ifdef XMAS_EXTRA
+	int argbase;
+	int ErrRet;
+	char* AppName;
+#if defined(XMAS_EXTRA)
 	bool XMasEnable;
 #endif
+	char* AppPathPtr;
+	const char* StrPtr;
 	const char* FileExt;
+	UINT8 CurPath;
+	UINT32 ChrPos;
+	INT32 OldCP;
+	
+	// set locale to "current system locale"
+	// (makes Unicode characters (like umlauts) work under Linux and fixes some
+	//  Unicode -> ANSI conversions)
+	setlocale(LC_CTYPE, "");
 	
 #ifndef WIN32
 	tcgetattr(STDIN_FILENO, &oldterm);
 	termmode = false;
 #endif
 	
-	printf("VGM Player");
+	if (argc > 1)
+	{
+		if (! stricmp_u(argv[1], "-v") || ! stricmp_u(argv[1], "--version"))
+		{
+			printf("VGMPlay %s"
+#if defined(APLHA)
+					" alpha"
+#elif defined(BETA)
+					" beta"
+#endif
+					", supports VGM %s\n", VGMPLAY_VER_STR, VGM_VER_STR);
+			return 0;
+		}
+	}
+	
+#ifdef SET_CONSOLE_TITLE
+#ifdef WIN32
+	SetConsoleTitle(APP_NAME);			// Set Windows Console Title
+#else
+	printf("\x1B]0;%s\x07", APP_NAME);	// Set xterm/rxvt Terminal Title
+#endif
+#endif
+	
+	printf(APP_NAME);
 #ifdef XMAS_EXTRA
-	printf("- XMas Release");
+	printf(" - XMas Release");
 #endif
 	printf("\n----------\n");
 	
@@ -216,55 +287,193 @@ int main(int argc, char* argv[])
 	
 	VGMPlay_Init();
 	
-	//AppName = argv[0x00];
-	AppName = GetAppFileName();
-	FileExt = strrchr(AppName, DIR_CHR) + 0x01;
-	strncpy(AppPathExt, AppName, (int)(FileExt - AppName));
-	AppPathExt[FileExt - AppName] = 0x00;
-#ifdef _DEBUG
-	ReadOptions(FileExt);
-	AppPathExt[FileExt - AppName - 0x01] = 0x00;
-	FileExt = strrchr(AppPathExt, DIR_CHR) + 0x01;
-	AppPathExt[FileExt - AppPathExt] = 0x00;
-#else
-	ReadOptions(AppName);
+	// Note: Paths are checked from last to first.
+	CurPath = 0x00;
+	AppPathPtr = AppPathBuffer;
+#ifndef WIN32
+	// Path 1: global share directory
+	AppPaths[CurPath] = SHARE_PREFIX "/share/vgmplay/";
+	CurPath ++;
 #endif
+	
+	// Path 2: exe's directory
+	AppName = GetAppFileName();	// "C:\VGMPlay\VGMPlay.exe"
+	// Note: GetAppFileName always retuens native directory separators.
+	StrPtr = strrchr(AppName, DIR_CHR);
+	if (StrPtr != NULL)
+	{
+		ChrPos = StrPtr + 1 - AppName;
+		strncpy(AppPathPtr, AppName, ChrPos);
+		AppPathPtr[ChrPos] = 0x00;	// "C:\VGMPlay\"
+		AppPaths[CurPath] = AppPathPtr;
+		CurPath ++;
+		AppPathPtr += ChrPos + 1;
+	}
+	
+#ifndef WIN32
+	// Path 3: home directory
+	StrPtr = getenv("XDG_CONFIG_HOME");
+	if (StrPtr != NULL && StrPtr[0] == '\0')
+	{
+		strcpy(AppPathPtr, StrPtr);
+	}
+	else
+	{
+		StrPtr = getenv("HOME");
+		if (StrPtr != NULL)
+			strcpy(AppPathPtr, StrPtr);
+		else
+			strcpy(AppPathPtr, "");
+		strcat(AppPathPtr, "/.config");
+	}
+	strcat(AppPathPtr, "/vgmplay/");
+	AppPaths[CurPath] = AppPathPtr;
+	CurPath ++;
+	AppPathPtr += strlen(AppPathPtr) + 1;
+#endif
+	
+	// Path 4: working directory ("\0")
+	AppPathPtr[0] = '\0';
+	AppPaths[CurPath] = AppPathPtr;
+	CurPath ++;
+	
+#if 0	// set to 1 to print all selected search paths
+	CurPath = 0;
+	while(AppPaths[CurPath] != NULL)
+	{
+		printf("Path %u: %s\n", CurPath + 1, AppPaths[CurPath]);
+		CurPath ++;
+	}
+#endif
+	
+	ReadOptions(AppName);
 	VGMPlay_Init2();
 	
-	printf("\nFile Name:\t");
-	if (argc <= 0x01)
+	ErrRet = 0;
+	argbase = 0x01;
+	if (argc >= argbase + 0x01)
 	{
-		gets(VgmFileName);
+		if (! strnicmp_u(argv[argbase], "-LogSound:", 10))
+		{
+			LogToWave = (UINT8)strtoul(argv[argbase] + 10, NULL, 0);
+			argbase ++;
+		}
+	}
+	
+	printf("\nFile Name:\t");
+	if (argc <= argbase)
+	{
+#ifdef WIN32
+		OldCP = GetConsoleCP();
+		
+		// Set the Console Input Codepage to ANSI.
+		// The Output Codepage must be left at OEM, else the displayed characters are wrong.
+		ChrPos = GetACP();
+		ErrRet = SetConsoleCP(ChrPos);			// set input codepage
+		//ErrRet = SetConsoleOutputCP(ChrPos);	// set output codepage (would be a bad idea)
+		
+		fgets(VgmFileName, MAX_PATH, stdin);
+		
+		// Playing with the console font resets the Console Codepage to OEM, so I have to
+		// convert the file name in this case.
+		if (GetConsoleCP() == GetOEMCP())
+			OemToChar(VgmFileName, VgmFileName);	// OEM -> ANSI conversion
+		
+		// This fixes the display of non-ANSI characters.
+		ErrRet = SetConsoleCP(OldCP);
+		
+		// This codepage stuff drives me insane.
+		// Debug and Release build behave differently - WHAT??
+		//
+		// There a list of behaviours.
+		// Debug and Release were tested by dropping a file on it and via Visual Studio.
+		//
+		// Input CP 850, Output CP 850
+		//	Debug build:	Dynamite D³x
+		//	Release build:	Dynamite Düx
+		// Input CP 1252, Output CP 850
+		//	Debug build:	Dynamite D³x
+		//	Release build:	Dynamite D³x
+		// Input CP 850, Output CP 1252
+		//	Debug build:	Dynamite D³x [tag display wrong]
+		//	Release build:	Dynamite Düx [tag display wrong]
+		// Input CP 1252, Output CP 1252
+		//	Debug build:	Dynamite D³x [tag display wrong]
+		//	Release build:	Dynamite D³x [tag display wrong]
+#else
+		fgets(VgmFileName, MAX_PATH, stdin);
+#endif
+		
+		RemoveNewLines(VgmFileName);
 		RemoveQuotationMarks(VgmFileName);
 	}
 	else
 	{
-		strcpy(VgmFileName, argv[0x01]);
-		printf("%s\n", VgmFileName);
+		// The argument should already use the ANSI codepage.
+		strcpy(VgmFileName, argv[argbase]);
+		printc("%s\n", VgmFileName);
 	}
 	if (! strlen(VgmFileName))
-		return 0;
+		goto ExitProgram;
+	StandardizeDirSeparators(VgmFileName);
 	
-#ifdef WIN32
-	FixFilenameCodepage(VgmFileName);	// fix stupid DOS<->Windows Charset conflict
-#endif
-	
-#ifdef XMAS_EXTRA
+#if defined(XMAS_EXTRA)
 	XMasEnable = XMas_Extra(VgmFileName, 0x00);
 #endif
-	FileExt = strrchr(VgmFileName, '.');
+	
+#if 0
+	{	// Print hex characters of file name (for vgm-player script debugging)
+		const char* CurChr;
+		
+#ifdef WIN32
+		printf("Input CP: %d, Output CP: %d\n", GetConsoleCP(), GetConsoleOutputCP());
+#endif
+		printf("VgmFileName: ");
+		
+		CurChr = VgmFileName;
+		while(*CurChr != '\0')
+		{
+			printf("%02X ", (UINT8)*CurChr);
+			CurChr ++;
+		}
+		printf("%02X\n", (UINT8)*CurChr);
+		_getch();
+	}
+#endif
+#if 0
+	{	// strip spaces and \n (fixed bugs with vgm-player script with un-7z)
+		char* CurChr;
+		
+		// trim \n and spaces off
+		CurChr = strchr(VgmFileName, '\n');
+		if (CurChr != NULL)
+			*CurChr = '\0';
+		CurChr = VgmFileName + strlen(VgmFileName) - 1;
+		while(CurChr > VgmFileName && *CurChr == ' ')
+			*(CurChr --) = '\0';
+	}
+#endif
+	
 	FirstInit = true;
 	StreamStarted = false;
-	if (FileExt == NULL || stricmp_u(FileExt + 1, "m3u"))
+	FileExt = GetFileExtention(VgmFileName);
+	if (FileExt == NULL || stricmp_u(FileExt, "m3u"))
+		PLMode = 0x00;
+	else
+		PLMode = 0x01;
+	
+	if (! PLMode)
 	{
 		PLFileCount = 0x00;
 		CurPLFile = 0x00;
 		// no Play List File
 		if (! OpenMusicFile(VgmFileName))
 		{
-			printf("Error opening the file!\n");
-			_getch();
-			return 0;
+			printerr("Error opening the file!\n");
+			if (argv[0][1] == ':')
+				_getch();
+			ErrRet = 1;
+			goto ExitProgram;
 		}
 		printf("\n");
 		
@@ -283,27 +492,41 @@ int main(int argc, char* argv[])
 		strcpy(PLFileName, VgmFileName);
 		if (! OpenPlayListFile(PLFileName))
 		{
-			printf("Error opening the file!\n");
-			_getch();
-			return 0;
+			printerr("Error opening the playlist!\n");
+			if (argv[0][1] == ':')
+				_getch();
+			ErrRet = 1;
+			goto ExitProgram;
 		}
 		
 		for (CurPLFile = 0x00; CurPLFile < PLFileCount; CurPLFile ++)
 		{
-			cls();
-			printf("VGM Player");
-			printf("\n----------\n");
-			printf("\nPlaylist File:\t%s\n", PLFileName);
-			printf("Playlist Entry:\t%u / %u\t", CurPLFile + 1, PLFileCount);
-			printc("\nFile Name:\t%s\n", PlayListFile[CurPLFile]);
+			if (PLMode)
+			{
+				cls();
+				printf(APP_NAME);
+				printf("\n----------\n");
+				printc("\nPlaylist File:\t%s\n", PLFileName);
+				printf("Playlist Entry:\t%u / %u\n", CurPLFile + 1, PLFileCount);
+				printc("File Name:\t%s\n", PlayListFile[CurPLFile]);
+			}
 			
-			strcpy(VgmFileName, PLFileBase);
-			strcat(VgmFileName, PlayListFile[CurPLFile]);
+			if (IsAbsolutePath(PlayListFile[CurPLFile]))
+			{
+				strcpy(VgmFileName, PlayListFile[CurPLFile]);
+			}
+			else
+			{
+				strcpy(VgmFileName, PLFileBase);
+				strcat(VgmFileName, PlayListFile[CurPLFile]);
+			}
 			
 			if (! OpenMusicFile(VgmFileName))
 			{
 				printf("Error opening the file!\n");
 				_getch();
+				while(_kbhit())
+					_getch();
 				continue;
 			}
 			printf("\n");
@@ -335,7 +558,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	
-	if (ErrorHappened)
+	if (ErrorHappened && argv[0][1] == ':')
 	{
 		if (_kbhit())
 			_getch();
@@ -347,15 +570,35 @@ int main(int argc, char* argv[])
 	_getch();
 #endif
 	
-#ifdef XMAS_EXTRA
+ExitProgram:
+#if defined(XMAS_EXTRA)
 	if (XMasEnable)
 		XMas_Extra(VgmFileName, 0x01);
 #endif
 #ifndef WIN32
 	changemode(false);
+#ifdef SET_CONSOLE_TITLE
+//	printf("\x1B]0;${USER}@${HOSTNAME}: ${PWD/$HOME/~}\x07", APP_NAME);	// Reset xterm/rxvt Terminal Title
 #endif
+#endif
+	VGMPlay_Deinit();
+	free(AppName);
 	
-	return 0;
+	return ErrRet;
+}
+
+static void RemoveNewLines(char* String)
+{
+	char* StrPtr;
+	
+	StrPtr = String + strlen(String) - 1;
+	while(StrPtr >= String && (UINT8)*StrPtr < 0x20)
+	{
+		*StrPtr = '\0';
+		StrPtr --;
+	}
+	
+	return;
 }
 
 static void RemoveQuotationMarks(char* String)
@@ -375,54 +618,66 @@ static void RemoveQuotationMarks(char* String)
 	return;
 }
 
-#ifdef WIN32
-static void FixFilenameCodepage(char* FileName)
+static char* GetLastDirSeparator(const char* FilePath)
 {
-	FILE* hFile;
-	char* NewName;
-	char* CurChr;
-	char* NewChr;
+	char* SepPos1;
+	char* SepPos2;
 	
-	CurChr = FileName;
-	while(! (*CurChr & 0x80))
+	SepPos1 = strrchr(FilePath, '/');
+	SepPos2 = strrchr(FilePath, '\\');
+	if (SepPos1 < SepPos2)
+		return SepPos2;
+	else
+		return SepPos1;
+}
+
+static bool IsAbsolutePath(const char* FilePath)
+{
+#ifdef WIN32
+	if (FilePath[0] == '\0')
+		return false;	// empty string
+	if (FilePath[1] == ':')
+		return true;	// Device Path: C:\path
+	if (! strncmp(FilePath, "\\\\", 2))
+		return true;	// Network Path: \\computername\path
+#else
+	if (FilePath[0] == '/')
+		return true;	// absolute UNIX path
+#endif
+	return false;
+}
+
+static char* GetFileExtention(const char* FilePath)
+{
+	char* DirSepPos;
+	char* ExtDotPos;
+	
+	DirSepPos = GetLastDirSeparator(FilePath);
+	if (DirSepPos == NULL)
+		DirSepPos = (char*)FilePath;
+	ExtDotPos = strrchr(DirSepPos, '.');
+	if (ExtDotPos == NULL)
+		return NULL;
+	else
+		return ExtDotPos + 1;
+}
+
+static void StandardizeDirSeparators(char* FilePath)
+{
+	char* CurChr;
+	
+	CurChr = FilePath;
+	while(*CurChr != '\0')
 	{
-		if (! *CurChr)
-			return;	// only ASCII-Chars used
+		if (*CurChr == '\\' || *CurChr == '/')
+			*CurChr = DIR_CHR;
 		CurChr ++;
 	}
-	// Char 0x80-0xFF found
-	
-	hFile = fopen(FileName, "rb");
-	if (hFile != NULL)
-	{
-		fclose(hFile);
-		// File found - File Name OK
-		return;
-	}
-	
-	NewName = (char*)malloc(strlen(FileName) + 0x01);
-	
-	CurChr = FileName;
-	NewChr = NewName;
-	do
-	{
-		*NewChr = CharConversion(*CurChr, 0x01);
-		CurChr ++;	NewChr ++;
-	} while(*CurChr);
-	*NewChr = 0x00;
-	
-	hFile = fopen(NewName, "rb");
-	if (hFile != NULL)
-	{
-		fclose(hFile);
-		// File found - use converted File Name
-		strcpy(FileName, NewName);
-	}
-	free(NewName);
 	
 	return;
 }
 
+#ifdef WIN32
 static void WinNT_Check(void)
 {
 	OSVERSIONINFO VerInf;
@@ -467,13 +722,13 @@ static char* GetAppFileName(void)
 #ifdef WIN32
 	GetModuleFileName(NULL, AppPath, MAX_PATH);
 #else
-	readlink("/proc/self/exe", AppPath, PATH_MAX);
+	readlink("/proc/self/exe", AppPath, MAX_PATH);
 #endif
 	
 	return AppPath;
 }
 
-void cls(void)
+static void cls(void)
 {
 #ifdef WIN32
 	// CLS-Function from the MSDN Help
@@ -512,7 +767,7 @@ void cls(void)
 
 #ifndef WIN32
 
-void changemode(bool dir)
+static void changemode(bool dir)
 {
 	static struct termios newterm;
 	
@@ -534,7 +789,7 @@ void changemode(bool dir)
 	return;
 }
 
-int _kbhit(void)
+static int _kbhit(void)
 {
 	struct timeval tv;
 	fd_set rdfs;
@@ -558,7 +813,7 @@ int _kbhit(void)
 	return kbret;
 }
 
-int _getch(void)
+static int _getch(void)
 {
 	int ch;
 	bool needchg;
@@ -571,13 +826,6 @@ int _getch(void)
 		changemode(false);
 	
 	return ch;
-}
-
-static void Sleep(UINT32 msec)
-{
-	usleep(msec * 1000);
-	
-	return;
 }
 #endif
 
@@ -649,13 +897,15 @@ static void ReadOptions(const char* AppName)
 	{	0x04, 0x09, 0x06, 0x08, 0x10, 0x08, 0x03, 0x00,
 		0x00, 0x09, 0x09, 0x09, 0x12, 0x00, 0x0C, 0x08,
 		0x08, 0x00, 0x03, 0x04, 0x05, 0x1C, 0x00, 0x00,
-		0x04, 0x05, 0x08, 0x08, 0x18, 0x04, 0x04
+		0x04, 0x05, 0x08, 0x08, 0x18, 0x04, 0x04, 0x10,
+		0x20
 	};
 	const UINT8 CHN_MASK_CNT[CHIP_COUNT] =
 	{	0x04, 0x0E, 0x06, 0x08, 0x10, 0x08, 0x03, 0x06,
 		0x06, 0x0E, 0x0E, 0x0E, 0x17, 0x18, 0x0C, 0x08,
 		0x08, 0x00, 0x03, 0x04, 0x05, 0x1C, 0x00, 0x00,
-		0x04, 0x05, 0x08, 0x08, 0x18, 0x04, 0x04
+		0x04, 0x05, 0x08, 0x08, 0x18, 0x04, 0x04, 0x10,
+		0x20
 	};
 	char* FileName;
 	FILE* hFile;
@@ -667,6 +917,7 @@ static void ReadOptions(const char* AppName)
 	UINT8 IniSection;
 	UINT8 CurChip;
 	CHIP_OPTS* TempCOpt;
+	CHIP_OPTS* TempCOpt2;
 	UINT8 CurChn;
 	char* TempPnt;
 	bool TempFlag;
@@ -675,38 +926,57 @@ static void ReadOptions(const char* AppName)
 	FadeTimeN = FadeTime;
 	PauseTimeJ = PauseTime;
 	PauseTimeL = 0;
+	Show95Cmds = 0x00;
 	LogToWave = 0x00;
 	ForceAudioBuf = 0x00;
+	PreferJapTag = false;
 	
 	if (AppName == NULL)
 	{
-		printf("Argument \"Application-Path\" is NULL!\nSkip loading INI.\n");
+		printerr("Argument \"Application-Path\" is NULL!\nSkip loading INI.\n");
 		return;
 	}
-	FileName = (char*)malloc(strlen(AppName) + 0x05);	// ".ini" + 00
-	strcpy(FileName, AppName);
-	LStr = strrchr(FileName, '.');
-	RStr = strrchr(FileName, DIR_CHR);
-	if (LStr <= RStr)
-	{
-		LStr = FileName + strlen(FileName);
-		*LStr = '.';
-	}
-	strcpy(LStr + 0x01, "ini");
 	
+	// AppName: "C:\VGMPlay\VGMPlay.exe"
+	RStr = strrchr(AppName, DIR_CHR);
+	if (RStr != NULL)
+		RStr ++;
+	else
+		RStr = (char*)AppName;
+	FileName = (char*)malloc(strlen(RStr) + 0x05);	// ".ini" + 00
+	strcpy(FileName, RStr);
+	// FileName: "VGMPlay.exe"
+	
+	RStr = GetFileExtention(FileName);
+	if (RStr == NULL)
+	{
+		RStr = FileName + strlen(FileName);
+		*RStr = '.';
+		RStr ++;
+	}
+	strcpy(RStr, "ini");
+	// FileName: "VGMPlay.ini"
+	
+	LStr = FileName;
+	FileName = FindFile(LStr);
+	free(LStr);
+	if (FileName == NULL)
+	{
+		// on Linux platforms, it searches for "vgmplay.ini" first and
+		// file names are case sensitive
+		FileName = FindFile("VGMPlay.ini");
+	}
+	if (FileName == NULL)
+	{
+		printerr("Failed to load INI.\n");
+		return;
+	}
 	hFile = fopen(FileName, "rt");
+	free(FileName);
 	if (hFile == NULL)
 	{
-		if (RStr == NULL)
-			LStr = FileName;
-		else
-			LStr = RStr + 0x01;
-		hFile = fopen(LStr, "rt");
-		if (hFile == NULL)
-		{
-			printf("Failed to load INI.\n");
-			return;
-		}
+		printerr("Failed to load INI.\n");
+		return;
 	}
 	
 	IniSection = 0x00;
@@ -797,6 +1067,18 @@ static void ReadOptions(const char* AppName)
 				{
 					SampleRate = strtoul(RStr, NULL, 0);
 				}
+				else if (! stricmp_u(LStr, "PlaybackRate"))
+				{
+					VGMPbRate = strtoul(RStr, NULL, 0);
+				}
+				else if (! stricmp_u(LStr, "DoubleSSGVol"))
+				{
+					DoubleSSGVol = GetBoolFromStr(RStr);
+				}
+				else if (! stricmp_u(LStr, "PreferJapTag"))
+				{
+					PreferJapTag = GetBoolFromStr(RStr);
+				}
 				else if (! stricmp_u(LStr, "FadeTime"))
 				{
 					FadeTimeN = strtoul(RStr, NULL, 0);
@@ -856,6 +1138,10 @@ static void ReadOptions(const char* AppName)
 				{
 					PauseEmulate = GetBoolFromStr(RStr);
 				}
+				else if (! stricmp_u(LStr, "ShowStreamCmds"))
+				{
+					Show95Cmds = (UINT8)strtol(RStr, NULL, 0);
+				}
 				else if (! stricmp_u(LStr, "FMPort"))
 				{
 					FMPort = (UINT16)strtoul(RStr, NULL, 16);
@@ -863,6 +1149,10 @@ static void ReadOptions(const char* AppName)
 				else if (! stricmp_u(LStr, "FMForce"))
 				{
 					FMForce = GetBoolFromStr(RStr);
+				}
+				else if (! stricmp_u(LStr, "FMVolume"))
+				{
+					FMVol = (float)strtod(RStr, NULL);
 				}
 				/*else if (! stricmp_u(LStr, "AccurateFM"))
 				{
@@ -905,7 +1195,8 @@ static void ReadOptions(const char* AppName)
 			case 0x9D:	// K053260
 			case 0x9E:	// Pokey
 			case 0x9F:	// QSound
-				CurChip = IniSection & 0x1F;
+			case 0xA0:	// SCSP
+				CurChip = IniSection & 0x7F;
 				TempCOpt = (CHIP_OPTS*)&ChipOpts[0x00] + CurChip;
 				
 				if (! stricmp_u(LStr, "Disabled"))
@@ -921,7 +1212,8 @@ static void ReadOptions(const char* AppName)
 					if (! CHN_COUNT[CurChip])
 						break;	// must use MuteMaskFM and MuteMask???
 					TempCOpt->ChnMute1 = strtoul(RStr, NULL, 0);
-					TempCOpt->ChnMute1 &= (1 << CHN_MASK_CNT[CurChip]) - 1;
+					if (CHN_MASK_CNT[CurChip] < 0x20)
+						TempCOpt->ChnMute1 &= (1 << CHN_MASK_CNT[CurChip]) - 1;
 				}
 				else if (! strnicmp_u(LStr, "MuteCh", 0x06))
 				{
@@ -960,6 +1252,12 @@ static void ReadOptions(const char* AppName)
 							TempFlag = GetBoolFromStr(RStr);
 							TempCOpt->SpecialFlags &= ~(0x01 << 1);
 							TempCOpt->SpecialFlags |= TempFlag << 1;
+						}
+						else if (! stricmp_u(LStr, "PseudoStereo"))
+						{
+							TempFlag = GetBoolFromStr(RStr);
+							TempCOpt->SpecialFlags &= ~(0x01 << 2);
+							TempCOpt->SpecialFlags |= TempFlag << 2;
 						}
 						break;
 					//case 0x03:	// YM2151
@@ -1097,7 +1395,7 @@ static void ReadOptions(const char* AppName)
 							CurChn = (UINT8)strtol(LStr + 0x08, &TempPnt, 0);
 							if (TempPnt == NULL || *TempPnt)
 								break;
-							if (CurChn >= CHN_COUNT[CurChip])
+							if (CurChn >= CHN_MASK_CNT[CurChip])
 								break;
 							TempFlag = GetBoolFromStr(RStr);
 							TempCOpt->ChnMute2 &= ~(0x01 << CurChn);
@@ -1134,7 +1432,52 @@ static void ReadOptions(const char* AppName)
 							TempCOpt->SpecialFlags |= TempFlag << 2;
 						}
 						break;
-					//case 0x14:	// NES
+					case 0x14:	// NES
+						if (! stricmp_u(LStr, "SharedOpts"))
+						{
+							// 2 bits
+							TempLng = (UINT32)strtol(RStr, NULL, 0) & 0x03;
+							TempCOpt->SpecialFlags &= ~(0x03 << 0) & 0x7FFF;
+							TempCOpt->SpecialFlags |= TempLng << 0;
+						}
+						else if (! stricmp_u(LStr, "APUOpts"))
+						{
+							// 2 bits
+							TempLng = (UINT32)strtol(RStr, NULL, 0) & 0x03;
+							TempCOpt->SpecialFlags &= ~(0x03 << 2) & 0x7FFF;
+							TempCOpt->SpecialFlags |= TempLng << 2;
+						}
+						else if (! stricmp_u(LStr, "DMCOpts"))
+						{
+							// 8 bits (6 bits used)
+							TempLng = (UINT32)strtol(RStr, NULL, 0) & 0xFF;
+							TempCOpt->SpecialFlags &= ~(0xFF << 4) & 0x7FFF;
+							TempCOpt->SpecialFlags |= TempLng << 4;
+						}
+						else if (! stricmp_u(LStr, "FDSOpts"))
+						{
+							// 1 bit
+							TempLng = (UINT32)strtol(RStr, NULL, 0) & 0x01;
+							TempCOpt->SpecialFlags &= ~(0x01 << 12) & 0x7FFF;
+							TempCOpt->SpecialFlags |= TempLng << 12;
+						}
+						break;
+					case 0x17:	// OKIM6258
+						if (! stricmp_u(LStr, "Enable10Bit"))
+						{
+							TempFlag = GetBoolFromStr(RStr);
+							TempCOpt->SpecialFlags &= ~(0x01 << 0);
+							TempCOpt->SpecialFlags |= TempFlag << 0;
+						}
+						break;
+					case 0x20:	// SCSP
+						if (! stricmp_u(LStr, "BypassDSP"))
+						{
+							TempFlag = GetBoolFromStr(RStr);
+							TempCOpt->SpecialFlags &= ~(0x01 << 0);
+							TempCOpt->SpecialFlags |= TempFlag << 0;
+						}
+						break;
 					}
 				}
 				break;
@@ -1143,7 +1486,18 @@ static void ReadOptions(const char* AppName)
 			}
 		}
 	}
-	ChipOpts[0x01] = ChipOpts[0x00];
+	
+	TempCOpt = (CHIP_OPTS*)&ChipOpts[0x00];
+	TempCOpt2 = (CHIP_OPTS*)&ChipOpts[0x01];
+	for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, TempCOpt ++, TempCOpt2 ++)
+	{
+		TempCOpt2->Disabled = TempCOpt->Disabled;
+		TempCOpt2->EmuCore = TempCOpt->EmuCore;
+		TempCOpt2->SpecialFlags = TempCOpt->SpecialFlags;
+		TempCOpt2->ChnMute1 = TempCOpt->ChnMute1;
+		TempCOpt2->ChnMute2 = TempCOpt->ChnMute2;
+		TempCOpt2->ChnMute3 = TempCOpt->ChnMute3;
+	}
 	
 	fclose(hFile);
 	
@@ -1166,7 +1520,7 @@ static bool GetBoolFromStr(const char* TextStr)
 		return strtol(TextStr, NULL, 0) ? true : false;
 }
 
-#ifdef XMAS_EXTRA
+#if defined(XMAS_EXTRA)
 static bool XMas_Extra(char* FileName, bool Mode)
 {
 	char* FileTitle;
@@ -1178,43 +1532,45 @@ static bool XMas_Extra(char* FileName, bool Mode)
 	{	// Prepare Mode
 		FileTitle = NULL;
 		XMasData = NULL;
-		if (! strnicmp_u(FileName, "WEWISH", 0x10))
+#ifdef XMAS_EXTRA
+		if (! stricmp_u(FileName, "WEWISH")
 		{
 			FileTitle = "WEWISH.CMF";
 			XMasSize = sizeof(WEWISH_CMF);
 			XMasData = WEWISH_CMF;
 		}
-		else if (! strnicmp_u(FileName, "tim7", 0x10))
+		else if (! stricmp_u(FileName, "tim7")
 		{
 			FileTitle = "lem_tim7.vgz";
 			XMasSize = sizeof(TIM7_VGZ);
 			XMasData = TIM7_VGZ;
 		}
-		else if (! strnicmp_u(FileName, "jingleb", 0x10))
+		else if (! stricmp_u(FileName, "jingleb")
 		{
 			FileTitle = "lxmas_jb.dro";
 			XMasSize = sizeof(JB_DRO);
 			XMasData = JB_DRO;
 		}
-		else if (! strnicmp_u(FileName, "rudolph", 0x10))
+		else if (! stricmp_u(FileName, "rudolph")
 		{
 			FileTitle = "rudolph.dro";
 			XMasSize = sizeof(RODOLPH_DRO);
 			XMasData = RODOLPH_DRO;
 		}
-		else if (! strnicmp_u(FileName, "clyde", 0x10))
+		else if (! stricmp_u(FileName, "clyde"))
 		{
 			FileTitle = "clyde1_1.dro";
 			XMasSize = sizeof(clyde1_1_dro);
 			XMasData = clyde1_1_dro;
 		}
+#endif
 		
 		if (XMasData)
 		{
 #ifdef WIN32
 			GetEnvironmentVariable("Temp", FileName, MAX_PATH);
 #else
-			FileName = "/tmp/"
+			strcpy(FileName, "/tmp");
 #endif
 			strcat(FileName, DIR_STR);
 			if (FileTitle == NULL)
@@ -1225,7 +1581,7 @@ static bool XMas_Extra(char* FileName, bool Mode)
 			if (hFile == NULL)
 			{
 				FileName[0x00] = 0x00;
-				printf("Critical XMas-Error!\n");
+				printerr("Critical XMas-Error!\n");
 				return false;
 			}
 			fwrite(XMasData, 0x01, XMasSize, hFile);
@@ -1248,10 +1604,76 @@ static bool XMas_Extra(char* FileName, bool Mode)
 }
 #endif
 
+#ifndef WIN32
+static void ConvertCP1252toUTF8(char** DstStr, const char* SrcStr)
+{
+	const UINT16 CONV_TBL[0x20] =
+	{	0x20AC, 0x0000, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,		// 80-87
+		0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x0000, 0x017D, 0x0000,		// 88-8F
+		0x0000, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,		// 90-97
+		0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x0000, 0x017E, 0x0178};	// 98-9F
+	UINT32 StrLen;
+	UINT16 UnicodeChr;
+	char* DstPtr;
+	const char* SrcPtr;
+	
+	SrcPtr = SrcStr;
+	StrLen = 0x00;
+	while(*SrcPtr != '\0')
+	{
+		if (*SrcPtr < 0x80 || *SrcPtr >= 0xA0)
+			UnicodeChr = *SrcPtr;
+		else
+			UnicodeChr = CONV_TBL[*SrcPtr - 0x80];
+		if (UnicodeChr < 0x0080)
+			StrLen ++;
+		else if (UnicodeChr < 0x0800)
+			StrLen += 2;
+		else
+			StrLen += 3;
+		SrcPtr ++;
+	}
+	
+	*DstStr = (char*)malloc((StrLen + 0x01) * sizeof(char));
+	SrcPtr = SrcStr;
+	DstPtr = *DstStr;
+	while(*SrcPtr != '\0')
+	{
+		if (*SrcPtr < 0x80 || *SrcPtr >= 0xA0)
+			UnicodeChr = (unsigned char)*SrcPtr;
+		else
+			UnicodeChr = CONV_TBL[*SrcPtr - 0x80];
+		if (UnicodeChr < 0x0080)
+		{
+			*DstPtr = UnicodeChr & 0xFF;
+			DstPtr ++;
+		}
+		else if (UnicodeChr < 0x0800)
+		{
+			DstPtr[0x00] = 0xC0 | ((UnicodeChr >> 6) & 0x1F);
+			DstPtr[0x01] = 0x80 | ((UnicodeChr >> 0) & 0x3F);
+			DstPtr += 0x02;
+		}
+		else
+		{
+			DstPtr[0x00] = 0xE0 | ((UnicodeChr >> 12) & 0x0F);
+			DstPtr[0x01] = 0x80 | ((UnicodeChr >>  6) & 0x3F);
+			DstPtr[0x02] = 0x80 | ((UnicodeChr >>  0) & 0x3F);
+			DstPtr += 0x03;
+		}
+		SrcPtr ++;
+	}
+	*DstPtr = '\0';
+	
+	return;
+}
+#endif
+
 static bool OpenPlayListFile(const char* FileName)
 {
 	const char M3UV2_HEAD[] = "#EXTM3U";
 	const char M3UV2_META[] = "#EXTINF:";
+	const UINT8 UTF8_SIG[] = {0xEF, 0xBB, 0xBF};
 	UINT32 METASTR_LEN;
 	
 	FILE* hFile;
@@ -1260,10 +1682,16 @@ static bool OpenPlayListFile(const char* FileName)
 	UINT32 PLAlloc;
 	char TempStr[0x1000];	// 4096 chars should be enough
 	char* RetStr;
+	bool IsUTF8;
 	
 	hFile = fopen(FileName, "rt");
 	if (hFile == NULL)
 		return false;
+	
+	fread(TempStr, 0x01, 0x03, hFile);
+	IsUTF8 = ! memcmp(TempStr, UTF8_SIG, 0x03);
+	
+	rewind(hFile);
 	
 	PLAlloc = 0x0100;
 	PLFileCount = 0x00;
@@ -1313,28 +1741,39 @@ static bool OpenPlayListFile(const char* FileName)
 			PlayListFile = (char**)realloc(PlayListFile, PLAlloc * sizeof(char*));
 		}
 		
+		// TODO:
+		//	- supprt UTF-8 m3us under Windows
+		//	- force IsUTF8 via Commandline
+#ifdef WIN32
+		// Windows uses the 1252 Codepage by default
 		PlayListFile[PLFileCount] = (char*)malloc((strlen(TempStr) + 0x01) * sizeof(char));
 		strcpy(PlayListFile[PLFileCount], TempStr);
+#else
+		if (! IsUTF8)
+		{
+			// Most recent Linux versions use UTF-8, so I need to convert all strings.
+			ConvertCP1252toUTF8(&PlayListFile[PLFileCount], TempStr);
+		}
+		else
+		{
+			PlayListFile[PLFileCount] = (char*)malloc((strlen(TempStr) + 0x01) * sizeof(char));
+			strcpy(PlayListFile[PLFileCount], TempStr);
+		}
+#endif
+		StandardizeDirSeparators(PlayListFile[PLFileCount]);
 		PLFileCount ++;
 		LineNo ++;
 	}
 	
 	fclose(hFile);
 	
-	RetStr = strrchr(FileName, DIR_CHR);
+	RetStr = GetLastDirSeparator(FileName);
 	if (RetStr != NULL)
 	{
 		RetStr ++;
-		strncpy(TempStr, FileName, RetStr - FileName);
-		TempStr[RetStr - FileName] = 0x00;
-/*#ifdef WIN32
-		SetCurrentDirectory(TempStr);
-#else
-		LineNo = chdir(TempStr);
-printf("Dir Change to: %s, Result %u\n", TempStr, LineNo);
-_getch();
-#endif*/
-		strcpy(PLFileBase, TempStr);
+		strncpy(PLFileBase, FileName, RetStr - FileName);
+		PLFileBase[RetStr - FileName] = '\0';
+		StandardizeDirSeparators(PLFileBase);
 	}
 	else
 	{
@@ -1354,62 +1793,14 @@ static bool OpenMusicFile(const char* FileName)
 	return false;
 }
 
-static char CharConversion(char Char, UINT8 Mode)
-{
-	// Mode	00	Windows -> DOS
-	//		01	DOS -> Windows
-	
-	// actually I'd like to use "char", not "UINT8", but that generates 128 warnings
-	UINT8 ConvTable[0x80] = {
-		0x00, 0x00, 0x27, 0x9F, 0x22, 0x2E, 0xC5, 0xCE,		// 80 - 87
-		0x5E, 0x25, 0x53, 0x3C, 0x4F, 0x00, 0x5A, 0x00,		// 88 - 8F
-		0x00, 0x27, 0x27, 0x22, 0x22, 0x07, 0x2D, 0x2D,		// 90 - 97
-		0x7E, 0x54, 0x73, 0x3E, 0x6F, 0x00, 0x7A, 0x59,		// 98 - 9F
-		0xFF, 0xAD, 0xBD, 0x9C, 0xCF, 0xBE, 0xDD, 0xF5,		// A0 - A7
-		0xF9, 0xB8, 0xA6, 0xAE, 0xAA, 0xF0, 0xA9, 0xEE,		// A8 - AF
-		0xF8, 0xF1, 0xFD, 0xFC, 0xEF, 0xE6, 0xF4, 0xFA,		// B0 - B7
-		0xF7, 0xFB, 0xA7, 0xAF, 0xAC, 0xAB, 0xF3, 0xA8,		// B8 - BF
-		0xB7, 0xB5, 0xB6, 0xC7, 0x8E, 0x8F, 0x92, 0x80,		// C0 - C7
-		0xD4, 0x90, 0xD2, 0xD3, 0xDE, 0xD6, 0xD7, 0xD8,		// C8 - CF
-		0xD1, 0xA5, 0xE3, 0xE0, 0xE2, 0xE5, 0x99, 0x9E,		// D0 - D7
-		0x9D, 0xEB, 0xE9, 0xEA, 0x9A, 0xED, 0xE8, 0xE1,		// D8 - DF
-		0x85, 0xA0, 0x83, 0xC6, 0x84, 0x86, 0x91, 0x87,		// E0 - E7
-		0x8A, 0x82, 0x88, 0x89, 0x8D, 0xA1, 0x8C, 0x8B,		// E8 - EF
-		0xD0, 0xA4, 0x95, 0xA2, 0x93, 0xE4, 0x94, 0xF6,		// F0 - F7
-		0x9B, 0x97, 0xA3, 0x96, 0x81, 0xEC, 0xE7, 0x98};	// F8 - FF
-	UINT8 CurChr;
-	
-	if (! (Char & 0x80))
-		return Char;
-	
-	switch(Mode)
-	{
-	case 0x00:
-		CurChr = Char & 0x7F;
-		if (ConvTable[CurChr])
-			return (char)ConvTable[CurChr];
-	case 0x01:
-		for (CurChr = 0x00; CurChr < 0x80; CurChr ++)
-		{
-			if (ConvTable[CurChr] == (UINT8)Char)
-				return (char)(0x80 | CurChr);
-		}
-		break;
-	}
-	
-	return 0x20;
-}
-
+/*#ifdef WIN32
+// "printc" initially meant "print correct, though "print console" would also make sense ;)
 static void printc(const char* format, ...)
 {
-#ifdef WIN32
 	int RetVal;
 	UINT32 BufSize;
 	char* printbuf;
 	va_list arg_list;
-	UINT32 CurPos;
-	
-	va_start(arg_list, format);
 	
 	BufSize = 0x00;
 	printbuf = NULL;
@@ -1417,26 +1808,70 @@ static void printc(const char* format, ...)
 	{
 		BufSize += 0x100;
 		printbuf = (char*)realloc(printbuf, BufSize);
+		va_start(arg_list, format);
 		RetVal = _vsnprintf(printbuf, BufSize - 0x01, format, arg_list);
-	} while(RetVal == -1);
-	CurPos = 0x00;
-	while(printbuf[CurPos])
-	{
-		printbuf[CurPos] = CharConversion(printbuf[CurPos], 0x00);
-		CurPos ++;
-	}
-	printbuf[CurPos] = 0x00;
+		va_end(arg_list);
+	} while(RetVal == -1 && BufSize < 0x1000);
+	
+	CharToOem(printbuf, printbuf);
 	
 	printf("%s", printbuf);
-	free(printbuf);
-	va_end(arg_list);
-#else
-	va_list arg_list;
 	
-	va_start(arg_list, format);
-	vprintf(format, arg_list);
-	va_end(arg_list);
+	free(printbuf);
+	
+	return;
+}
+#endif*/
+
+static void wprintc(const wchar_t* format, ...)
+{
+	va_list arg_list;
+	int RetVal;
+	UINT32 BufSize;
+	wchar_t* printbuf;
+#ifdef WIN32
+	UINT32 StrLen;
+	char* oembuf;
+	DWORD CPMode;
 #endif
+	
+	BufSize = 0x00;
+	printbuf = NULL;
+	do
+	{
+		BufSize += 0x100;
+		printbuf = (wchar_t*)realloc(printbuf, BufSize * sizeof(wchar_t));
+		
+		// Note: On Linux every vprintf call needs its own set of va_start/va_end commands.
+		//       Under Windows (with VC6) one only one block for all calls works, too.
+		va_start(arg_list, format);
+		RetVal = _vsnwprintf(printbuf, BufSize - 0x01, format, arg_list);
+		va_end(arg_list);
+	} while(RetVal == -1 && BufSize < 0x1000);
+#ifdef WIN32
+	StrLen = wcslen(printbuf);
+	
+	// This is the only way to print Unicode stuff to the Windows console.
+	// No, wprintf doesn't work.
+	RetVal = WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), printbuf, StrLen, &CPMode, NULL);
+	if (! RetVal)	// call failed (maybe not as ERROR_CALL_NOT_IMPLEMENTED on Win95?)
+	{
+		// fallback to printf with OEM codepage
+		oembuf = (char*)malloc(BufSize);
+		if (GetConsoleOutputCP() == GetOEMCP())
+			CPMode = CP_OEMCP;
+		else
+			CPMode = CP_ACP;
+		WideCharToMultiByte(CP_OEMCP, 0x00, printbuf, StrLen, oembuf, BufSize, NULL, NULL);
+		
+		printf("%s", oembuf);
+		free(oembuf);
+	}
+#else
+	printf("%ls", printbuf);
+#endif
+	
+	free(printbuf);
 	
 	return;
 }
@@ -1461,18 +1896,114 @@ static void PrintChipStr(UINT8 ChipID, UINT8 SubType, UINT32 Clock)
 	return;
 }
 
+static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag)
+{
+	const wchar_t* RetTag;
+	
+	if (EngTag == NULL || ! wcslen(EngTag))
+	{
+		RetTag = JapTag;
+	}
+	else if (JapTag == NULL || ! wcslen(JapTag))
+	{
+		RetTag = EngTag;
+	}
+	else
+	{
+		if (! PreferJapTag)
+			RetTag = EngTag;
+		else
+			RetTag = JapTag;
+	}
+	
+	if (RetTag == NULL)
+		return L"";
+	else
+		return RetTag;
+}
+
 static void ShowVGMTag(void)
 {
+	const wchar_t* TitleTag;
+	const wchar_t* GameTag;
+	const wchar_t* AuthorTag;
+	const wchar_t* SystemTag;
 	UINT8 CurChip;
 	UINT32 ChpClk;
 	UINT8 ChpType;
+	INT16 VolMod;
+#ifdef SET_CONSOLE_TITLE
+	wchar_t TitleStr[0x80];
+	UINT32 StrLen;
+#endif
 	
-	printc("Track Title:\t%ls\n", VGMTag.strTrackNameE);
-	printc("Game Name:\t%ls\n", VGMTag.strGameNameE);
-	printc("System:\t\t%ls\n", VGMTag.strSystemNameE);
-	printc("Composer:\t%ls\n", VGMTag.strAuthorNameE);
-	printf("Release:\t%ls\n", VGMTag.strReleaseDate);
-	printf("Version:\t%X.%02X\t\t", VGMHead.lngVersion >> 8, VGMHead.lngVersion & 0xFF);
+	TitleTag = GetTagStrEJ(VGMTag.strTrackNameE, VGMTag.strTrackNameJ);
+	GameTag = GetTagStrEJ(VGMTag.strGameNameE, VGMTag.strGameNameJ);
+	AuthorTag = GetTagStrEJ(VGMTag.strAuthorNameE, VGMTag.strAuthorNameJ);
+	SystemTag = GetTagStrEJ(VGMTag.strSystemNameE, VGMTag.strSystemNameJ);
+	
+#ifdef SET_CONSOLE_TITLE
+	// --- Show "Song (Game) - VGM Player" as Console Title ---
+	if (! wcslen(TitleTag))
+	{
+		char* TempPtr1;
+		char* TempPtr2;
+		
+		TempPtr1 = strrchr(VgmFileName, '\\');
+		TempPtr2 = strrchr(VgmFileName, '/');
+		if (TempPtr1 < TempPtr2)
+			TempPtr1 = TempPtr2;
+		if (TempPtr1 == NULL)
+			TempPtr1 = VgmFileName;
+		else
+			TempPtr1 ++;
+		//strncpy(TitleStr, TempPtr1, 0x70);
+		mbstowcs(TitleStr, TempPtr1, 0x7F);
+		TitleStr[0x70] = '\0';
+	}
+	else
+	{
+#if (defined(_MSC_VER) && _MSC_VER < 1400) || defined(__MINGW32__)
+		swprintf(TitleStr, L"%.*ls", 0x70, TitleTag);
+#else
+		swprintf(TitleStr, 0x80, L"%.*ls", 0x70, TitleTag);
+#endif
+	}
+	StrLen = wcslen(TitleStr);
+	
+	if (wcslen(GameTag) && StrLen < 0x6C)
+	{
+#if (defined(_MSC_VER) && _MSC_VER < 1400) || defined(__MINGW32__)
+		swprintf(TitleStr + StrLen, L" (%.*ls)", 0x70 - 3 - StrLen, GameTag);
+#else
+		swprintf(TitleStr + StrLen, 0x80, L" (%.*ls)", 0x70 - 3 - StrLen, GameTag);
+#endif
+		StrLen = wcslen(TitleStr);
+	}
+	
+	wcscat(TitleStr, L" - " APP_NAME_L);
+#ifdef WIN32
+	SetConsoleTitleW(TitleStr);			// Set Windows Console Title
+#else
+	printf("\x1B]0;%ls\x07", TitleStr);	// Set xterm/rxvt Terminal Title
+#endif
+#endif
+	
+	// --- Display Tag Data ---
+	if (VGMHead.bytVolumeModifier <= VOLUME_MODIF_WRAP)
+		VolMod = VGMHead.bytVolumeModifier;
+	else if (VGMHead.bytVolumeModifier == (VOLUME_MODIF_WRAP + 0x01))
+		VolMod = VOLUME_MODIF_WRAP - 0x100;
+	else
+		VolMod = VGMHead.bytVolumeModifier - 0x100;
+	
+	wprintc(L"Track Title:\t%ls\n", TitleTag);
+	wprintc(L"Game Name:\t%ls\n", GameTag);
+	wprintc(L"System:\t\t%ls\n", SystemTag);
+	wprintc(L"Composer:\t%ls\n", AuthorTag);
+	wprintc(L"Release:\t%ls\n", VGMTag.strReleaseDate);
+	printf("Version:\t%X.%02X\t", VGMHead.lngVersion >> 8, VGMHead.lngVersion & 0xFF);
+	printf("  Gain:%5.2f\t", pow(2.0, VolMod / (double)0x20));
 	printf("Loop: ");
 	if (VGMHead.lngLoopOffset)
 	{
@@ -1484,8 +2015,8 @@ static void ShowVGMTag(void)
 	{
 		printf("No\n");
 	}
-	printc("VGM by:\t\t%ls\n", VGMTag.strCreator);
-	printc("Notes:\t\t%ls\n", VGMTag.strNotes);
+	wprintc(L"VGM by:\t\t%ls\n", VGMTag.strCreator);
+	wprintc(L"Notes:\t\t%ls\n", VGMTag.strNotes);
 	printf("\n");
 	
 	printf("Used chips:\t");
@@ -1504,6 +2035,7 @@ static void ShowVGMTag(void)
 
 
 #define LOG_SAMPLES	(SampleRate / 5)
+UINT8 multipcm_get_channels(UINT8 ChipID, UINT32* ChannelMask);
 static void PlayVGM_UI(void)
 {
 	INT32 VGMPbSmplCount;
@@ -1560,7 +2092,7 @@ static void PlayVGM_UI(void)
 	case 0x00:	// VGM
 		// RAW Log: no loop, no Creator, System Name set
 		IsRAWLog = (! VGMHead.lngLoopOffset && ! wcslen(VGMTag.strCreator) &&
-					wcslen(VGMTag.strSystemNameE));
+					(wcslen(VGMTag.strSystemNameE) || wcslen(VGMTag.strSystemNameJ)));
 		break;
 	case 0x01:	// CMF
 		IsRAWLog = false;
@@ -1583,21 +2115,23 @@ static void PlayVGM_UI(void)
 		if (LogToWave)
 		{
 			strcpy(WavFileName, VgmFileName);
-			TempStr = strrchr(WavFileName, '.');
+			TempStr = GetFileExtention(WavFileName);
 			if (TempStr == NULL)
 				TempStr = WavFileName + strlen(WavFileName);
+			else
+				TempStr --;
 			strcpy(TempStr, ".wav");
 			
 			strcpy(SoundLogFile, WavFileName);
 		}
-		FullBufFill = ! LogToWave;
+		//FullBufFill = ! LogToWave;
 		
 		switch(LogToWave)
 		{
 		case 0x00:
 		case 0x02:
 			SoundLogging(LogToWave ? true : false);
-			if (LogToWave || (FirstInit || ! StreamStarted))
+			if (FirstInit || ! StreamStarted)
 			{
 				// support smooth transistions between songs
 				RetVal = StartStream(0x00);
@@ -1630,7 +2164,7 @@ static void PlayVGM_UI(void)
 		break;
 	case 0x01:
 		// PlayVGM() does it all
-		FullBufFill = true;
+		//FullBufFill = true;
 		break;
 	}
 	FirstInit = false;
@@ -1678,7 +2212,8 @@ static void PlayVGM_UI(void)
 			}
 			else
 			{
-				while(PlaySmpl < SampleVGM2Playback(VGMHead.lngTotalSamples - VGMHead.lngLoopSamples))
+				while(PlaySmpl < SampleVGM2Playback(VGMHead.lngTotalSamples -
+					VGMHead.lngLoopSamples))
 					PlaySmpl += SampleVGM2Playback(VGMHead.lngLoopSamples);
 			}
 			//if (PlaySmpl > VGMPbSmplCount)
@@ -1686,9 +2221,24 @@ static void PlayVGM_UI(void)
 			PrintMinSec(PlaySmpl, SampleRate);
 			printf(" / ");
 			PrintMinSec(VGMPbSmplCount, SampleRate);
-			printf(" seconds\r");
+			printf(" seconds");
+			if (Show95Cmds && Last95Max != 0xFFFF)
+			{
+				if (Show95Cmds == 0x01)
+					printf("  %02hX / %02hX", 1 + Last95Drum, Last95Max);
+				else if (Show95Cmds == 0x02)
+					printf("  %02hX / %02hX at %5u Hz", 1 + Last95Drum, Last95Max, Last95Freq);
+				else if (Show95Cmds == 0x03)
+					printf("  %02hX / %02hX at %4.1f KHz", 1 + Last95Drum, Last95Max,
+							Last95Freq / 1000.0);
+			}
+			//printf("  %u / %u", multipcm_get_channels(0, NULL), 28);
+			printf("\r");
+#ifndef WIN32
+			fflush(stdout);
+#endif
 			
-			if (LogToWave == 0x01)
+			if (LogToWave == 0x01 && ! PausePlay)
 			{
 				TempLng = FillBuffer(TempBuf, LOG_SAMPLES);
 				if (TempLng)
@@ -1699,7 +2249,7 @@ static void PlayVGM_UI(void)
 			else
 			{
 #ifdef WIN32
-				Sleep(20);
+				Sleep(50);
 #endif
 			}
 		}
@@ -1736,21 +2286,12 @@ static void PlayVGM_UI(void)
 		}
 		if (_kbhit())
 		{
-			KeyCode = toupper(_getch());
+			KeyCode = _getch();
+			if (KeyCode < 0x80)
+				KeyCode = toupper(KeyCode);
 			switch(KeyCode)
 			{
-#ifdef WIN32
-			case 0xE0:	// Special Key
-				// Cursor-Key Table
-				// Shift + Cursor results in the usual value for the Cursor Key
-				// Alt + Cursor results in 0x00 + (0x50 + CursorKey) (0x00 instead of 0xE0)
-				//	Key		None	Ctrl
-				//	Up		48		8D
-				//	Down	50		91
-				//	Left	4B		73
-				//	Right	4D		74
-				KeyCode = _getch();	// Get 2nd Key
-#else
+#ifndef WIN32
 			case 0x1B:	// Special Key
 				KeyCode = _getch();
 				if (KeyCode == 0x1B || KeyCode == 0x00)
@@ -1837,6 +2378,18 @@ static void PlayVGM_UI(void)
 						break;
 					}
 				}
+				// At this point I have Windows-style keys.
+#else	//#ifdef WIN32
+			case 0xE0:	// Special Key
+				// Cursor-Key Table
+				// Shift + Cursor results in the usual value for the Cursor Key
+				// Alt + Cursor results in 0x00 + (0x50 + CursorKey) (0x00 instead of 0xE0)
+				//	Key		None	Ctrl
+				//	Up		48		8D
+				//	Down	50		91
+				//	Left	4B		73
+				//	Right	4D		74
+				KeyCode = _getch();	// Get 2nd Key
 #endif
 				switch(KeyCode)
 				{
@@ -1879,11 +2432,12 @@ static void PlayVGM_UI(void)
 				}
 				break;
 #ifdef WIN32
-			case 0x1B:
+			case 0x1B:	// ESC
+#endif
+			case 'Q':
 				QuitPlay = true;
 				NextPLCmd = 0xFF;
 				break;
-#endif
 			case ' ':
 				PauseVGM(! PausePlay);
 				PosPrint = true;
@@ -1943,6 +2497,7 @@ static void PlayVGM_UI(void)
 			if (LastUninit)
 			{
 				StopStream();
+				StreamStarted = false;
 			}
 			else
 			{
@@ -1957,6 +2512,8 @@ static void PlayVGM_UI(void)
 				{
 					PauseThread = true;
 				}
+				if (LogToWave)
+					SaveFile(0xFFFFFFFF, NULL);
 			}
 			break;
 		case 0x01:
@@ -1966,12 +2523,16 @@ static void PlayVGM_UI(void)
 		break;
 	case 0x01:
 		if (StreamStarted)
+		{
 			StopStream();
+			StreamStarted = false;
+		}
 		break;
 	case 0x02:
 		if (LastUninit)
 		{
 			StopStream();
+			StreamStarted = false;
 #ifdef MIXER_MUTING
 #ifdef WIN32
 			mixerClose(hmixer);
@@ -2051,14 +2612,4 @@ static void PrintMinSec(UINT32 SamplePos, UINT32 SmplRate)
 	}
 	
 	return;
-}
-
-INLINE INT32 SampleVGM2Playback(INT32 SampleVal)
-{
-	return (INT32)((INT64)SampleVal * SampleRate / VGMSampleRate);
-}
-
-INLINE INT32 SamplePlayback2VGM(INT32 SampleVal)
-{
-	return (INT32)((INT64)SampleVal * VGMSampleRate / SampleRate);
 }

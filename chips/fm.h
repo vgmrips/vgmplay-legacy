@@ -233,5 +233,6 @@ int ym2612_timer_over(void *chip, int c );
 void ym2612_postload(void *chip);
 
 void ym2612_set_mutemask(void *chip, UINT32 MuteMask);
+void ym2612_setoptions(UINT8 Flags);
 #endif /* (BUILD_YM2612||BUILD_YM3438) */
 

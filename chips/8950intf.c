@@ -36,7 +36,7 @@ struct _y8950_state
 	//sound_stream *	stream;
 	//emu_timer *		timer[2];
 	void *			chip;
-	const y8950_interface *intf;
+	//const y8950_interface *intf;
 	//const device_config *device;
 };
 
@@ -91,31 +91,31 @@ static void TimerHandler(void *param,int c,int period)
 static unsigned char Y8950PortHandler_r(void *param)
 {
 	y8950_state *info = (y8950_state *)param;
-	if (info->intf->portread)
-		return info->intf->portread(0);
+	/*if (info->intf->portread)
+		return info->intf->portread(0);*/
 	return 0;
 }
 
 static void Y8950PortHandler_w(void *param,unsigned char data)
 {
 	y8950_state *info = (y8950_state *)param;
-	if (info->intf->portwrite)
-		info->intf->portwrite(0,data);
+	/*if (info->intf->portwrite)
+		info->intf->portwrite(0,data);*/
 }
 
 static unsigned char Y8950KeyboardHandler_r(void *param)
 {
 	y8950_state *info = (y8950_state *)param;
-	if (info->intf->keyboardread)
-		return info->intf->keyboardread(0);
+	/*if (info->intf->keyboardread)
+		return info->intf->keyboardread(0);*/
 	return 0;
 }
 
 static void Y8950KeyboardHandler_w(void *param,unsigned char data)
 {
 	y8950_state *info = (y8950_state *)param;
-	if (info->intf->keyboardwrite)
-		info->intf->keyboardwrite(0,data);
+	/*if (info->intf->keyboardwrite)
+		info->intf->keyboardwrite(0,data);*/
 }
 
 //static STREAM_UPDATE( y8950_stream_update )
@@ -126,7 +126,7 @@ void y8950_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	y8950_update_one(info->chip, outputs, samples);
 }
 
-static void _stream_update(void *param, int interval)
+static void _stream_update(void *param/*, int interval*/)
 {
 	y8950_state *info = (y8950_state *)param;
 	//stream_update(info->stream);
@@ -138,7 +138,7 @@ static void _stream_update(void *param, int interval)
 //static DEVICE_START( y8950 )
 int device_start_y8950(UINT8 ChipID, int clock)
 {
-	static const y8950_interface dummy = { 0 };
+	//static const y8950_interface dummy = { 0 };
 	//y8950_state *info = get_safe_token(device);
 	y8950_state *info;
 	int rate;
@@ -152,7 +152,7 @@ int device_start_y8950(UINT8 ChipID, int clock)
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	//info->intf = device->static_config ? (const y8950_interface *)device->static_config : &dummy;
-	info->intf = &dummy;
+	//info->intf = &dummy;
 	//info->device = device;
 
 	/* stream system initialize */

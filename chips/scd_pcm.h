@@ -1,6 +1,7 @@
 struct pcm_chip_
 {
 	float Rate;
+	int Smpl0Patch;
 	int Enable;
 	int Cur_Chan;
 	int Bank;

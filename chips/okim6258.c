@@ -27,6 +27,8 @@
 
 static const int dividers[4] = { 1024, 768, 512, 512 };
 
+#define QUEUE_SIZE	(1 << 1)
+#define QUEUE_MASK	(QUEUE_SIZE - 1)
 typedef struct _okim6258_state okim6258_state;
 struct _okim6258_state
 {
@@ -40,11 +42,26 @@ struct _okim6258_state
 	//sound_stream *stream;	/* which stream are we playing on? */
 
 	UINT8 output_bits;
+	INT32 output_mask;
+
+	// Valley Bell: Added a small queue to prevent race conditions.
+	UINT8 data_buf[2];
+	UINT8 data_buf_pos;
+	// Data Empty Values:
+	//	00 - data written, but not read yet
+	//	01 - read data, waiting for next write
+	//	02 - tried to read, but had no data
+	UINT8 data_empty;
+	// Valley Bell: Added pan
+	UINT8 pan;
+	INT32 last_smpl;
 
 	INT32 signal;
 	INT32 step;
 	
 	UINT8 clock_buffer[0x04];
+	UINT32 initial_clock;
+	UINT8 initial_div;
 };
 
 /* step size index shift table */
@@ -58,6 +75,7 @@ static int tables_computed = 0;
 
 #define MAX_CHIPS	0x02
 static okim6258_state OKIM6258Data[MAX_CHIPS];
+static UINT8 Iternal10Bit = 0x00;
 
 /*INLINE okim6258_state *get_safe_token(running_device *device)
 {
@@ -111,8 +129,8 @@ static void compute_tables(void)
 
 static INT16 clock_adpcm(okim6258_state *chip, UINT8 nibble)
 {
-	INT32 max = (1 << (chip->output_bits - 1)) - 1;
-	INT32 min = -(1 << (chip->output_bits - 1));
+	INT32 max = chip->output_mask - 1;
+	INT32 min = -chip->output_mask;
 
 	chip->signal += diff_lookup[chip->step * 16 + (nibble & 15)];
 
@@ -157,16 +175,57 @@ void okim6258_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		while (samples)
 		{
 			/* Compute the new amplitude and update the current step */
-			int nibble = (chip->data_in >> nibble_shift) & 0xf;
+			//int nibble = (chip->data_in >> nibble_shift) & 0xf;
+			int nibble;
+			INT16 sample;
+			
+			if (! nibble_shift)
+			{
+				// 1st nibble - get data
+				if (! chip->data_empty)
+				{
+					chip->data_in = chip->data_buf[chip->data_buf_pos >> 4];
+					chip->data_buf_pos ^= 0x10;
+					if ((chip->data_buf_pos >> 4) == (chip->data_buf_pos & 0x0F))
+						chip->data_empty ++;
+				}
+				else
+				{
+					chip->data_in = 0x80;
+					if (chip->data_empty < 0x80)
+						chip->data_empty ++;
+				}
+			}
+			nibble = (chip->data_in >> nibble_shift) & 0xf;
 
 			/* Output to the buffer */
-			INT16 sample = clock_adpcm(chip, nibble);
+			//INT16 sample = clock_adpcm(chip, nibble);
+			if (chip->data_empty < 0x02)
+			{
+				sample = clock_adpcm(chip, nibble);
+				chip->last_smpl = sample;
+			}
+			else
+			{
+				// Valley Bell: data_empty behaviour (loosely) ported from XM6
+				if (chip->data_empty >= 0x02 + 0x01)
+				{
+					chip->data_empty -= 0x01;
+					/*if (chip->signal < 0)
+						chip->signal ++;
+					else if (chip->signal > 0)
+						chip->signal --;*/
+					chip->signal = chip->signal * 15 / 16;
+					chip->last_smpl = chip->signal << 4;
+				}
+				sample = chip->last_smpl;
+			}
 
 			nibble_shift ^= 4;
 
 			//*buffer++ = sample;
-			*bufL++ = sample;
-			*bufR++ = sample;
+			*bufL++ = (chip->pan & 0x02) ? 0x00 : sample;
+			*bufR++ = (chip->pan & 0x01) ? 0x00 : sample;
 			samples--;
 		}
 
@@ -226,6 +285,8 @@ int device_start_okim6258(UINT8 ChipID, int clock, int divider, int adpcm_type, 
 	compute_tables();
 
 	//info->master_clock = device->clock();
+	info->initial_clock = clock;
+	info->initial_div = divider;
 	info->master_clock = clock;
 	info->adpcm_type = /*intf->*/adpcm_type;
 	info->clock_buffer[0x00] = (clock & 0x000000FF) >>  0;
@@ -235,6 +296,10 @@ int device_start_okim6258(UINT8 ChipID, int clock, int divider, int adpcm_type, 
 
 	/* D/A precision is 10-bits but 12-bit data can be output serially to an external DAC */
 	info->output_bits = /*intf->*/output_12bits ? 12 : 10;
+	if (Iternal10Bit)
+		info->output_mask = (1 << (info->output_bits - 1));
+	else
+		info->output_mask = (1 << (12 - 1));
 	info->divider = dividers[/*intf->*/divider];
 
 	//info->stream = stream_create(device, 0, 1, device->clock()/info->divider, info, okim6258_update);
@@ -268,10 +333,25 @@ void device_reset_okim6258(UINT8 ChipID)
 	okim6258_state *info = &OKIM6258Data[ChipID];
 
 	//stream_update(info->stream);
-
+	
+	info->master_clock = info->initial_clock;
+	info->clock_buffer[0x00] = (info->initial_clock & 0x000000FF) >>  0;
+	info->clock_buffer[0x01] = (info->initial_clock & 0x0000FF00) >>  8;
+	info->clock_buffer[0x02] = (info->initial_clock & 0x00FF0000) >> 16;
+	info->clock_buffer[0x03] = (info->initial_clock & 0xFF000000) >> 24;
+	info->divider = dividers[info->initial_div];
+	
+	
 	info->signal = -2;
 	info->step = 0;
 	info->status = 0;
+
+	// Valley Bell: Added reset of the Data In register.
+	info->data_in = 0x00;
+	info->data_buf[0] = info->data_buf[1] = 0x00;
+	info->data_buf_pos = 0x00;
+	info->data_empty = 0xFF;
+	info->pan = 0x00;
 }
 
 
@@ -343,7 +423,7 @@ int okim6258_get_vclk(UINT8 ChipID)
 ***********************************************************************************************/
 
 //READ8_DEVICE_HANDLER( okim6258_status_r )
-UINT8 okim6258_status_r(UINT8 ChipID, offs_t offset)
+/*UINT8 okim6258_status_r(UINT8 ChipID, offs_t offset)
 {
 	//okim6258_state *info = get_safe_token(device);
 	okim6258_state *info = &OKIM6258Data[ChipID];
@@ -351,7 +431,7 @@ UINT8 okim6258_status_r(UINT8 ChipID, offs_t offset)
 	//stream_update(info->stream);
 
 	return (info->status & STATUS_PLAYING) ? 0x00 : 0x80;
-}
+}*/
 
 
 /**********************************************************************************************
@@ -360,7 +440,7 @@ UINT8 okim6258_status_r(UINT8 ChipID, offs_t offset)
 
 ***********************************************************************************************/
 //WRITE8_DEVICE_HANDLER( okim6258_data_w )
-void okim6258_data_w(UINT8 ChipID, offs_t offset, UINT8 data)
+static void okim6258_data_w(UINT8 ChipID, /*offs_t offset, */UINT8 data)
 {
 	//okim6258_state *info = get_safe_token(device);
 	okim6258_state *info = &OKIM6258Data[ChipID];
@@ -368,8 +448,17 @@ void okim6258_data_w(UINT8 ChipID, offs_t offset, UINT8 data)
 	/* update the stream */
 	//stream_update(info->stream);
 
-	info->data_in = data;
-	info->nibble_shift = 0;
+	//info->data_in = data;
+	//info->nibble_shift = 0;
+	
+	if (info->data_empty >= 0x02)
+	{
+		info->data_buf_pos = 0x00;
+		info->data_buf[info->data_buf_pos & 0x0F] = 0x80;
+	}
+	info->data_buf[info->data_buf_pos & 0x0F] = data;
+	info->data_buf_pos ^= 0x01;
+	info->data_empty = 0x00;
 }
 
 
@@ -380,7 +469,7 @@ void okim6258_data_w(UINT8 ChipID, offs_t offset, UINT8 data)
 ***********************************************************************************************/
 
 //WRITE8_DEVICE_HANDLER( okim6258_ctrl_w )
-void okim6258_ctrl_w(UINT8 ChipID, offs_t offset, UINT8 data)
+static void okim6258_ctrl_w(UINT8 ChipID, /*offs_t offset, */UINT8 data)
 {
 	//okim6258_state *info = get_safe_token(device);
 	okim6258_state *info = &OKIM6258Data[ChipID];
@@ -404,6 +493,12 @@ void okim6258_ctrl_w(UINT8 ChipID, offs_t offset, UINT8 data)
 			info->step = 0;
 			info->nibble_shift = 0;
 		}
+		// Resetting the ADPCM sample always seems to reduce the clicks and improves the waveform.
+		// For games that don't use the Multichannel ADPCM driver (whose waveform looks horrible anyway),
+		// this causes additional clicks though.
+		//info->signal = -2;
+		info->step = 0;	// this was verified with the source of XM6
+		info->nibble_shift = 0;
 	}
 	else
 	{
@@ -421,7 +516,7 @@ void okim6258_ctrl_w(UINT8 ChipID, offs_t offset, UINT8 data)
 	}
 }
 
-void okim6258_set_clock_byte(UINT8 ChipID, UINT8 Byte, UINT8 val)
+static void okim6258_set_clock_byte(UINT8 ChipID, UINT8 Byte, UINT8 val)
 {
 	okim6258_state *info = &OKIM6258Data[ChipID];
 	
@@ -430,15 +525,28 @@ void okim6258_set_clock_byte(UINT8 ChipID, UINT8 Byte, UINT8 val)
 	return;
 }
 
+static void okim6258_pan_w(UINT8 ChipID, UINT8 data)
+{
+	okim6258_state *info = &OKIM6258Data[ChipID];
+
+	info->pan = data;
+	
+	return;
+}
+
+
 void okim6258_write(UINT8 ChipID, UINT8 Port, UINT8 Data)
 {
 	switch(Port)
 	{
 	case 0x00:
-		okim6258_ctrl_w(ChipID, 0x00, Data);
+		okim6258_ctrl_w(ChipID, /*0x00, */Data);
 		break;
 	case 0x01:
-		okim6258_data_w(ChipID, 0x00, Data);
+		okim6258_data_w(ChipID, /*0x00, */Data);
+		break;
+	case 0x02:
+		okim6258_pan_w(ChipID, Data);
 		break;
 	case 0x08:
 	case 0x09:
@@ -457,6 +565,13 @@ void okim6258_write(UINT8 ChipID, UINT8 Port, UINT8 Data)
 	return;
 }
 
+
+void okim6258_set_options(UINT16 Options)
+{
+	Iternal10Bit = (Options >> 0) & 0x01;
+	
+	return;
+}
 
 
 

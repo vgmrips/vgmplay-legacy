@@ -135,20 +135,17 @@ void sn76496_stereo_opl(UINT8 ChipID, offs_t offset, UINT8 data)
 	unsigned char i;
 	unsigned char st_data;
 	
-	if (R->Stereo)
+	if (! R->Stereo)
+		return;
+	
+	R->StereoMask = data;
+	for (i = 0; i < 4; i ++)
 	{
-		R->StereoMask = data;
-		for (i = 0; i < 4; i ++)
-		{
-			if (R->Stereo)
-			{
-				st_data = 0x00;
-				st_data |= (R->StereoMask & (0x10 << i)) ? 0x10 : 0x00;	// Left Channel
-				st_data |= (R->StereoMask & (0x01 << i)) ? 0x20 : 0x00;	// Right Channel
-				R->RegC0_M[i] = st_data;
-				OPL_RegMapper(REG_LIST[0x0A] | i, R->RegC0_M[i] | R->RegC0_L[i]);
-			}
-		}
+		st_data = 0x00;
+		st_data |= (R->StereoMask & (0x10 << i)) ? 0x10 : 0x00;	// Left Channel
+		st_data |= (R->StereoMask & (0x01 << i)) ? 0x20 : 0x00;	// Right Channel
+		R->RegC0_M[i] = st_data;
+		OPL_RegMapper(REG_LIST[0x0A] | i, R->RegC0_M[i] | R->RegC0_L[i]);
 	}
 	
 	return;
@@ -459,7 +456,7 @@ void start_sn76496_opl(UINT8 ChipID, int clock, int stereo)
 	//chip->WhitenoiseTaps = noisetaps;
 	//chip->FeedbackInvert = feedbackinvert;
 	//chip->Negate = negate;
-	chip->Stereo = stereo;
+	chip->Stereo = ! stereo;
 	sn76496_stereo_opl(ChipID, 0x00, chip->StereoMask);
 	
 	return;

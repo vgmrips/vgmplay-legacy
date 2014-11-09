@@ -1,6 +1,6 @@
 #pragma once
 
-typedef struct _y8950_interface y8950_interface;
+/*typedef struct _y8950_interface y8950_interface;
 struct _y8950_interface
 {
 	//void (*handler)(const device_config *device, int linestate);
@@ -10,7 +10,7 @@ struct _y8950_interface
 	write8_device_func keyboardwrite;
 	read8_device_func portread;
 	write8_device_func portwrite;
-};
+};*/
 
 /*READ8_DEVICE_HANDLER( y8950_r );
 WRITE8_DEVICE_HANDLER( y8950_w );

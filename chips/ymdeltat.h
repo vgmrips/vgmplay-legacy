@@ -20,6 +20,7 @@ typedef struct deltat_adpcm_state {     /* AT: rearranged and tigntened structur
 	double	read_time;		/* Y8950: 8 cycles of main clock;  YM2608: 18 cycles of main clock */
 #endif
 	UINT32	memory_size;
+	UINT32	memory_mask;
 	int		output_range;
 	UINT32	now_addr;		/* current address      */
 	UINT32	now_step;		/* currect step         */
@@ -75,6 +76,8 @@ void YM_DELTAT_ADPCM_Write(YM_DELTAT *DELTAT,int r,int v);
 void YM_DELTAT_ADPCM_Reset(YM_DELTAT *DELTAT,int pan,int emulation_mode);
 void YM_DELTAT_ADPCM_CALC(YM_DELTAT *DELTAT);
 
-void YM_DELTAT_postload(YM_DELTAT *DELTAT,UINT8 *regs);
+/*void YM_DELTAT_postload(YM_DELTAT *DELTAT,UINT8 *regs);
 //void YM_DELTAT_savestate(const device_config *device,YM_DELTAT *DELTAT);
-void YM_DELTAT_savestate(YM_DELTAT *DELTAT);
+void YM_DELTAT_savestate(YM_DELTAT *DELTAT);*/
+
+void YM_DELTAT_calc_mem_mask(YM_DELTAT* DELTAT);

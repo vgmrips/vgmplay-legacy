@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h> // for memset()
+#include "mamedef.h"	// for correct INLINE macro
 #include "ym2612.h"
 
 
@@ -137,7 +138,7 @@ int LFO_FREQ_TAB[LFO_LENGHT];        // LFO FMS TABLE
 
 int LFO_INC_TAB[8];              // LFO step table
 
-const void (*UPDATE_CHAN[8 * 8])(ym2612_ *YM2612, channel_ *CH, int **buf, int lenght) =    // Update Channel functions pointer table
+void (* const UPDATE_CHAN[8 * 8])(ym2612_ *YM2612, channel_ *CH, int **buf, int lenght) =    // Update Channel functions pointer table
 {
   Update_Chan_Algo0,
   Update_Chan_Algo1,
@@ -176,7 +177,7 @@ const void (*UPDATE_CHAN[8 * 8])(ym2612_ *YM2612, channel_ *CH, int **buf, int l
   Update_Chan_Algo7_LFO_Int
 };
 
-const void (*ENV_NEXT_EVENT[8])(slot_ *SL) =    // Next Enveloppe phase functions pointer table
+void (* const ENV_NEXT_EVENT[8])(slot_ *SL) =    // Next Enveloppe phase functions pointer table
 {
   Env_Attack_Next,
   Env_Decay_Next,

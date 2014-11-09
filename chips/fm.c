@@ -378,7 +378,7 @@ static const UINT32 lfo_samples_per_step[8] = {108, 77, 71, 67, 62, 44, 8, 5};
    5.9 dB = 0, 1, 2, 3, 4, 5, 6, 7, 8....63, 63, 62, 61, 60, 59,.....2,1,0
    1.4 dB = 0, 0, 0, 0, 1, 1, 1, 1, 2,...15, 15, 15, 15, 14, 14,.....0,0,0
 
-  (1.4 dB is loosing precision as you can see)
+  (1.4 dB is losing precision as you can see)
 
   It's implemented as generator from 0..126 with step 2 then a shift
   right N times, where N is:
@@ -1092,7 +1092,7 @@ INLINE void advance_lfo(FM_OPN *OPN)
 
 		/* update AM when LFO output changes */
 
-		/* actually I can't optimize is this way without rewritting chan_calc()
+		/* actually I can't optimize is this way without rewriting chan_calc()
         to use chip->lfo_am instead of global lfo_am */
 		{
 
@@ -2234,7 +2234,7 @@ void ym2203_reset_chip(void *chip)
 	for(i = 0x26 ; i >= 0x20 ; i-- ) OPNWriteReg(OPN,i,0);
 }
 
-//#ifdef __STATE_H__
+#ifdef __STATE_H__
 void ym2203_postload(void *chip)
 {
 	if (chip)
@@ -2267,7 +2267,6 @@ void ym2203_postload(void *chip)
 	}
 }
 
-#ifdef __STATE_H__
 static void YM2203_save_state(YM2203 *F2203, const device_config *device)
 {
 	state_save_register_device_item_array(device, 0, F2203->REGS);
@@ -2600,7 +2599,8 @@ static void FM_ADPCMAWrite(YM2610 *F2610,int r,int v)
 				if( (v>>c)&1 )
 				{
 					/**** start adpcm ****/
-					adpcm[c].step      = (UINT32)((float)(1<<ADPCM_SHIFT)*((float)F2610->OPN.ST.freqbase)/3.0);
+					// The .step variable is already set and for the YM2608 it is different on channels 4 and 5.
+					//adpcm[c].step      = (UINT32)((float)(1<<ADPCM_SHIFT)*((float)F2610->OPN.ST.freqbase)/3.0);
 					adpcm[c].now_addr  = adpcm[c].start<<1;
 					adpcm[c].now_step  = 0;
 					adpcm[c].adpcm_acc = 0;
@@ -3480,7 +3480,7 @@ void ym2608_update_one(void *chip, FMSAMPLE **buffer, int length)
 
 }
 
-//#ifdef __STATE_H__
+#ifdef __STATE_H__
 void ym2608_postload(void *chip)
 {
 	if (chip)
@@ -3526,7 +3526,6 @@ void ym2608_postload(void *chip)
 	}
 }
 
-#ifdef __STATE_H__
 static void YM2608_save_state(YM2608 *F2608, const device_config *device)
 {
 	state_save_register_device_item_array(device, 0, F2608->REGS);
@@ -3593,6 +3592,7 @@ void * ym2608_init(void *param, int clock, int rate,
 	//F2608->deltaT.memory_size = pcmsize;
 	F2608->deltaT.memory = NULL;
 	F2608->deltaT.memory_size = 0x00;
+	F2608->deltaT.memory_mask = 0x00;
 
 	/*F2608->deltaT.write_time = 20.0 / clock;*/	/* a single byte write takes 20 cycles of main clock */
 	/*F2608->deltaT.read_time  = 18.0 / clock;*/	/* a single byte read takes 18 cycles of main clock */
@@ -3731,6 +3731,7 @@ int ym2608_write(void *chip, int a,UINT8 v)
 		if( v >= 0x2d && v <= 0x2f )
 		{
 			OPNPrescaler_w(OPN , v , 2);
+			//TODO: set ADPCM[c].step
 			F2608->deltaT.freqbase = OPN->ST.freqbase;
 		}
 		break;
@@ -3904,6 +3905,7 @@ void ym2608_write_pcmrom(void *chip, UINT8 rom_id, offs_t ROMSize, offs_t DataSt
 			F2608->deltaT.memory = (UINT8*)realloc(F2608->deltaT.memory, ROMSize);
 			F2608->deltaT.memory_size = ROMSize;
 			memset(F2608->deltaT.memory, 0xFF, ROMSize);
+			YM_DELTAT_calc_mem_mask(&F2608->deltaT);
 		}
 		if (DataStart > ROMSize)
 			return;
@@ -4253,7 +4255,7 @@ void ym2610b_update_one(void *chip, FMSAMPLE **buffer, int length)
 #endif /* BUILD_YM2610B */
 
 
-//#ifdef __STATE_H__
+#ifdef __STATE_H__
 void ym2610_postload(void *chip)
 {
 	if (chip)
@@ -4301,7 +4303,6 @@ void ym2610_postload(void *chip)
 	}
 }
 
-#ifdef __STATE_H__
 static void YM2610_save_state(YM2610 *F2610, const device_config *device)
 {
 	state_save_register_device_item_array(device, 0, F2610->REGS);
@@ -4374,6 +4375,7 @@ void *ym2610_init(void *param, int clock, int rate,
 	//F2610->deltaT.memory_size = pcmsizeb;
 	F2610->deltaT.memory = NULL;
 	F2610->deltaT.memory_size = 0x00;
+	F2610->deltaT.memory_mask = 0x00;
 
 	F2610->deltaT.status_set_handler = YM2610_deltat_status_set;
 	F2610->deltaT.status_reset_handler = YM2610_deltat_status_reset;
@@ -4427,6 +4429,7 @@ void ym2610_reset_chip(void *chip)
 	F2610->pcm_size = 0x00;
 	F2610->deltaT.memory = NULL;
 	F2610->deltaT.memory_size = 0x00;
+	F2610->deltaT.memory_mask = 0x00;
 
 	/* Reset Prescaler */
 	OPNSetPres( OPN, 6*24, 6*24, 4*2); /* OPN 1/6 , SSG 1/4 */
@@ -4671,6 +4674,7 @@ void ym2610_write_pcmrom(void *chip, UINT8 rom_id, offs_t ROMSize, offs_t DataSt
 			F2610->deltaT.memory = (UINT8*)realloc(F2610->deltaT.memory, ROMSize);
 			F2610->deltaT.memory_size = ROMSize;
 			memset(F2610->deltaT.memory, 0xFF, ROMSize);
+			YM_DELTAT_calc_mem_mask(&F2610->deltaT);
 		}
 		if (DataStart > ROMSize)
 			return;

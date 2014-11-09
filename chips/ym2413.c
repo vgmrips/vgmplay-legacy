@@ -230,7 +230,7 @@ typedef struct{
 typedef struct {
 	OPLL_CH	P_CH[9];				/* OPLL chips have 9 channels*/
 	UINT8	instvol_r[9];			/* instrument/volume (or volume/volume in percussive mode)*/
-	UINT8	MuteSpc[5];				/* Mute Special: 5 Rhythm + 1 DELTA-T Channel */
+	UINT8	MuteSpc[5];				/* Mute Special: 5 Rhythm */
 
 	UINT32	eg_cnt;					/* global envelope generator counter    */
 	UINT32	eg_timer;				/* global envelope generator counter works at frequency = chipclock/72 */
@@ -240,6 +240,8 @@ typedef struct {
 	UINT8	rhythm;					/* Rhythm mode                  */
 
 	/* LFO */
+	UINT32	LFO_AM;
+	INT32	LFO_PM;
 	UINT32	lfo_am_cnt;
 	UINT32	lfo_am_inc;
 	UINT32	lfo_pm_cnt;
@@ -268,9 +270,13 @@ typedef struct {
 	UINT8 address;					/* address register             */
 	UINT8 status;					/* status flag                  */
 
+	UINT8 VRC7_Mode;
 	int clock;						/* master clock  (Hz)           */
 	int rate;						/* sampling rate (Hz)           */
 	double freqbase;				/* frequency base               */
+
+	signed int output[2];
+	signed int outchan;
 } YM2413;
 
 /* key scale level */
@@ -321,6 +327,10 @@ static const UINT32 ksl_tab[8*16]=
 	19.875/DV,20.250/DV,20.625/DV,21.000/DV
 };
 #undef DV
+
+/* 0 / 1.5 / 3.0 / 6.0 dB/OCT, confirmed on a real YM2413 (the application manual is incorrect) */
+static const UINT32 ksl_shift[4] = { 31, 2, 1, 0 };
+
 
 /* sustain level table (3dB per step) */
 /* 0 - 15: 0, 3, 6, 9,12,15,18,21,24,27,30,33,36,39,42,45 (dB)*/
@@ -617,15 +627,10 @@ static const unsigned char table[19][8] = {
 static int num_lock = 0;
 
 /* work table */
-static void *cur_chip = NULL;	/* current chip pointer */
-static YM2413 *opll_chip = NULL;	/* current chip pointer */
-static OPLL_SLOT *SLOT7_1,*SLOT7_2,*SLOT8_1,*SLOT8_2;
-
-static signed int output[2];
-static signed int outchan;
-
-static UINT32	LFO_AM;
-static INT32	LFO_PM;
+#define SLOT7_1 (&chip->P_CH[7].SLOT[SLOT1])
+#define SLOT7_2 (&chip->P_CH[7].SLOT[SLOT2])
+#define SLOT8_1 (&chip->P_CH[8].SLOT[SLOT1])
+#define SLOT8_2 (&chip->P_CH[8].SLOT[SLOT2])
 
 
 /*INLINE int limit( int val, int max, int min ) {
@@ -646,10 +651,10 @@ INLINE void advance_lfo(YM2413 *chip)
 	if (chip->lfo_am_cnt >= ((UINT32)LFO_AM_TAB_ELEMENTS<<LFO_SH) )	/* lfo_am_table is 210 elements long */
 		chip->lfo_am_cnt -= ((UINT32)LFO_AM_TAB_ELEMENTS<<LFO_SH);
 
-	LFO_AM = lfo_am_table[ chip->lfo_am_cnt >> LFO_SH ] >> 1;
+	chip->LFO_AM = lfo_am_table[ chip->lfo_am_cnt >> LFO_SH ] >> 1;
 
 	chip->lfo_pm_cnt += chip->lfo_pm_inc;
-	LFO_PM = (chip->lfo_pm_cnt>>LFO_SH) & 7;
+	chip->LFO_PM = (chip->lfo_pm_cnt>>LFO_SH) & 7;
 }
 
 /* advance to next sample */
@@ -826,7 +831,7 @@ INLINE void advance(YM2413 *chip)
 
 			unsigned int fnum_lfo   = 8*((CH->block_fnum&0x01c0) >> 6);
 			unsigned int block_fnum = CH->block_fnum * 2;
-			signed int lfo_fn_table_index_offset = lfo_pm_table[LFO_PM + fnum_lfo ];
+			signed int lfo_fn_table_index_offset = lfo_pm_table[chip->LFO_PM + fnum_lfo ];
 
 			if (lfo_fn_table_index_offset)	/* LFO phase modulation active */
 			{
@@ -913,10 +918,10 @@ INLINE signed int op_calc1(UINT32 phase, unsigned int env, signed int pm, unsign
 }
 
 
-#define volume_calc(OP) ((OP)->TLL + ((UINT32)(OP)->volume) + (LFO_AM & (OP)->AMmask))
+#define volume_calc(OP) ((OP)->TLL + ((UINT32)(OP)->volume) + (chip->LFO_AM & (OP)->AMmask))
 
 /* calculate output */
-INLINE void chan_calc( OPLL_CH *CH )
+INLINE void chan_calc( YM2413*chip, OPLL_CH *CH )
 {
 	OPLL_SLOT *SLOT;
 	unsigned int env;
@@ -946,16 +951,16 @@ INLINE void chan_calc( OPLL_CH *CH )
 
 	/* SLOT 2 */
 
-outchan=0;
+	chip->outchan=0;
 
 	SLOT++;
 	env = volume_calc(SLOT);
 	if( env < ENV_QUIET )
 	{
 		signed int outp = op_calc(SLOT->phase, env, phase_modulation, SLOT->wavetable);
-		output[0] += outp;
-		outchan = outp;
-		//output[0] += op_calc(SLOT->phase, env, phase_modulation, SLOT->wavetable);
+		chip->output[0] += outp;
+		chip->outchan = outp;
+		//chip->output[0] += op_calc(SLOT->phase, env, phase_modulation, SLOT->wavetable);
 	}
 }
 
@@ -996,7 +1001,7 @@ number   number    BLK/FNUM2 FNUM    Drum  Hat   Drum  Tom  Cymbal
 
 /* calculate rhythm */
 
-INLINE void rhythm_calc( OPLL_CH *CH, unsigned int noise )
+INLINE void rhythm_calc( YM2413 *chip, OPLL_CH *CH, unsigned int noise )
 {
 	OPLL_SLOT *SLOT;
 	signed int out;
@@ -1032,8 +1037,8 @@ INLINE void rhythm_calc( OPLL_CH *CH, unsigned int noise )
 	/* SLOT 2 */
 	SLOT++;
 	env = volume_calc(SLOT);
-	if( env < ENV_QUIET && ! opll_chip->MuteSpc[0] )
-		output[1] += op_calc(SLOT->phase, env, phase_modulation, SLOT->wavetable) * 2;
+	if( env < ENV_QUIET && ! chip->MuteSpc[0] )
+		chip->output[1] += op_calc(SLOT->phase, env, phase_modulation, SLOT->wavetable) * 2;
 
 
 	/* Phase generation is based on: */
@@ -1055,7 +1060,7 @@ INLINE void rhythm_calc( OPLL_CH *CH, unsigned int noise )
 
 	/* High Hat (verified on real YM3812) */
 	env = volume_calc(SLOT7_1);
-	if( env < ENV_QUIET && ! opll_chip->MuteSpc[4] )
+	if( env < ENV_QUIET && ! chip->MuteSpc[4] )
 	{
 
 		/* high hat phase generation:
@@ -1101,12 +1106,12 @@ INLINE void rhythm_calc( OPLL_CH *CH, unsigned int noise )
 				phase = 0xd0>>2;
 		}
 
-		output[1] += op_calc(phase<<FREQ_SH, env, 0, SLOT7_1->wavetable) * 2;
+		chip->output[1] += op_calc(phase<<FREQ_SH, env, 0, SLOT7_1->wavetable) * 2;
 	}
 
 	/* Snare Drum (verified on real YM3812) */
 	env = volume_calc(SLOT7_2);
-	if( env < ENV_QUIET && ! opll_chip->MuteSpc[1] )
+	if( env < ENV_QUIET && ! chip->MuteSpc[1] )
 	{
 		/* base frequency derived from operator 1 in channel 7 */
 		unsigned char bit8 = ((SLOT7_1->phase>>FREQ_SH)>>8)&1;
@@ -1122,17 +1127,17 @@ INLINE void rhythm_calc( OPLL_CH *CH, unsigned int noise )
 		if (noise)
 			phase ^= 0x100;
 
-		output[1] += op_calc(phase<<FREQ_SH, env, 0, SLOT7_2->wavetable) * 2;
+		chip->output[1] += op_calc(phase<<FREQ_SH, env, 0, SLOT7_2->wavetable) * 2;
 	}
 
 	/* Tom Tom (verified on real YM3812) */
 	env = volume_calc(SLOT8_1);
-	if( env < ENV_QUIET && ! opll_chip->MuteSpc[2] )
-		output[1] += op_calc(SLOT8_1->phase, env, 0, SLOT8_1->wavetable) * 2;
+	if( env < ENV_QUIET && ! chip->MuteSpc[2] )
+		chip->output[1] += op_calc(SLOT8_1->phase, env, 0, SLOT8_1->wavetable) * 2;
 
 	/* Top Cymbal (verified on real YM2413) */
 	env = volume_calc(SLOT8_2);
-	if( env < ENV_QUIET && ! opll_chip->MuteSpc[3] )
+	if( env < ENV_QUIET && ! chip->MuteSpc[3] )
 	{
 		/* base frequency derived from operator 1 in channel 7 */
 		unsigned char bit7 = ((SLOT7_1->phase>>FREQ_SH)>>7)&1;
@@ -1155,7 +1160,7 @@ INLINE void rhythm_calc( OPLL_CH *CH, unsigned int noise )
 		if (res2)
 			phase = 0x300;
 
-		output[1] += op_calc(phase<<FREQ_SH, env, 0, SLOT8_2->wavetable) * 2;
+		chip->output[1] += op_calc(phase<<FREQ_SH, env, 0, SLOT8_2->wavetable) * 2;
 	}
 
 }
@@ -1491,14 +1496,11 @@ INLINE void set_mul(YM2413 *chip,int slot,int v)
 /* set ksl, tl */
 INLINE void set_ksl_tl(YM2413 *chip,int chan,int v)
 {
-	int ksl;
 	OPLL_CH   *CH   = &chip->P_CH[chan];
 /* modulator */
 	OPLL_SLOT *SLOT = &CH->SLOT[SLOT1];
 
-	ksl = v>>6; /* 0 / 1.5 / 3.0 / 6.0 dB/OCT */
-
-	SLOT->ksl = ksl ? 3-ksl : 31;
+	SLOT->ksl = ksl_shift[v >> 6];
 	SLOT->TL  = (v&0x3f)<<(ENV_BITS-2-7); /* 7 bits TL (bit 6 = always 0) */
 	SLOT->TLL = SLOT->TL + (CH->ksl_base>>SLOT->ksl);
 }
@@ -1506,7 +1508,6 @@ INLINE void set_ksl_tl(YM2413 *chip,int chan,int v)
 /* set ksl , waveforms, feedback */
 INLINE void set_ksl_wave_fb(YM2413 *chip,int chan,int v)
 {
-	int ksl;
 	OPLL_CH   *CH   = &chip->P_CH[chan];
 /* modulator */
 	OPLL_SLOT *SLOT = &CH->SLOT[SLOT1];
@@ -1515,9 +1516,8 @@ INLINE void set_ksl_wave_fb(YM2413 *chip,int chan,int v)
 
 /*carrier*/
 	SLOT = &CH->SLOT[SLOT2];
-	ksl = v>>6; /* 0 / 1.5 / 3.0 / 6.0 dB/OCT */
 
-	SLOT->ksl = ksl ? 3-ksl : 31;
+	SLOT->ksl = ksl_shift[v >> 6];
 	SLOT->TLL = SLOT->TL + (CH->ksl_base>>SLOT->ksl);
 
 	SLOT->wavetable = ((v&0x10)>>4)*SIN_LEN;
@@ -1699,6 +1699,8 @@ static void OPLLWriteReg(YM2413 *chip, int r, int v)
 
 		case 0x0e:	/* x, x, r,bd,sd,tom,tc,hh */
 		{
+			if (chip->VRC7_Mode)
+				break;
 			if(v&0x20)
 			{
 				if ((chip->rhythm&0x20)==0)
@@ -1763,7 +1765,7 @@ static void OPLLWriteReg(YM2413 *chip, int r, int v)
 			}
 			else
 			{
-				if ((chip->rhythm&0x20)==1)
+				if ((chip->rhythm&0x20)!=0)
 				/*rhythm on to off*/
 				{
 					//logerror("YM2413: Rhythm mode disable\n");
@@ -1816,6 +1818,8 @@ static void OPLLWriteReg(YM2413 *chip, int r, int v)
 
 		if (chan >= 9)
 			chan -= 9;	/* verified on real YM2413 */
+		if (chip->VRC7_Mode && chan >= 6)
+			break;
 
 		CH = &chip->P_CH[chan];
 
@@ -1879,6 +1883,8 @@ static void OPLLWriteReg(YM2413 *chip, int r, int v)
 
 		if (chan >= 9)
 			chan -= 9;	/* verified on real YM2413 */
+		if (chip->VRC7_Mode && chan >= 6)
+			break;
 
 		old_instvol = chip->instvol_r[chan];
 		chip->instvol_r[chan] = v;	/* store for later use */
@@ -1889,7 +1895,7 @@ static void OPLLWriteReg(YM2413 *chip, int r, int v)
 		SLOT->TLL = SLOT->TL + (CH->ksl_base>>SLOT->ksl);
 
 
-		/*check wether we are in rhythm mode and handle instrument/volume register accordingly*/
+		/*check whether we are in rhythm mode and handle instrument/volume register accordingly*/
 		if ((chan>=6) && (chip->rhythm&0x20))
 		{
 			/* we're in rhythm mode*/
@@ -1942,7 +1948,6 @@ static int OPLL_LockTable(void)
 
 	/* first time */
 
-	cur_chip = opll_chip = NULL;
 	/* allocate total level table (128kb space) */
 	if( !init_tables() )
 	{
@@ -1969,7 +1974,6 @@ static void OPLL_UnLockTable(void)
 
 	/* last time */
 
-	cur_chip = opll_chip = NULL;
 	OPLCloseTable();
 
 	/*if (cymfile)
@@ -2152,50 +2156,40 @@ void ym2413_update_one(void *_chip, SAMP **buffers, int length)
 
 	int i;
 
-	if( (void *)chip != cur_chip ){
-		cur_chip = (void *)chip;
-		opll_chip = chip;
-		/* rhythm slots */
-		SLOT7_1 = &chip->P_CH[7].SLOT[SLOT1];
-		SLOT7_2 = &chip->P_CH[7].SLOT[SLOT2];
-		SLOT8_1 = &chip->P_CH[8].SLOT[SLOT1];
-		SLOT8_2 = &chip->P_CH[8].SLOT[SLOT2];
-	}
-
-
 	for( i=0; i < length ; i++ )
 	{
 		int mo,ro;
 
-		output[0] = 0;
-		output[1] = 0;
+		chip->output[0] = 0;
+		chip->output[1] = 0;
 
 		advance_lfo(chip);
 
 		/* FM part */
-		chan_calc(&chip->P_CH[0]);
+		chan_calc(chip, &chip->P_CH[0]);
 //SAVE_SEPARATE_CHANNEL(0);
-		chan_calc(&chip->P_CH[1]);
-		chan_calc(&chip->P_CH[2]);
-		chan_calc(&chip->P_CH[3]);
-		chan_calc(&chip->P_CH[4]);
-		chan_calc(&chip->P_CH[5]);
+		chan_calc(chip, &chip->P_CH[1]);
+		chan_calc(chip, &chip->P_CH[2]);
+		chan_calc(chip, &chip->P_CH[3]);
+		chan_calc(chip, &chip->P_CH[4]);
+		chan_calc(chip, &chip->P_CH[5]);
 
-		if(!rhythm)
+		if (! chip->VRC7_Mode)
 		{
-			chan_calc(&chip->P_CH[6]);
-			chan_calc(&chip->P_CH[7]);
-			chan_calc(&chip->P_CH[8]);
-		}
-		else		/* Rhythm part */
-		{
-			rhythm_calc(&chip->P_CH[0], (chip->noise_rng>>0)&1 );
+			if(!rhythm)
+			{
+				chan_calc(chip, &chip->P_CH[6]);
+				chan_calc(chip, &chip->P_CH[7]);
+				chan_calc(chip, &chip->P_CH[8]);
+			}
+			else		/* Rhythm part */
+			{
+				rhythm_calc(chip, &chip->P_CH[0], (chip->noise_rng>>0)&1 );
+			}
 		}
 
-		//mo = output[0];
-		//ro = output[1];
-		mo = output[0] + output[1];
-		ro = output[0] + output[1];
+		mo = chip->output[0];
+		ro = chip->output[1];
 
 		mo >>= FINAL_SH;
 		ro >>= FINAL_SH;
@@ -2212,8 +2206,8 @@ void ym2413_update_one(void *_chip, SAMP **buffers, int length)
 		#endif
 
 		/* store to sound buffer */
-		bufMO[i] = mo;
-		bufRO[i] = ro;
+		bufMO[i] = mo + ro;
+		bufRO[i] = mo + ro;
 
 		advance(chip);
 	}
@@ -2229,6 +2223,33 @@ void ym2413_set_mutemask(void* chip, UINT32 MuteMask)
 		OPLL->P_CH[CurChn].Muted = (MuteMask >> CurChn) & 0x01;
 	for (CurChn = 0; CurChn < 5; CurChn ++)
 		OPLL->MuteSpc[CurChn] = (MuteMask >> (9 + CurChn)) & 0x01;
+	
+	return;
+}
+
+void ym2413_set_chip_mode(void* chip, UINT8 Mode)
+{
+	// Enable/Disable VRC7 Mode (with only 6 instead of 9 channels and no rhythm part)
+	YM2413* OPLL = (YM2413*)chip;
+	
+	OPLL->VRC7_Mode = Mode;
+	
+	return;
+}
+
+void ym2413_override_patches(void* chip, const UINT8* PatchDump)
+{
+	YM2413* OPLL = (YM2413*)chip;
+	UINT8 CurIns;
+	UINT8 CurReg;
+	
+	for (CurIns = 0; CurIns < 19; CurIns ++)
+	{
+		for (CurReg = 0; CurReg < 8; CurReg ++)
+		{
+			OPLL->inst_tab[CurIns][CurReg] = PatchDump[CurIns * 8 + CurReg];
+		}
+	}
 	
 	return;
 }

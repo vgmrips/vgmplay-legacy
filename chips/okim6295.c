@@ -63,6 +63,7 @@ struct _okim6295_state
 	UINT8 pin7_state;
 	//sound_stream *stream;	/* which stream are we playing on? */
 	UINT32 master_clock;	/* master clock frequency */
+	UINT32 initial_clock;
 	
 	UINT32				ROMSize;
 	UINT8*				ROM;
@@ -399,6 +400,7 @@ int device_start_okim6295(UINT8 ChipID, int clock)
 	//info->device = device;
 
 	//info->master_clock = device->clock;
+	info->initial_clock = clock;
 	info->master_clock = clock & 0x7FFFFFFF;
 	info->pin7_state = (clock & 0x80000000) >> 31;
 
@@ -446,6 +448,12 @@ void device_reset_okim6295(UINT8 ChipID)
 	int voice;
 
 	//stream_update(info->stream);
+	
+	info->command = -1;
+	info->bank_offs = 0;
+	info->master_clock = info->initial_clock & 0x7FFFFFFF;
+	info->pin7_state = (info->initial_clock & 0x80000000) >> 31;
+	
 	for (voice = 0; voice < OKIM6295_VOICES; voice++)
 	{
 		info->voice[voice].volume = 0;
@@ -605,7 +613,8 @@ void okim6295_write_command(okim6295_state *info, UINT8 data)
 					else
 					{
 						//logerror("OKIM6295:'%s' requested to play sample %02x on non-stopped voice\n",device->tag(),info->command);
-						logerror("OKIM6295: Voice %u requested to play sample %02x on non-stopped voice\n",i,info->command);
+						// just displays warnings when seeking
+						//logerror("OKIM6295: Voice %u requested to play sample %02x on non-stopped voice\n",i,info->command);
 					}
 				}
 				/* invalid samples go here */
@@ -695,6 +704,7 @@ void okim6295_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t D
 	{
 		chip->ROM = (UINT8*)realloc(chip->ROM, ROMSize);
 		chip->ROMSize = ROMSize;
+		//printf("OKIM6295: New ROM Size: 0x%05X\n", ROMSize);
 		memset(chip->ROM, 0xFF, ROMSize);
 	}
 	if (DataStart > ROMSize)

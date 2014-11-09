@@ -1,3 +1,6 @@
+#ifndef __MAMEDEF_H__
+#define __MAMEDEF_H__
+
 // typedefs to use MAME's (U)INTxx types (copied from MAME\src\ods\odscomm.h)
 /* 8-bit values */
 typedef unsigned char						UINT8;
@@ -30,6 +33,12 @@ typedef UINT32	offs_t;
 /* stream_sample_t is used to represent a single sample in a sound stream */
 typedef INT32 stream_sample_t;
 
+#ifdef VGM_BIG_ENDIAN
+#define BYTE_XOR_BE(x)	 (x)
+#else
+#define BYTE_XOR_BE(x)	((x) ^ 0x01)
+#endif
+
 #if defined(_MSC_VER)
 //#define INLINE	static __forceinline
 #define INLINE	static __inline
@@ -40,9 +49,6 @@ typedef INT32 stream_sample_t;
 #endif
 #define M_PI	3.14159265358979323846
 
-typedef UINT8	(*read8_device_func)  (offs_t offset);
-typedef void	(*write8_device_func) (offs_t offset, UINT8 data);
-
 #ifdef _DEBUG
 #define logerror	printf
 #else
@@ -50,3 +56,5 @@ typedef void	(*write8_device_func) (offs_t offset, UINT8 data);
 #endif
 
 extern stream_sample_t* DUMMYBUF[];
+
+#endif	// __MAMEDEF_H__

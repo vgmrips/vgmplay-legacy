@@ -31,7 +31,13 @@ struct _segapcm_state
 
 #define MAX_CHIPS	0x02
 static segapcm_state SPCMData[MAX_CHIPS];
-UINT8 SegaPCM_NewCore = 0x00;
+
+#ifndef _DEBUG
+//UINT8 SegaPCM_NewCore = 0x00;
+#else
+//UINT8 SegaPCM_NewCore = 0x01;
+static void sega_pcm_fwrite_romusage(UINT8 ChipID);
+#endif
 
 /*INLINE segapcm_state *get_safe_token(const device_config *device)
 {
@@ -78,8 +84,9 @@ void SEGAPCM_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	/* loop over channels */
 	for (ch = 0; ch < 16; ch++)
 	{
-if (! SegaPCM_NewCore)
-{
+#if 0
+//if (! SegaPCM_NewCore)
+//{
 		/* only process active channels */
 		if (!(spcm->ram[0x86+8*ch] & 1) && ! spcm->Muted[ch])
 		{
@@ -87,7 +94,7 @@ if (! SegaPCM_NewCore)
 			UINT8 flags = base[0x86];
 			const UINT8 *rom = spcm->rom + ((flags & spcm->bankmask) << spcm->bankshift);
 #ifdef _DEBUG
-			const UINT8 *romusage = spcm->romusage + ((flags & spcm->bankmask) << spcm->bankshift);
+			UINT8 *romusage = spcm->romusage + ((flags & spcm->bankmask) << spcm->bankshift);
 #endif
 			UINT32 addr = (base[5] << 16) | (base[4] << 8) | spcm->low[ch];
 			UINT16 loop = (base[0x85] << 8) | base[0x84];
@@ -117,9 +124,10 @@ if (! SegaPCM_NewCore)
 				/* fetch the sample */
 				v = rom[(addr >> 8) & rgnmask] - 0x80;
 #ifdef _DEBUG
-				if (romusage[(addr >> 8) & rgnmask] == 0xFF && (voll || volr))
+				if ((romusage[(addr >> 8) & rgnmask] & 0x03) == 0x02 && (voll || volr))
 					printf("Access to empty ROM section! (0x%06lX)\n",
 							((flags & spcm->bankmask) << spcm->bankshift) + (addr >> 8) & rgnmask);
+				romusage[(addr >> 8) & rgnmask] |= 0x01;
 #endif
 
 				/* apply panning and advance */
@@ -134,9 +142,10 @@ if (! SegaPCM_NewCore)
 			base[5] = addr >> 16;
 			spcm->low[ch] = flags & 1 ? 0 : addr;
 		}
-}
-else
-{
+//}
+//else
+//{
+#else
 		UINT8 *regs = spcm->ram+8*ch;
 
 		/* only process active channels */
@@ -144,7 +153,7 @@ else
 		{
 			const UINT8 *rom = spcm->rom + ((regs[0x86] & spcm->bankmask) << spcm->bankshift);
 #ifdef _DEBUG
-			const UINT8 *romusage = spcm->romusage + ((regs[0x86] & spcm->bankmask) << spcm->bankshift);
+			UINT8 *romusage = spcm->romusage + ((regs[0x86] & spcm->bankmask) << spcm->bankshift);
 #endif
 			UINT32 addr = (regs[0x85] << 16) | (regs[0x84] << 8) | spcm->low[ch];
 			UINT32 loop = (regs[0x05] << 16) | (regs[0x04] << 8);
@@ -170,9 +179,10 @@ else
 				/* fetch the sample */
 				v = rom[(addr >> 8) & rgnmask] - 0x80;
 #ifdef _DEBUG
-				if (romusage[(addr >> 8) & rgnmask] == 0xFF && (regs[2] || regs[3]))
+				if ((romusage[(addr >> 8) & rgnmask] & 0x03) == 0x02 && (regs[2] || regs[3]))
 					printf("Access to empty ROM section! (0x%06lX)\n",
 							((regs[0x86] & spcm->bankmask) << spcm->bankshift) + (addr >> 8) & rgnmask);
+				romusage[(addr >> 8) & rgnmask] |= 0x01;
 #endif
 
 				/* apply panning and advance */
@@ -186,7 +196,8 @@ else
 			regs[0x85] = addr >> 16;
 			spcm->low[ch] = regs[0x86] & 1 ? 0 : addr;
 		}
-}
+//}
+#endif
 	}
 }
 
@@ -215,10 +226,17 @@ int device_start_segapcm(UINT8 ChipID, int clock, int intf_bank)
 	spcm->romusage = malloc(STD_ROM_SIZE);
 #endif
 	spcm->ram = (UINT8*)malloc(0x800);
-
+	
+#ifndef _DEBUG
+	//memset(spcm->rom, 0xFF, STD_ROM_SIZE);
+	// filling 0xFF would actually be more true to the hardware,
+	// (unused ROMs have all FFs)
+	// but 0x80 is the effective 'zero' byte
+	memset(spcm->rom, 0x80, STD_ROM_SIZE);
+#else
+	// filling with FF makes it easier to find bugs in a .wav-log
 	memset(spcm->rom, 0xFF, STD_ROM_SIZE);
-#ifdef _DEBUG
-	memset(spcm->romusage, 0xFF, STD_ROM_SIZE);
+	memset(spcm->romusage, 0x02, STD_ROM_SIZE);
 #endif
 	//memset(spcm->ram, 0xff, 0x800);	// RAM Clear is done at device_reset
 
@@ -252,6 +270,7 @@ void device_stop_segapcm(UINT8 ChipID)
 	segapcm_state *spcm = &SPCMData[ChipID];
 	free(spcm->rom);	spcm->rom = NULL;
 #ifdef _DEBUG
+	//sega_pcm_fwrite_romusage(ChipID);
 	free(spcm->romusage);
 #endif
 	free(spcm->ram);
@@ -304,9 +323,9 @@ void sega_pcm_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t D
 		spcm->romusage = (UINT8*)realloc(spcm->romusage, ROMSize);
 #endif
 		spcm->ROMSize = ROMSize;
-		memset(spcm->rom, 0xFF, ROMSize);
+		memset(spcm->rom, 0x80, ROMSize);
 #ifdef _DEBUG
-		memset(spcm->romusage, 0xFF, ROMSize);
+		memset(spcm->romusage, 0x02, ROMSize);
 #endif
 		
 		// recalculate bankmask
@@ -314,9 +333,10 @@ void sega_pcm_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t D
 		if (! mask)
 			mask = BANK_MASK7 >> 16;
 		
-		spcm->rgnmask = ROMSize - 1;
+		//spcm->rgnmask = ROMSize - 1;
 		for (rom_mask = 1; rom_mask < ROMSize; rom_mask *= 2);
 		rom_mask --;
+		spcm->rgnmask = rom_mask;	// fix for ROMs with e.g 0x60000 bytes (stupid M1)
 		
 		spcm->bankmask = mask & (rom_mask >> spcm->bankshift);
 	}
@@ -334,7 +354,8 @@ void sega_pcm_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t D
 }
 
 
-/*void sega_pcm_fwrite_romusage(UINT8 ChipID)
+#ifdef _DEBUG
+static void sega_pcm_fwrite_romusage(UINT8 ChipID)
 {
 	segapcm_state *spcm = &SPCMData[ChipID];
 	
@@ -348,7 +369,8 @@ void sega_pcm_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t D
 	
 	fclose(hFile);
 	return;
-}*/
+}
+#endif
 
 void segapcm_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 {

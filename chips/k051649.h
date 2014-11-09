@@ -27,6 +27,10 @@ void k051649_frequency_w(UINT8 ChipID, offs_t offset, UINT8 data);
 void k051649_keyonoff_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
 void k052539_waveform_w(UINT8 ChipID, offs_t offset, UINT8 data);
+UINT8 k052539_waveform_r(UINT8 ChipID, offs_t offset);
+
+void k051649_test_w(UINT8 ChipID, offs_t offset, UINT8 data);
+UINT8 k051649_test_r(UINT8 ChipID, offs_t offset);
 
 void k051649_w(UINT8 ChipID, offs_t offset, UINT8 data);
 

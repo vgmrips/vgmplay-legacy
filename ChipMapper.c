@@ -5,12 +5,20 @@
 #include <math.h>
 #include "stdbool.h"
 
+//#define DISABLE_HW_SUPPORT	// disable support for OPL hardware
+#ifdef __NetBSD__	// Thanks to nextvolume
+#warning "Disabling OPL Mapper functionality, current code does not work on NetBSD"
+#define DISABLE_HW_SUPPORT	// Current code does not work on NetBSD
+#endif
+
 #ifdef WIN32
 #include <conio.h>
 #include <windows.h>	// for QueryPerformance###
 #else
+#ifndef DISABLE_HW_SUPPORT
 #include <unistd.h>
 #include <sys/io.h>
+#endif
 #include <time.h>
 #endif
 
@@ -18,6 +26,7 @@
 
 #include "chips/ChipIncl.h"
 
+#ifndef DISABLE_HW_SUPPORT
 unsigned char OpenPortTalk(void);
 void ClosePortTalk(void);
 
@@ -26,10 +35,12 @@ void ClosePortTalk(void);
 void outportb(unsigned short PortAddress, unsigned char byte);
 unsigned char inportb(unsigned short PortAddress);
 
-#endif
+#endif	// WIN32
+#endif	// DISABLE_HW_SUPPORT
 
 #include "ChipMapper.h"
 
+#ifndef DISABLE_HW_SUPPORT
 INLINE UINT8 OPL_HW_GetStatus(void);
 INLINE void OPL_HW_WaitDelay(INT64 StartTime, float Delay);
 
@@ -47,6 +58,11 @@ void ym2413_w_opl(UINT8 ChipID, offs_t offset, UINT8 data);
 int     FM_OPL_Init             (void *userdata);
 void    FM_OPL_Close            (void);
 void    FM_OPL_Write            (int Register, int Value);
+
+// AY8910 OPL Translation
+void ay8910_write_opl(UINT8 ChipID, UINT8 r, UINT8 v);
+void start_ay8910_opl(UINT8 ChipID, int clock, UINT8 chip_type);
+
 
 extern UINT8 OPL_MODE;
 extern UINT8 OPL_CHIPS;
@@ -96,6 +112,7 @@ UINT8 OPLRegBak[0x200];
 UINT8 OPLRegForce[0x200];
 bool SkipMode = false;
 bool OpenedFM = false;
+#endif	// DISABLE_HW_SUPPORT
 UINT8 YM2413_EMU_CORE;
 
 UINT32 OptArr[0x10];
@@ -103,45 +120,54 @@ UINT32 OptArr[0x10];
 #ifndef WIN32
 unsigned char OpenPortTalk(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	int retval;
 	
 	retval = ioperm(FMPort, 0x04, 1);
 	
 	return retval & 0xFF;
+#else
+	return 0xFF;	// not supported
+#endif
 }
 
 void ClosePortTalk(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	ioperm(FMPort, 0x04, 0);
+#endif
 	
 	return;
 }
 
-void Sleep(UINT32 msec)
+#elif defined(DISABLE_HW_SUPPORT)
+
+unsigned char OpenPortTalk(void)
 {
-	usleep(msec * 1000);
-	
+	return 0xFF;	// not supported
+}
+
+void ClosePortTalk(void)
+{
 	return;
 }
-#endif
+#endif	// WIN32
 
 void open_fm_option(UINT8 ChipType, UINT8 OptType, UINT32 OptVal)
 {
-	switch(ChipType)
-	{
-	case 0x00:
-		OptArr[OptType & 0x0F] = OptVal;
-		break;
-	}
+	OptArr[OptType & 0x0F] = OptVal;
 	
 	return;
 }
 
 void opl_chip_reset(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT16 Reg;
+	float FnlVolBak;
 	
-	//memset(OPLReg, 0x00, 0x200);
+	FnlVolBak = FinalVol;
+	FinalVol = 1.0f;
 	memset(OPLRegForce, 0x01, 0x200);
 	
 	OPL_HW_WriteReg(0x105, 0x01);	// OPL3 Enable
@@ -153,20 +179,25 @@ void opl_chip_reset(void)
 	OPL_HW_WriteReg(0x008, 0x00);	// Keyboard Split
 	
 	// make sure all internal calulations finish sound generation
+	for (Reg = 0x00; Reg < 0x09; Reg ++)
+	{
+		OPL_HW_WriteReg(0x0C0 | Reg, 0x00);	// silence all notes (OPL3)
+		OPL_HW_WriteReg(0x1C0 | Reg, 0x00);
+	}
 	for (Reg = 0x00; Reg < 0x16; Reg ++)
 	{
 		if ((Reg & 0x07) >= 0x06)
 			continue;
-		OPL_HW_WriteReg(0x020 | Reg, 0x00);
-		OPL_HW_WriteReg(0x120 | Reg, 0x00);
-		
-		OPL_HW_WriteReg(0x040 | Reg, 0x3F);
-		OPL_HW_WriteReg(0x060 | Reg, 0xFF);
-		OPL_HW_WriteReg(0x080 | Reg, 0xFF);
-		
+		OPL_HW_WriteReg(0x040 | Reg, 0x3F);	// silence all notes (OPL2)
 		OPL_HW_WriteReg(0x140 | Reg, 0x3F);
-		OPL_HW_WriteReg(0x160 | Reg, 0xFF);
+		
+		OPL_HW_WriteReg(0x080 | Reg, 0xFF);	// set Sustain/Release Rate to FASTEST
 		OPL_HW_WriteReg(0x180 | Reg, 0xFF);
+		OPL_HW_WriteReg(0x060 | Reg, 0xFF);
+		OPL_HW_WriteReg(0x160 | Reg, 0xFF);
+		
+		OPL_HW_WriteReg(0x020 | Reg, 0x00);	// NULL the rest
+		OPL_HW_WriteReg(0x120 | Reg, 0x00);
 		
 		OPL_HW_WriteReg(0x0E0 | Reg, 0x00);
 		OPL_HW_WriteReg(0x1E0 | Reg, 0x00);
@@ -174,33 +205,42 @@ void opl_chip_reset(void)
 	OPL_HW_WriteReg(0x0BD, 0x00);	// Rhythm Mode
 	for (Reg = 0x00; Reg < 0x09; Reg ++)
 	{
-		OPL_HW_WriteReg(0x0C0 | Reg, 0x00);
-		OPL_HW_WriteReg(0x1C0 | Reg, 0x00);
-		
-		OPL_HW_WriteReg(0x0A0 | Reg, 0x00);
-		OPL_HW_WriteReg(0x0B0 | Reg, 0x00);
-		OPL_HW_WriteReg(0x1A0 | Reg, 0x00);
+		OPL_HW_WriteReg(0x0B0 | Reg, 0x00);	// turn all notes off (-> Release Phase)
 		OPL_HW_WriteReg(0x1B0 | Reg, 0x00);
+		OPL_HW_WriteReg(0x0A0 | Reg, 0x00);
+		OPL_HW_WriteReg(0x1A0 | Reg, 0x00);
 	}
 	
 	// although this would be a more proper reset, it sometimes produces clicks
 	/*for (Reg = 0x020; Reg <= 0x0FF; Reg ++)
-	{
 		OPL_HW_WriteReg(Reg, 0x00);
-	}
 	for (Reg = 0x120; Reg <= 0x1FF; Reg ++)
-	{
-		OPL_HW_WriteReg(Reg, 0x00);
-	}*/
+		OPL_HW_WriteReg(Reg, 0x00);*/
 	
-	//memset(OPLReg, 0x00, 0x200);
+	// Now do a proper reset of all other registers.
+	for (Reg = 0x040; Reg < 0x0A0; Reg ++)
+	{
+		if ((Reg & 0x07) >= 0x06 || (Reg & 0x1F) >= 0x18)
+			continue;
+		OPL_HW_WriteReg(0x000 | Reg, 0x00);
+		OPL_HW_WriteReg(0x100 | Reg, 0x00);
+	}
+	for (Reg = 0x00; Reg < 0x09; Reg ++)
+	{
+		OPL_HW_WriteReg(0x0C0 | Reg, 0x30);	// must be 30 to make OPL2 VGMs sound on OPL3
+		OPL_HW_WriteReg(0x1C0 | Reg, 0x30);	// if they don't send the C0 reg
+	}
+	
 	memset(OPLRegForce, 0x01, 0x200);
+	FinalVol = FnlVolBak;
+#endif	// DISABLE_HW_SUPPORT
 	
 	return;
 }
 
 void open_real_fm(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT8 CurChip;
 	CHIP_MAP* CurMap;
 	UINT8 CurC2;
@@ -264,14 +304,19 @@ void open_real_fm(void)
 			break;
 		case 0x0D:	// YMF278B
 			break;
+		case 0x12:	// AY8910
+			start_ay8910_opl(CurMap->ChipID, CurMap->ChipOpt[0x00], CurMap->ChipOpt[0x01]);
+			break;
 		}
 	}
+#endif	// DISABLE_HW_SUPPORT
 
 	return;
 }
 
 void setup_real_fm(UINT8 ChipType, UINT8 ChipID)
 {
+#ifndef DISABLE_HW_SUPPORT
 	CHIP_MAP* CurMap;
 	UINT8 CurChip;
 	UINT8 CurSet;
@@ -279,7 +324,7 @@ void setup_real_fm(UINT8 ChipType, UINT8 ChipID)
 	bool ExitLoop;
 	
 	SelChip = ChipCount;
-	ChipArr[(ChipType << 4) | (ChipID & 0x0F)] = SelChip;
+	ChipArr[(ChipType << 1) | (ChipID & 0x01)] = SelChip;
 	CurMap = ChipMap + SelChip;
 	CurMap->ChipType = ChipType;
 	CurMap->ChipID = ChipID & 0x7F;
@@ -287,6 +332,8 @@ void setup_real_fm(UINT8 ChipType, UINT8 ChipID)
 	switch(ChipType)
 	{
 	case 0x00:	// SN76496 and T6W28
+	case 0x12:	// AY8910
+		ExitLoop = false;
 		for (CurSet = 0x00; CurSet < 0x02; CurSet ++)
 		{
 			for (CurChn = 0x00; CurChn < 0x09; CurChn ++)
@@ -307,9 +354,19 @@ void setup_real_fm(UINT8 ChipType, UINT8 ChipID)
 		CurMap->ChnBase = CurChn;
 		memcpy(CurMap->ChipOpt, OptArr, 0x10 * sizeof(UINT32));
 		CurMap->ChipOpt[0x0F] = 0x00;
-		for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
+		if (ChipType == 0x00)
 		{
-			RegChnUsage[(CurMap->RegBase << 4) | (CurMap->ChnBase + CurChn)] = true;
+			for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
+			{
+				RegChnUsage[(CurMap->RegBase << 4) | (CurMap->ChnBase + CurChn)] = true;
+			}
+		}
+		else
+		{
+			for (CurChn = 0x00; CurChn < 0x03; CurChn ++)
+			{
+				RegChnUsage[(CurMap->RegBase << 4) | (CurMap->ChnBase + CurChn)] = true;
+			}
 		}
 		break;
 	case 0x01:	// YM2413
@@ -371,12 +428,14 @@ void setup_real_fm(UINT8 ChipType, UINT8 ChipID)
 		break;
 	}
 	ChipCount ++;
+#endif	// DISABLE_HW_SUPPORT
 	
 	return;
 }
 
 void close_real_fm(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT8 CurChip;
 	UINT8 CurChn;
 	UINT8 CurOp;
@@ -437,6 +496,7 @@ void close_real_fm(void)
 	OpenedFM = false;
 	ChipCount = 0x00;
 	memset(RegChnUsage, 0x00, sizeof(bool) * 0x20);
+#endif	// DISABLE_HW_SUPPORT
 	
 	return;
 }
@@ -444,6 +504,7 @@ void close_real_fm(void)
 void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 					UINT8 Port, UINT8 Offset, UINT8 Data)
 {
+#ifndef DISABLE_HW_SUPPORT
 	bool ModeFM;
 	UINT8 CurChip;
 	
@@ -471,6 +532,7 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 	
 	if (! ModeFM)
 	{
+#endif	// DISABLE_HW_SUPPORT
 		switch(ChipType)
 		{
 		case 0x00:	// SN76496
@@ -540,14 +602,14 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 			pwm_chn_w(ChipID, Port, (Offset << 8) | (Data << 0));
 			break;
 		case 0x12:	// AY8910
-			ay8910_address_data_w(ChipID, 0x00, Offset);
-			ay8910_address_data_w(ChipID, 0x01, Data);
+			ayxx_w(ChipID, 0x00, Offset);
+			ayxx_w(ChipID, 0x01, Data);
 			break;
 		case 0x13:	// GameBoy
 			gb_sound_w(ChipID, Offset, Data);
 			break;
 		case 0x14:	// NES APU
-			nes_psg_w(ChipID, Offset, Data);
+			nes_w(ChipID, Offset, Data);
 			break;
 		case 0x15:	// MultiPCM
 			multipcm_w(ChipID, Offset, Data);
@@ -581,18 +643,24 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 			pokey_w(ChipID, Offset, Data);
 			break;
 		case 0x1F:	// QSound
-			qsound_w(ChipID, Offset, Data);
+			qsound_w(ChipID, 0x00, Port);	// Data MSB
+			qsound_w(ChipID, 0x01, Offset);	// Data LSB
+			qsound_w(ChipID, 0x02, Data);	// Register
+			break;
+		case 0x20:	// YMF292/SCSP
+			scsp_w(ChipID, (Port << 8) | (Offset << 0), Data);
 			break;
 //		case 0x##:	// OKIM6376
 //			break;
 		}
+#ifndef DISABLE_HW_SUPPORT
 	}
 	else
 	{
 		if (! OpenedFM)
 			return;
 		
-		SelChip = ChipArr[(ChipType << 4) | (ChipID & 0x0F)];
+		SelChip = ChipArr[(ChipType << 1) | (ChipID & 0x01)];
 		switch(ChipType)
 		{
 		case 0x00:	// SN76496
@@ -644,13 +712,18 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 		case 0x0C:	// YMF262
 			OPL_RegMapper((Port << 8) | Offset, Data);
 			break;
+		case 0x12:	// AY8910
+			ay8910_write_opl(ChipID, Offset, Data);
+			break;
 		}
 	}
+#endif	// DISABLE_HW_SUPPORT
 	return;
 }
 
 void OPL_Hardware_Detecton(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT8 Status1;
 	UINT8 Status2;
 #ifdef WIN32
@@ -762,10 +835,12 @@ FinishDetection:
 	if (WINNT_MODE)
 #endif
 		ClosePortTalk();
+#endif	// DISABLE_HW_SUPPORT
 	
 	return;
 }
 
+#ifndef DISABLE_HW_SUPPORT
 INLINE UINT8 OPL_HW_GetStatus(void)
 {
 	UINT8 RetStatus;
@@ -797,36 +872,45 @@ INLINE void OPL_HW_WaitDelay(INT64 StartTime, float Delay)
 	// waits Delay us
 	if (HWusTime)
 	{
+		OPL_HW_GetStatus();	// read once, just to be safe
 		EndTime = (INT64)(StartTime + HWusTime * Delay);
 		do
 		{
 			QueryPerformanceCounter(&CurTime);
 		} while(CurTime.QuadPart < EndTime);
 	}
-	else
+	else if (Delay >= 1.0f)
 	{
 		for (CurUS = 0x00; CurUS < Delay; CurUS ++)
-		{
 			OPL_HW_GetStatus();
-		}
+	}
+	else
+	{
+		OPL_HW_GetStatus();	// read once, just to be safe
 	}
 
 #else
 
 	struct timespec NanoTime;
 	
+	OPL_HW_GetStatus();	// read once, then wait should work
+	if (Delay >= 1.0f)
+		Delay -= 1.0f;
+	
 	// waits Delay us
 	NanoTime.tv_sec = 0;
-	// nsec should be 1000 * Delay, but somehow the resulting Delay is too short
-	NanoTime.tv_nsec = 10000 * Delay;
+	// xx-- nsec should be 1000 * Delay, but somehow the resulting Delay is too short --xx
+	NanoTime.tv_nsec = 1000 * Delay;
 	nanosleep(&NanoTime, NULL);
 #endif
 	
 	return;
 }
+#endif	// DISABLE_HW_SUPPORT
 
 void OPL_HW_WriteReg(UINT16 Reg, UINT8 Data)
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT16 Port;
 #ifdef WIN32
 	LARGE_INTEGER StartTime;
@@ -921,7 +1005,7 @@ void OPL_HW_WriteReg(UINT16 Reg, UINT8 Data)
 		OPL_HW_WaitDelay(0, DELAY_OPL3_REG);
 		break;
 	}
-#endif
+#endif	// WIN32
 	
 #ifdef WIN32
 	QueryPerformanceCounter(&StartTime);
@@ -949,13 +1033,15 @@ void OPL_HW_WriteReg(UINT16 Reg, UINT8 Data)
 		OPL_HW_WaitDelay(0, DELAY_OPL3_DATA);
 		break;
 	}
-#endif
+#endif	// WIN32
+#endif	// DISABLE_HW_SUPPORT
 	
 	return;
 }
 
 void OPL_RegMapper(UINT16 Reg, UINT8 Data)
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT16 NewReg;
 	UINT8 RegType;
 	UINT8 Grp;
@@ -1022,12 +1108,14 @@ void OPL_RegMapper(UINT16 Reg, UINT8 Data)
 	}
 	
 	OPL_HW_WriteReg(NewReg, Data);
+#endif	// DISABLE_HW_SUPPORT
 	
 	return;
 }
 
 void RefreshVolume()
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT8 CurChip;
 	UINT8 CurChn;
 	UINT16 RegVal;
@@ -1043,35 +1131,78 @@ void RefreshVolume()
 	}
 	
 	return;
+#endif
 }
 
 void StartSkipping(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	if (SkipMode)
 		return;
 	
 	SkipMode = true;
 	memcpy(OPLRegBak, OPLReg, 0x200);
+#endif
 	
 	return;
 }
 
 void StopSkipping(void)
 {
+#ifndef DISABLE_HW_SUPPORT
 	UINT16 Reg;
+	UINT16 OpReg;
+	UINT8 RRBuffer[0x40];
 	
 	if (! SkipMode)
 		return;
 	
 	SkipMode = false;
 	
+	// At first, turn all notes off that need it
+	memcpy(RRBuffer + 0x00, &OPLReg[0x080], 0x20);
+	memcpy(RRBuffer + 0x20, &OPLReg[0x180], 0x20);
+	for (Reg = 0xB0; Reg < 0xB9; Reg ++)
+	{
+		OpReg = Reg & 0x0F;
+		OpReg = (OpReg / 3) * 0x08 + (OpReg % 3);
+		if (! (OPLReg[0x100 | Reg] & 0x20))
+		{
+			OPL_HW_WriteReg(0x180 + OpReg, (OPLReg[0x180 + OpReg] & 0xF0) | 0x0F);
+			OPL_HW_WriteReg(0x183 + OpReg, (OPLReg[0x183 + OpReg] & 0xF0) | 0x0F);
+			OPLRegForce[0x180 + OpReg] |= 0x01;
+			OPLRegForce[0x183 + OpReg] |= 0x01;
+			
+			OPLRegForce[0x100 | Reg] |= (OPLReg[0x100 | Reg] != OPLRegBak[0x100 | Reg]);
+			OPL_HW_WriteReg(0x100 | Reg, OPLReg[0x100 | Reg]);
+		}
+		if (! (OPLReg[0x000 | Reg] & 0x20))
+		{
+			OPL_HW_WriteReg(0x080 + OpReg, (OPLReg[0x080 + OpReg] & 0xF0) | 0x0F);
+			OPL_HW_WriteReg(0x083 + OpReg, (OPLReg[0x083 + OpReg] & 0xF0) | 0x0F);
+			OPLRegForce[0x080 + OpReg] |= 0x01;
+			OPLRegForce[0x083 + OpReg] |= 0x01;
+			
+			OPLRegForce[0x000 | Reg] |= (OPLReg[0x000 | Reg] != OPLRegBak[0x000 | Reg]);
+			OPL_HW_WriteReg(0x000 | Reg, OPLReg[0x000 | Reg]);
+		}
+	}
+	memcpy(&OPLReg[0x080], RRBuffer + 0x00, 0x20);
+	memcpy(&OPLReg[0x180], RRBuffer + 0x20, 0x20);
+	
+	// Now the actual save restore.
+	Reg = 0x105;	// OPL3 Enable/Disable - this must be the very first thing sent
+	OPLRegForce[Reg] |= (OPLReg[Reg] != OPLRegBak[Reg]);
+	OPL_HW_WriteReg(Reg, OPLReg[Reg]);
+	
 	// Registers 0x00 to 0x1F and 0x100 to 0x11F MUST be sent first
 	for (Reg = 0x00; Reg < 0x20; Reg ++)
 	{
-		OPLRegForce[0x00 | Reg] |= (OPLReg[0x00 | Reg] != OPLRegBak[0x00 | Reg]);
-		OPL_HW_WriteReg(0x00 | Reg, OPLReg[0x00 | Reg]);
+		// Write Port 1 first, so that Port 0 writes override them, if OPL3 mode is disabled
 		OPLRegForce[0x100 | Reg] |= (OPLReg[0x100 | Reg] != OPLRegBak[0x100 | Reg]);
 		OPL_HW_WriteReg(0x100 | Reg, OPLReg[0x100 | Reg]);
+		OPLRegForce[0x000 | Reg] |= (OPLReg[0x000 | Reg] != OPLRegBak[0x000 | Reg]);
+		OPL_HW_WriteReg(0x000 | Reg, OPLReg[0x000 | Reg]);
 	}
 	
 	Reg = 0x200;
@@ -1089,11 +1220,20 @@ void StopSkipping(void)
 	
 	for (Reg = 0xA0; Reg < 0xC0; Reg ++)
 	{
-		OPLRegForce[0x00 | Reg] |= (OPLReg[0x00 | Reg] != OPLRegBak[0x00 | Reg]);
-		OPL_HW_WriteReg(0x00 | Reg, OPLReg[0x00 | Reg]);
+		// Writing to BA/BB on my YMF744 is like writing to B8/B9, so I need to filter such
+		// writes out.
+		if ((Reg & 0x0F) >= 0x09)
+			continue;
 		OPLRegForce[0x100 | Reg] |= (OPLReg[0x100 | Reg] != OPLRegBak[0x100 | Reg]);
 		OPL_HW_WriteReg(0x100 | Reg, OPLReg[0x100 | Reg]);
+		OPLRegForce[0x000 | Reg] |= (OPLReg[0x000 | Reg] != OPLRegBak[0x000 | Reg]);
+		OPL_HW_WriteReg(0x000 | Reg, OPLReg[0x000 | Reg]);
 	}
+	
+	Reg = 0x0BD;	// Rhythm Register / Vibrato/Tremolo Depth
+	OPLRegForce[Reg] |= (OPLReg[Reg] != OPLRegBak[Reg]);
+	OPL_HW_WriteReg(Reg, OPLReg[Reg]);
+#endif
 	
 	return;
 }

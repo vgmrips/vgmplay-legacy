@@ -11,6 +11,8 @@
 
 ***************************************************************************/
 
+#include <malloc.h>
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 //#include "sndintrf.h"
 //#include "streams.h"
@@ -21,9 +23,7 @@
 #ifdef ENABLE_ALL_CORES
 #include "ym2612.h"
 #endif
-#include <malloc.h>
 
-#define NULL	((void *)0)
 
 #define EC_MAME		0x00	// YM2612 core from MAME (now fixed, so it isn't worse than Gens anymore)
 #ifdef ENABLE_ALL_CORES
@@ -36,7 +36,7 @@ struct _ym2612_state
 	//sound_stream *	stream;
 	//emu_timer *		timer[2];
 	void *			chip;
-	const ym2612_interface *intf;
+	//const ym2612_interface *intf;
 	//const device_config *device;
 };
 
@@ -48,6 +48,7 @@ static UINT8 EMU_CORE = 0x00;
 #define MAX_CHIPS	0x02
 static ym2612_state YM2612Data[MAX_CHIPS];
 static int* GensBuf[0x02] = {NULL, NULL};
+static UINT8 ChipFlags = 0x00;
 
 /*INLINE ym2612_state *get_safe_token(const device_config *device)
 {
@@ -60,12 +61,12 @@ static int* GensBuf[0x02] = {NULL, NULL};
 
 /*------------------------- TM2612 -------------------------------*/
 /* IRQ Handler */
-static void IRQHandler(void *param,int irq)
+/*static void IRQHandler(void *param,int irq)
 {
 	ym2612_state *info = (ym2612_state *)param;
 	//if(info->intf->handler) info->intf->handler(info->device, irq);
-	if(info->intf->handler) info->intf->handler(irq);
-}
+	//if(info->intf->handler) info->intf->handler(irq);
+}*/
 
 /* Timer overflow callback from timer.c */
 //static TIMER_CALLBACK( timer_callback_2612_0 )
@@ -82,7 +83,7 @@ void timer_callback_2612_1(void *ptr, int param)
 	ym2612_timer_over(info->chip,1);
 }*/
 
-static void timer_handler(void *param,int c,int count,int clock)
+/*static void timer_handler(void *param,int c,int count,int clock)
 {
 	ym2612_state *info = (ym2612_state *)param;
 	if( count == 0 )
@@ -95,7 +96,7 @@ static void timer_handler(void *param,int c,int count,int clock)
 		//if (!timer_enable(info->timer[c], 1))
 		//	timer_adjust_oneshot(info->timer[c], period, 0);
 	}
-}
+}*/
 
 /* update request from fm.c */
 void ym2612_update_request(void *param)
@@ -163,7 +164,7 @@ void ym2612_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 //static DEVICE_START( ym2612 )
 int device_start_ym2612(UINT8 ChipID, int clock)
 {
-	static const ym2612_interface dummy = { 0 };
+	//static const ym2612_interface dummy = { 0 };
 	//ym2612_state *info = get_safe_token(device);
 	ym2612_state *info;
 	int rate;
@@ -173,11 +174,13 @@ int device_start_ym2612(UINT8 ChipID, int clock)
 	
 	info = &YM2612Data[ChipID];
 	rate = clock/72;
+	if (EMU_CORE == EC_MAME && ! (ChipFlags & 0x02))
+		rate /= 2;
 	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	//info->intf = device->static_config ? (const ym2612_interface *)device->static_config : &dummy;
-	info->intf = &dummy;
+	//info->intf = &dummy;
 	//info->device = device;
 
 	/* FM init */
@@ -192,7 +195,8 @@ int device_start_ym2612(UINT8 ChipID, int clock)
 	switch(EMU_CORE)
 	{
 	case EC_MAME:
-		info->chip = ym2612_init(info,clock,rate,timer_handler,IRQHandler);
+		//info->chip = ym2612_init(info,clock,rate,timer_handler,IRQHandler);
+		info->chip = ym2612_init(info, clock, rate, NULL, NULL);
 		break;
 #ifdef ENABLE_ALL_CORES
 	case EC_GENS:
@@ -352,14 +356,18 @@ void ym2612_set_emu_core(UINT8 Emulator)
 
 void ym2612_set_options(UINT8 Flags)
 {
-#ifdef ENABLE_ALL_CORES
+	ChipFlags = Flags;
 	switch(EMU_CORE)
 	{
+	case EC_MAME:
+		ym2612_setoptions(Flags);
+		break;
+#ifdef ENABLE_ALL_CORES
 	case EC_GENS:
 		YM2612_SetOptions(Flags);
 		break;
-	}
 #endif
+	}
 	
 	return;
 }
@@ -378,6 +386,8 @@ void ym2612_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 		break;
 #endif
 	}
+	
+	return;
 }
 
 

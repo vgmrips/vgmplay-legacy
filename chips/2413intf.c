@@ -7,7 +7,9 @@
 #include "mamedef.h"
 //#include "sndintrf.h"
 //#include "streams.h"
+#ifdef ENABLE_ALL_CORES
 #include "ym2413.h"
+#endif
 #include "emu2413.h"
 #include "2413intf.h"
 
@@ -16,12 +18,20 @@
 #endif
 #define EC_EMU2413	0x00	// EMU2413 core from in_vgm, value 0 because it's better than MAME
 
+#define NULL	((void *)0)
+
 /* for stream system */
 typedef struct _ym2413_state ym2413_state;
 struct _ym2413_state
 {
 	//sound_stream *	stream;
 	void *			chip;
+	UINT8			Mode;
+};
+
+static unsigned char vrc7_inst[(16 + 3) * 8] =
+{
+#include "vrc7tone.h"
 };
 
 extern UINT8 CHIP_SAMPLING_MODE;
@@ -100,6 +110,9 @@ int device_start_ym2413(UINT8 ChipID, int clock)
 		return 0;
 	
 	info = &YM2413Data[ChipID];
+	info->Mode = (clock & 0x80000000) >> 31;
+	clock &= 0x7FFFFFFF;
+	
 	rate = clock/72;
 	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
@@ -110,7 +123,10 @@ int device_start_ym2413(UINT8 ChipID, int clock)
 #ifdef ENABLE_ALL_CORES
 	case EC_MAME:
 		info->chip = ym2413_init(clock, rate);
+		if (info->chip == NULL)
+			return 0;
 		//assert_always(info->chip != NULL, "Error creating YM2413 chip");
+		ym2413_set_chip_mode(info->chip, info->Mode);
 
 		/* stream system initialize */
 		//info->stream = stream_create(device,0,2,rate,info,ym2413_stream_update);
@@ -120,9 +136,15 @@ int device_start_ym2413(UINT8 ChipID, int clock)
 #endif
 	case EC_EMU2413:
 		info->chip = OPLL_new(clock, rate);
+		if (info->chip == NULL)
+			return 0;
+		
+		OPLL_SetChipMode(info->chip, info->Mode);
+		if (info->Mode)
+			OPLL_setPatch(info->chip, vrc7_inst);
 		break;
 	}
- 
+	// Note: VRC7 instruments are set in device_reset if necessary.
 
 
 
@@ -178,10 +200,15 @@ void device_reset_ym2413(UINT8 ChipID)
 #ifdef ENABLE_ALL_CORES
 	case EC_MAME:
 		ym2413_reset_chip(info->chip);
+		if (info->Mode)
+			ym2413_override_patches(info->chip, vrc7_inst);
 		break;
 #endif
 	case EC_EMU2413:
 		OPLL_reset(info->chip);
+		// EMU2413 doesn't reset the patch data in OPLL_reset
+		//if (info->Mode)
+		//	OPLL_setPatch(info->chip, vrc7_inst);
 		break;
 	}
 }

@@ -6,6 +6,7 @@
 
 /*3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
 0000000001111111111222222222233333333334444444444555555555566666666667777777777888888888899999*/
+// TODO: Callback "ChangeSampleRate" to fix YM2203's AY8910
 
 // Mixer Muting ON:
 //		Mixer's FM Volume is set to 0 or Mute	-> absolutely muted
@@ -22,25 +23,26 @@
 //
 //#define ADDITIONAL_FORMATS
 //#define CONSOLE_MODE
+//#define VGM_BIG_ENDIAN
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 #include "stdbool.h"
 #include <math.h>	// for pow()
 
 #ifdef WIN32
-#include <conio.h>	// for _inp
+#include <conio.h>	// for _inp()
 #include <windows.h>
-#else
-// TODO: Test for neccessary headers
-#include <ctype.h>
-#include <wchar.h>
-#include <limits.h>
-#include <pthread.h>
-#include <time.h>
+#else	//ifdef UNIX
+#include <limits.h>		// for PATH_MAX
+#include <pthread.h>	// for pthread functions
+#include <time.h>		// for clock_gettime()
+#include <unistd.h>		// for usleep()
 
 #define MAX_PATH	PATH_MAX
+#define	Sleep(msec)	usleep(msec * 1000)
 
 #undef MIXER_MUTING		// I didn't get the Mixer Control to work under Linux
 
@@ -49,7 +51,7 @@
 #include <fcntl.h>
 #include <linux/soundcard.h>
 #endif
-#endif
+#endif	// WIN32/UNIX
 
 #include <zlib.h>
 
@@ -73,13 +75,22 @@ void ClosePortTalk(void);
 
 #include "ChipMapper.h"
 
+typedef void (*strm_func)(UINT8 ChipID, stream_sample_t **outputs, int samples);
+
 typedef struct chip_audio_attributes CAUD_ATTR;
 struct chip_audio_attributes
 {
 	UINT32 SmpRate;
 	UINT16 Volume;
 	UINT8 ChipType;
-	UINT8 Resampler;	// Resampler Type: 00 - Old, 01 - Upsampling, 02 - Copy, 03 - Downsampling
+	UINT8 ChipID;		// 0 - 1st chip, 1 - 2nd chip, etc.
+	// Resampler Type:
+	//	00 - Old
+	//	01 - Upsampling
+	//	02 - Copy
+	//	03 - Downsampling
+	UINT8 Resampler;
+	strm_func StreamUpdate;
 	UINT32 SmpP;		// Current Sample (Playback Rate)
 	UINT32 SmpLast;		// Sample Number Last
 	UINT32 SmpNext;		// Sample Number Next
@@ -122,8 +133,17 @@ typedef struct chip_audio_struct
 	CAUD_ATTR K053260;
 	CAUD_ATTR Pokey;
 	CAUD_ATTR QSound;
+	CAUD_ATTR SCSP;
 //	CAUD_ATTR OKIM6376;
 } CHIP_AUDIO;
+
+typedef struct chip_aud_list CA_LIST;
+struct chip_aud_list
+{
+	CAUD_ATTR* CAud;
+	CHIP_OPTS* COpts;
+	CA_LIST* next;
+};
 
 typedef struct daccontrol_data
 {
@@ -146,6 +166,15 @@ typedef struct pcmbank_table
 //void VGMPlay_Init(void);
 //void VGMPlay_Init2(void);
 //void VGMPlay_Deinit(void);
+//char* FindFile(const char* FileName)
+
+INLINE UINT16 ReadLE16(const UINT8* Data);
+INLINE UINT16 ReadBE16(const UINT8* Data);
+INLINE UINT32 ReadLE24(const UINT8* Data);
+INLINE UINT32 ReadLE32(const UINT8* Data);
+INLINE int gzgetLE16(gzFile hFile, UINT16* RetValue);
+INLINE int gzgetLE32(gzFile hFile, UINT32* RetValue);
+static UINT32 gcd(UINT32 x, UINT32 y);
 //void PlayVGM(void);
 //void StopVGM(void);
 //void RestartVGM(void);
@@ -157,6 +186,8 @@ typedef struct pcmbank_table
 
 //UINT32 GetGZFileLength(const char* FileName);
 //bool OpenVGMFile(const char* FileName);
+static void ReadVGMHeader(gzFile hFile, VGM_HEADER* RetVGMHead);
+static UINT8 ReadGD3Tag(gzFile hFile, UINT32 GD3Offset, GD3_TAG* RetGD3Tag);
 static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra);
 static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra);
 //void CloseVGMFile(void);
@@ -170,12 +201,15 @@ INLINE UINT32 MulDivRound(UINT64 Number, UINT64 Numerator, UINT64 Denominator);
 //const char* GetChipName(UINT8 ChipID);
 //const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType);
 //UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType);
+static UINT16 GetChipVolume(VGM_HEADER* FileHead, UINT8 ChipID, UINT8 ChipNum, UINT8 ChipCnt);
 
 static void RestartPlaying(void);
 static void Chips_GeneralActions(UINT8 Mode);
 
-INLINE INT32 SampleVGM2Playback(INT32 SampleVal);
-INLINE INT32 SamplePlayback2VGM(INT32 SampleVal);
+INLINE INT32 SampleVGM2Pbk_I(INT32 SampleVal);	// inline functions
+INLINE INT32 SamplePbk2VGM_I(INT32 SampleVal);
+//INT32 SampleVGM2Playback(INT32 SampleVal);		// non-inline functions
+//INT32 SamplePlayback2VGM(INT32 SampleVal);
 static UINT8 StartThread(void);
 static UINT8 StopThread(void);
 #if defined(WIN32) && defined(MIXER_MUTING)
@@ -186,7 +220,7 @@ static bool SetMuteControl(bool mute);
 static void InterpretFile(UINT32 SampleCount);
 static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data);
 //INLINE FUINT16 ReadBits(UINT8* Data, UINT32* Pos, FUINT8* BitPos, FUINT8 BitsToRead);
-static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data);
+static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data);
 static UINT8 GetDACFromPCMBank(void);
 static UINT8* GetPointerFromPCMBank(UINT8 Type, UINT32 DataPos);
 static void ReadPCMTable(UINT32 DataSize, const UINT8* Data);
@@ -195,9 +229,12 @@ static void InterpretVGM(UINT32 SampleCount);
 extern void InterpretOther(UINT32 SampleCount);
 #endif
 
+static void GeneralChipLists(void);
+static void SetupResampler(CAUD_ATTR* CAA);
 INLINE INT16 Limit2Short(INT32 Value);
-static void GetChipStream(UINT8 ChipID, UINT8 ChipNum, INT32** Buffer, UINT32 BufSize);
-static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length);
+static void null_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
+static void dual_opl2_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples);
+static void ResampleChipStream(CA_LIST* CLst, WAVE_32BS* RetSample, UINT32 Length);
 static INT32 RecalcFadeVolume(void);
 //UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
 
@@ -223,8 +260,10 @@ UINT32 PauseTime;	// current Pause Time
 float VolumeLevel;
 bool SurroundSound;
 bool FadeRAWLog;
-bool FullBufFill;	// Fill Buffer until it's full
+//bool FullBufFill;	// Fill Buffer until it's full
 bool PauseEmulate;
+
+bool DoubleSSGVol;
 
 UINT8 ResampleMode;	// 00 - HQ both, 01 - LQ downsampling, 02 - LQ both
 UINT8 CHIP_SAMPLING_MODE;
@@ -234,6 +273,7 @@ UINT16 FMPort;
 bool FMForce;
 //bool FMAccurate;
 bool FMBreakFade;
+float FMVol;
 
 CHIPS_OPTION ChipOpts[0x02];
 
@@ -245,8 +285,7 @@ bool WINNT_MODE;
 
 stream_sample_t* DUMMYBUF[0x02] = {NULL, NULL};
 
-static char AppPath[MAX_PATH];
-char* AppPathExt = AppPath;
+char* AppPaths[8];
 
 bool AutoStopSkip;
 
@@ -271,18 +310,24 @@ HANDLE hPlayThread;
 pthread_t hPlayThread;
 #endif
 bool PlayThreadOpen;
-bool PauseThread;
-static bool CloseThread;
+volatile bool PauseThread;
+static volatile bool CloseThread;
 bool ThreadPauseEnable;
-bool ThreadPauseConfrm;
+volatile bool ThreadPauseConfrm;
 bool ThreadNoWait;	// don't reset the timer
 
 CHIP_AUDIO ChipAudio[0x02];
 CAUD_ATTR CA_Paired[0x02][0x03];
 float MasterVol;
 
+CA_LIST ChipListBuffer[0x200];
+CA_LIST* ChipListAll;	// all chips needed for playback (in general)
+CA_LIST* ChipListPause;	// all chips needed for EmulateWhilePaused
+//CA_LIST* ChipListOpt;	// ChipListAll minus muted chips
+CA_LIST* CurChipList;	// pointer to Pause or All [Opt]
+
 #define SMPL_BUFSIZE	0x100
-INT32* StreamBufs[0x02];
+static INT32* StreamBufs[0x02];
 
 #ifdef MIXER_MUTING
 
@@ -330,7 +375,9 @@ extern UINT8 CmdList[0x100];
 #endif
 
 UINT8 IsVGMInit;
-
+UINT16 Last95Drum;	// for optvgm debugging
+UINT16 Last95Max;	// for optvgm debugging
+UINT32 Last95Freq;	// for optvgm debugging
 
 void VGMPlay_Init(void)
 {
@@ -338,6 +385,7 @@ void VGMPlay_Init(void)
 	UINT8 CurCSet;
 	UINT8 CurChn;
 	CHIP_OPTS* TempCOpt;
+	CAUD_ATTR* TempCAud;
 	
 	SampleRate = 44100;
 	FadeTime = 5000;
@@ -345,11 +393,12 @@ void VGMPlay_Init(void)
 	
 	FadeRAWLog = false;
 	VolumeLevel = 1.0f;
-	FullBufFill = false;
+	//FullBufFill = false;
 	FMPort = 0x0000;
 	FMForce = false;
 	//FMAccurate = false;
 	FMBreakFade = false;
+	FMVol = 0.0f;
 	SurroundSound = false;
 	VGMMaxLoop = 0x02;
 	VGMPbRate = 0;
@@ -360,10 +409,12 @@ void VGMPlay_Init(void)
 	CHIP_SAMPLING_MODE = 0x00;
 	CHIP_SAMPLE_RATE = 0x00000000;
 	PauseEmulate = false;
+	DoubleSSGVol = false;
 	
 	for (CurCSet = 0x00; CurCSet < 0x02; CurCSet ++)
 	{
-		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
+		TempCAud = (CAUD_ATTR*)&ChipAudio[CurCSet];
+		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, TempCAud ++)
 		{
 			TempCOpt = (CHIP_OPTS*)&ChipOpts[CurCSet] + CurChip;
 			
@@ -375,6 +426,24 @@ void VGMPlay_Init(void)
 			TempCOpt->ChnMute2 = 0x00;
 			TempCOpt->ChnMute3 = 0x00;
 			TempCOpt->Panning = NULL;
+			
+			// Set up some important fields to prevent in_vgm from crashing
+			// when clicking on Muting checkboxes after init.
+			TempCAud->ChipType = 0xFF;
+			TempCAud->ChipID = CurCSet;
+			TempCAud->Paired = NULL;
+		}
+		ChipOpts[CurCSet].GameBoy.SpecialFlags = 0x0003;
+		// default options, 0x8000 skips the option write and keeps NSFPlay's default values
+		ChipOpts[CurCSet].NES.SpecialFlags = 0x8000 |
+										(0x00 << 12) | (0x3B << 4) | (0x01 << 2) | (0x03 << 0);
+		
+		TempCAud = CA_Paired[CurCSet];
+		for (CurChip = 0x00; CurChip < 0x03; CurChip ++, TempCAud ++)
+		{
+			TempCAud->ChipType = 0xFF;
+			TempCAud->ChipID = CurCSet;
+			TempCAud->Paired = NULL;
 		}
 		
 		// currently the only chips with Panning support are
@@ -392,7 +461,9 @@ void VGMPlay_Init(void)
 			TempCOpt->Panning[CurChn] = 0x00;
 	}
 	
-	strcpy(AppPath, "");
+	for (CurChn = 0; CurChn < 8; CurChn ++)
+		AppPaths[CurChn] = NULL;
+	AppPaths[0] = "";
 	
 	FileMode = 0xFF;
 	
@@ -422,7 +493,7 @@ void VGMPlay_Init2(void)
 	
 	if (FMPort)
 	{
-#ifdef WIN32
+#if defined(WIN32) && defined(_MSC_VER)
 		__try
 		{
 			// should work well with WinXP Compatibility Mode
@@ -491,8 +562,8 @@ void VGMPlay_Deinit(void)
 #endif
 	}
 	
-	free(StreamBufs[0x00]);
-	free(StreamBufs[0x01]);
+	free(StreamBufs[0x00]);	StreamBufs[0x00] = NULL;
+	free(StreamBufs[0x01]);	StreamBufs[0x01] = NULL;
 	
 	for (CurCSet = 0x00; CurCSet < 0x02; CurCSet ++)
 	{
@@ -501,11 +572,126 @@ void VGMPlay_Deinit(void)
 			TempCOpt = (CHIP_OPTS*)&ChipOpts[CurCSet] + CurChip;
 			
 			if (TempCOpt->Panning != NULL)
-				free(TempCOpt->Panning);
+			{
+				free(TempCOpt->Panning);	TempCOpt->Panning = NULL;
+			}
 		}
 	}
 	
 	return;
+}
+
+// Note: Caller must free the returned string.
+char* FindFile(const char* FileName)
+{
+	char* FullName;
+	char** CurPath;
+	UINT32 NameLen;
+	UINT32 PathLen;
+	FILE* hFile;
+	
+	NameLen = strlen(FileName);
+	//printf("Find File: %s\n", FileName);
+	
+	// go to end of the list
+	// (The first entry has the lowest priority.)
+	CurPath = AppPaths;
+	while(*CurPath != NULL)
+		CurPath ++;
+	CurPath --;
+	
+	while(CurPath >= AppPaths)
+	{
+		PathLen = strlen(*CurPath);
+		FullName = (char*)malloc(PathLen + NameLen + 0x01);
+		strcpy(FullName, *CurPath);
+		strcat(FullName, FileName);
+		
+		//printf("Trying path: %s\n", FullName);
+		hFile = fopen(FullName, "r");
+		if (hFile != NULL)
+		{
+			fclose(hFile);
+			//printf("Success!\n");
+			return FullName;
+		}
+		
+		CurPath --;
+	}
+	
+	//printf("Fail!\n");
+	return NULL;
+}
+
+
+INLINE UINT16 ReadLE16(const UINT8* Data)
+{
+	// read 16-Bit Word (Little Endian/Intel Byte Order)
+#ifndef VGM_BIG_ENDIAN
+	return *(UINT16*)Data;
+#else
+	return (Data[0x01] << 8) | (Data[0x00] << 0);
+#endif
+}
+
+INLINE UINT16 ReadBE16(const UINT8* Data)
+{
+	// read 16-Bit Word (Big Endian/Motorola Byte Order)
+#ifndef VGM_BIG_ENDIAN
+	return (Data[0x00] << 8) | (Data[0x01] << 0);
+#else
+	return *(UINT16*)Data;
+#endif
+}
+
+INLINE UINT32 ReadLE24(const UINT8* Data)
+{
+	// read 24-Bit Word (Little Endian/Intel Byte Order)
+#ifndef VGM_BIG_ENDIAN
+	return	(*(UINT32*)Data) & 0x00FFFFFF;
+#else
+	return	(Data[0x02] << 16) | (Data[0x01] <<  8) | (Data[0x00] <<  0);
+#endif
+}
+
+INLINE UINT32 ReadLE32(const UINT8* Data)
+{
+	// read 32-Bit Word (Little Endian/Intel Byte Order)
+#ifndef VGM_BIG_ENDIAN
+	return	*(UINT32*)Data;
+#else
+	return	(Data[0x03] << 24) | (Data[0x02] << 16) |
+			(Data[0x01] <<  8) | (Data[0x00] <<  0);
+#endif
+}
+
+INLINE int gzgetLE16(gzFile hFile, UINT16* RetValue)
+{
+#ifndef VGM_BIG_ENDIAN
+	return gzread(hFile, RetValue, 0x02);
+#else
+	int RetVal;
+	UINT8 Data[0x02];
+	
+	RetVal = gzread(hFile, Data, 0x02);
+	*RetValue =	(Data[0x01] << 8) | (Data[0x00] << 0);
+	return RetVal;
+#endif
+}
+
+INLINE int gzgetLE32(gzFile hFile, UINT32* RetValue)
+{
+#ifndef VGM_BIG_ENDIAN
+	return gzread(hFile, RetValue, 0x04);
+#else
+	int RetVal;
+	UINT8 Data[0x04];
+	
+	RetVal = gzread(hFile, Data, 0x04);
+	*RetValue =	(Data[0x03] << 24) | (Data[0x02] << 16) |
+				(Data[0x01] <<  8) | (Data[0x00] <<  0);
+	return RetVal;
+#endif
 }
 
 static UINT32 gcd(UINT32 x, UINT32 y)
@@ -557,6 +743,15 @@ void PlayVGM(void)
 	if (PlayingMode != 0xFF)
 		return;
 	
+	//PausePlay = false;
+	FadePlay = false;
+	MasterVol = 1.0f;
+	ForceVGMExec = false;
+	AutoStopSkip = false;
+	FadeStart = 0;
+	ForceVGMExec = true;
+	PauseThread = true;
+	
 	// FM Check
 	FMVal = 0x00;
 	if (FMPort)
@@ -570,9 +765,10 @@ void PlayVGM(void)
 			// supported chips are:
 			//	SN76496 (0x00, special behaviour), YM2413 (0x01)
 			//	YM3812 (0x09), YM3526 (0x0A), Y8950 (0x0B), YMF262 (0x0C)
-			if (CurChip == 0x00)	// the SN76496 has a special state because of a
-				FMVal |= 0x04;		// bad FM emulation and fast software emulation
-			else if (CurChip == 0x01 || (CurChip >= 0x09 && CurChip < 0x0C))
+			if (CurChip == 0x00 || CurChip == 0x12)
+									// The SN76496 and AY8910 have a special state because of
+				FMVal |= 0x04;		// bad FM emulation and fast software emulation.
+			else if (CurChip == 0x01 || (CurChip >= 0x09 && CurChip <= 0x0C))
 				FMVal |= 0x02;
 			else
 				FMVal |= 0x01;
@@ -614,6 +810,13 @@ void PlayVGM(void)
 	else
 		TempSLng = VGMHead.bytVolumeModifier - 0x100;
 	VolumeLevelM = (float)(VolumeLevel * pow(2.0, TempSLng / (double)0x20));
+	if (UseFM)
+	{
+		if (FMVol > 0.0f)
+			VolumeLevelM = FMVol;
+		else if (FMVol < 0.0f)
+			VolumeLevelM *= -FMVol;
+	}
 	FinalVol = VolumeLevelM;
 	
 	if (! VGMMaxLoop)
@@ -654,19 +857,12 @@ void PlayVGM(void)
 	VGMEnd = false;
 	VGMCurLoop = 0x00;
 	PauseSmpls = (PauseTime * SampleRate + 500) / 1000;
+	if (VGMPos >= VGMHead.lngEOFOffset)
+		VGMEnd = true;
 	
 #ifdef CONSOLE_MODE
 	memset(CmdList, 0x00, 0x100 * sizeof(UINT8));
 #endif
-	
-	//PausePlay = false;
-	FadePlay = false;
-	MasterVol = 1.0f;
-	ForceVGMExec = false;
-	AutoStopSkip = false;
-	FadeStart = 0;
-	ForceVGMExec = true;
-	PauseThread = true;
 	
 	if (! PauseEmulate)
 	{
@@ -687,20 +883,18 @@ void PlayVGM(void)
 	}
 	
 	Chips_GeneralActions(0x00);	// Start chips
+	// also does Reset (0x01), Muting Mask (0x10) and Panning (0x20)
 	
 	if (UseFM)
 	{
 		// TODO: get FirstInit working
 		//if (! FirstInit)
 		{
-			StartSkipping();	// don't apply OPL Reset to make Track changes smooth*/
+			StartSkipping();	// don't apply OPL Reset to make Track changes smooth
 			AutoStopSkip = true;
 		}
 		open_real_fm();
 	}
-	
-	Chips_GeneralActions(0x10);	// set muting mask
-	Chips_GeneralActions(0x20);	// set panning
 	
 	switch(PlayingMode)
 	{
@@ -721,6 +915,9 @@ void PlayVGM(void)
 		break;
 	}
 	
+	Last95Drum = 0xFFFF;
+	Last95Freq = 0;
+	Last95Max = 0xFFFF;
 	IsVGMInit = true;
 	Interpreting = false;
 	InterpretFile(0);
@@ -834,7 +1031,7 @@ void SeekVGM(bool Relative, INT32 PlayBkSamples)
 	if (PlayingMode == 0xFF || (Relative && ! PlayBkSamples))
 		return;
 	
-	LoopSmpls = VGMCurLoop * SampleVGM2Playback(VGMHead.lngLoopSamples);
+	LoopSmpls = VGMCurLoop * SampleVGM2Pbk_I(VGMHead.lngLoopSamples);
 	if (! Relative)
 		Samples = PlayBkSamples - (LoopSmpls + VGMSmplPlayed);
 	else
@@ -894,6 +1091,13 @@ void RefreshPlaybackOptions(void)
 	else
 		TempVol = VGMHead.bytVolumeModifier - 0x100;
 	VolumeLevelM = (float)(VolumeLevel * pow(2.0, TempVol / (double)0x20));
+	if (UseFM)
+	{
+		if (FMVol > 0.0f)
+			VolumeLevelM = FMVol;
+		else if (FMVol < 0.0f)
+			VolumeLevelM *= -FMVol;
+	}
 	FinalVol = VolumeLevelM * MasterVol * MasterVol;
 	
 	//PauseSmpls = (PauseTime * SampleRate + 500) / 1000;
@@ -925,7 +1129,11 @@ UINT32 GetGZFileLength(const char* FileName)
 	
 	fread(&gzHead, 0x02, 0x01, hFile);
 	
+#ifndef VGM_BIG_ENDIAN
 	if (gzHead != 0x8B1F)
+#else
+	if (gzHead != 0x1F8B)
+#endif
 	{
 		// normal file
 		fseek(hFile, 0x00, SEEK_END);
@@ -936,6 +1144,9 @@ UINT32 GetGZFileLength(const char* FileName)
 		// .gz File
 		fseek(hFile, -4, SEEK_END);
 		fread(&FileSize, 0x04, 0x01, hFile);
+#ifdef VGM_BIG_ENDIAN
+		FileSize = ReadLE32((UINT8*)&FileSize);
+#endif
 	}
 	
 	fclose(hFile);
@@ -949,7 +1160,7 @@ bool OpenVGMFile(const char* FileName)
 	UINT32 FileSize;
 	UINT32 fccHeader;
 	UINT32 CurPos;
-	UINT32 TempLng;
+	UINT32 HdrLimit;
 	
 	FileSize = GetGZFileLength(FileName);
 	
@@ -958,7 +1169,7 @@ bool OpenVGMFile(const char* FileName)
 		return false;
 	
 	gzseek(hFile, 0x00, SEEK_SET);
-	gzread(hFile, &fccHeader, 0x04);
+	gzgetLE32(hFile, &fccHeader);
 	if (fccHeader != FCC_VGM)
 		goto OpenErr;
 	
@@ -969,95 +1180,31 @@ bool OpenVGMFile(const char* FileName)
 	VGMDataLen = FileSize;
 	
 	gzseek(hFile, 0x00, SEEK_SET);
-	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
+	ReadVGMHeader(hFile, &VGMHead);
 	
-	// Header preperations
 	VGMSampleRate = 44100;
-	if (VGMHead.lngVersion < 0x00000101)
+	if (! VGMDataLen)
+		VGMDataLen = VGMHead.lngEOFOffset;
+	if (! VGMHead.lngEOFOffset || VGMHead.lngEOFOffset > VGMDataLen)
 	{
-		VGMHead.lngRate = 0;
-	}
-	if (VGMHead.lngVersion < 0x00000110)
-	{
-		VGMHead.shtPSG_Feedback = 0x0000;
-		VGMHead.bytPSG_SRWidth = 0x00;
-		VGMHead.lngHzYM2612 = VGMHead.lngHzYM2413;
-		VGMHead.lngHzYM2151 = VGMHead.lngHzYM2413;
-	}
-	if (VGMHead.lngVersion < 0x00000150)
-	{
-		VGMHead.lngDataOffset = 0x00000000;
-	// If I would aim to be very strict, I would uncomment these few lines,
-	// but I sometimes use v1.51 Flags with v1.50 for better compatibility.
-	// (Some hyper-strict players refuse to play v1.51 files, even if there's
-	//  no new chip used.)
-	//}
-	//if (VGMHead.lngVersion < 0x00000151)
-	//{
-		VGMHead.bytPSG_Flags = 0x00;
-		VGMHead.lngHzSPCM = 0x0000;
-		VGMHead.lngSPCMIntf = 0x00000000;
-		// all others are zeroed by memset
-	}
-	
-	if (VGMHead.lngHzPSG)
-	{
-		if (! VGMHead.shtPSG_Feedback)
-			VGMHead.shtPSG_Feedback = 0x0009;
-		if (! VGMHead.bytPSG_SRWidth)
-			VGMHead.bytPSG_SRWidth = 0x10;
-	}
-	
-	// relative -> absolute addresses
-	if (VGMHead.lngEOFOffset)
-		VGMHead.lngEOFOffset += 0x00000004;
-	else
-	{
-		VGMDataLen = FileSize;
+		printf("Warning! Invalid EOF Offset 0x%02X! (should be: 0x%02X)\n",
+				VGMHead.lngEOFOffset, VGMDataLen);
 		VGMHead.lngEOFOffset = VGMDataLen;
 	}
-	if (VGMHead.lngGD3Offset)
-		VGMHead.lngGD3Offset += 0x00000014;
-	if (VGMHead.lngLoopOffset)
-		VGMHead.lngLoopOffset += 0x0000001C;
 	if (VGMHead.lngLoopOffset && ! VGMHead.lngLoopSamples)
 	{
 		// 0-Sample-Loops causes the program to hangs in the playback routine
 		printf("Warning! Ignored Zero-Sample-Loop!\n");
 		VGMHead.lngLoopOffset = 0x00000000;
 	}
-	if (VGMHead.lngVersion < 0x00000150)
-		VGMHead.lngDataOffset = 0x0000000C;
-	if (VGMHead.lngDataOffset < 0x0000000C)
+	if (VGMHead.lngDataOffset < 0x00000040)
 	{
-		printf("Warning! Invalid Data Offset!\n");
-		VGMHead.lngDataOffset = 0x0000000C;
+		printf("Warning! Invalid Data Offset 0x%02X!\n", VGMHead.lngDataOffset);
+		VGMHead.lngDataOffset = 0x00000040;
 	}
-	VGMHead.lngDataOffset += 0x00000034;
-	
-	CurPos = VGMHead.lngDataOffset;
-	// should actually check v1.51 (first real usage of DataOffset)
-	// v1.50 is checked to support things like the Volume Modifiers in v1.50 files
-	if (VGMHead.lngVersion < 0x00000150 /*0x00000151*/)
-		CurPos = 0x40;
-	TempLng = sizeof(VGM_HEADER);
-	if (TempLng > CurPos)
-		memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng - CurPos);
 	
 	memset(&VGMHeadX, 0x00, sizeof(VGM_HDR_EXTRA));
 	memset(&VGMH_Extra, 0x00, sizeof(VGM_EXTRA));
-	
-	if (! VGMHead.bytLoopModifier)
-		VGMHead.bytLoopModifier = 0x10;
-	
-	if (VGMHead.lngExtraOffset)
-	{
-		VGMHead.lngExtraOffset += 0xBC;
-		
-		CurPos = VGMHead.lngExtraOffset;
-		if (CurPos < TempLng)
-			memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng - CurPos);
-	}
 	
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
@@ -1070,34 +1217,40 @@ bool OpenVGMFile(const char* FileName)
 	// Read Extra Header Data
 	if (VGMHead.lngExtraOffset)
 	{
+		UINT32* TempPtr;
+		
 		CurPos = VGMHead.lngExtraOffset;
-		memcpy(&TempLng,	&VGMData[CurPos], 0x04);
-		memcpy(&VGMHeadX,	&VGMData[CurPos], TempLng);
+		TempPtr = (UINT32*)&VGMHeadX;
+		// Read Header Size
+		VGMHeadX.DataSize = ReadLE32(&VGMData[CurPos]);
+		if (VGMHeadX.DataSize > sizeof(VGM_HDR_EXTRA))
+			VGMHeadX.DataSize = sizeof(VGM_HDR_EXTRA);
+		HdrLimit = CurPos + VGMHeadX.DataSize;
 		CurPos += 0x04;
+		TempPtr ++;
 		
-		if (VGMHeadX.Chp2ClkOffset)
-			VGMHeadX.Chp2ClkOffset += CurPos;
+		// Read all relative offsets of this header and make them absolute.
+		for (; CurPos < HdrLimit; CurPos += 0x04, TempPtr ++)
+		{
+			*TempPtr = ReadLE32(&VGMData[CurPos]);
+			if (*TempPtr)
+				*TempPtr += CurPos;
+		}
+		
 		ReadChipExtraData32(VGMHeadX.Chp2ClkOffset, &VGMH_Extra.Clocks);
-		CurPos += 0x04;
-		
-		if (VGMHeadX.ChpVolOffset)
-			VGMHeadX.ChpVolOffset += CurPos;
 		ReadChipExtraData16(VGMHeadX.ChpVolOffset, &VGMH_Extra.Volumes);
-		CurPos += 0x04;
 	}
 	
 	// Read GD3 Tag
-	if (VGMHead.lngGD3Offset)
+	HdrLimit = ReadGD3Tag(hFile, VGMHead.lngGD3Offset, &VGMTag);
+	if (HdrLimit == 0x10)
 	{
-		gzseek(hFile, VGMHead.lngGD3Offset, SEEK_SET);
-		gzread(hFile, &fccHeader, 0x04);
-		if (fccHeader != FCC_GD3)
-			VGMHead.lngGD3Offset = 0x00000000;
-			//goto OpenErr;
+		VGMHead.lngGD3Offset = 0x00000000;
+		//goto OpenErr;
 	}
-	
 	if (! VGMHead.lngGD3Offset)
 	{
+		// replace all NULL pointers with empty strings
 		VGMTag.strTrackNameE = MakeEmptyWStr();
 		VGMTag.strTrackNameJ = MakeEmptyWStr();
 		VGMTag.strGameNameE = MakeEmptyWStr();
@@ -1110,25 +1263,6 @@ bool OpenVGMFile(const char* FileName)
 		VGMTag.strCreator = MakeEmptyWStr();
 		VGMTag.strNotes = MakeEmptyWStr();
 	}
-	else
-	{
-		CurPos = VGMHead.lngGD3Offset;
-		gzseek(hFile, CurPos, SEEK_SET);
-		gzread(hFile, &VGMTag, 0x0C);
-		CurPos += 0x0C;
-		TempLng = CurPos + VGMTag.lngTagLength;
-		VGMTag.strTrackNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strTrackNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strGameNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strGameNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strSystemNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strSystemNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strAuthorNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strAuthorNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strReleaseDate = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strCreator = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strNotes = ReadWStrFromFile(hFile, &CurPos, TempLng);
-	}
 	
 	gzclose(hFile);
 	return true;
@@ -1139,13 +1273,204 @@ OpenErr:
 	return false;
 }
 
+static void ReadVGMHeader(gzFile hFile, VGM_HEADER* RetVGMHead)
+{
+	VGM_HEADER CurHead;
+	UINT32 CurPos;
+	UINT32 HdrLimit;
+	
+	gzread(hFile, &CurHead, sizeof(VGM_HEADER));
+#ifdef VGM_BIG_ENDIAN
+	{
+		UINT8* TempPtr;
+		
+		// Warning: Lots of pointer casting ahead!
+		for (CurPos = 0x00; CurPos < sizeof(VGM_HEADER); CurPos += 0x04)
+		{
+			TempPtr = (UINT8*)&CurHead + CurPos;
+			switch(CurPos)
+			{
+			case 0x28:
+				// 0x28	[16-bit] SN76496 Feedback Mask
+				// 0x2A	[ 8-bit] SN76496 Shift Register Width
+				// 0x2B	[ 8-bit] SN76496 Flags
+				*(UINT16*)TempPtr = ReadLE16(TempPtr);
+				break;
+			case 0x78:	// 78-7B [8-bit] AY8910 Type/Flags
+			case 0x7C:	// 7C-7F [8-bit] Volume/Loop Modifiers
+			case 0x94:	// 94-97 [8-bit] various flags
+				break;
+			default:
+				// everything else is 32-bit
+				*(UINT32*)TempPtr = ReadLE32(TempPtr);
+				break;
+			}
+		}
+	}
+#endif
+	
+	// Header preperations
+	if (CurHead.lngVersion < 0x00000101)
+	{
+		CurHead.lngRate = 0;
+	}
+	if (CurHead.lngVersion < 0x00000110)
+	{
+		CurHead.shtPSG_Feedback = 0x0000;
+		CurHead.bytPSG_SRWidth = 0x00;
+		CurHead.lngHzYM2612 = CurHead.lngHzYM2413;
+		CurHead.lngHzYM2151 = CurHead.lngHzYM2413;
+	}
+	if (CurHead.lngVersion < 0x00000150)
+	{
+		CurHead.lngDataOffset = 0x00000000;
+	// If I would aim to be very strict, I would uncomment these few lines,
+	// but I sometimes use v1.51 Flags with v1.50 for better compatibility.
+	// (Some hyper-strict players refuse to play v1.51 files, even if there's
+	//  no new chip used.)
+	//}
+	//if (CurHead.lngVersion < 0x00000151)
+	//{
+		CurHead.bytPSG_Flags = 0x00;
+		CurHead.lngHzSPCM = 0x0000;
+		CurHead.lngSPCMIntf = 0x00000000;
+		// all others are zeroed by memset
+	}
+	
+	if (CurHead.lngHzPSG)
+	{
+		if (! CurHead.shtPSG_Feedback)
+			CurHead.shtPSG_Feedback = 0x0009;
+		if (! CurHead.bytPSG_SRWidth)
+			CurHead.bytPSG_SRWidth = 0x10;
+	}
+	
+	// relative -> absolute addresses
+	if (CurHead.lngEOFOffset)
+		CurHead.lngEOFOffset += 0x00000004;
+	if (CurHead.lngGD3Offset)
+		CurHead.lngGD3Offset += 0x00000014;
+	if (CurHead.lngLoopOffset)
+		CurHead.lngLoopOffset += 0x0000001C;
+	
+	if (CurHead.lngVersion < 0x00000150)
+		CurHead.lngDataOffset = 0x0000000C;
+	//if (CurHead.lngDataOffset < 0x0000000C)
+	//	CurHead.lngDataOffset = 0x0000000C;
+	if (CurHead.lngDataOffset)
+		CurHead.lngDataOffset += 0x00000034;
+	
+	CurPos = CurHead.lngDataOffset;
+	// should actually check v1.51 (first real usage of DataOffset)
+	// v1.50 is checked to support things like the Volume Modifiers in v1.50 files
+	if (CurHead.lngVersion < 0x00000150 /*0x00000151*/)
+		CurPos = 0x40;
+	if (! CurPos)
+		CurPos = 0x40;
+	HdrLimit = sizeof(VGM_HEADER);
+	if (HdrLimit > CurPos)
+		memset((UINT8*)&CurHead + CurPos, 0x00, HdrLimit - CurPos);
+	
+	if (! CurHead.bytLoopModifier)
+		CurHead.bytLoopModifier = 0x10;
+	
+	if (CurHead.lngExtraOffset)
+	{
+		CurHead.lngExtraOffset += 0xBC;
+		
+		CurPos = CurHead.lngExtraOffset;
+		if (CurPos < HdrLimit)
+			memset((UINT8*)&CurHead + CurPos, 0x00, HdrLimit - CurPos);
+	}
+	
+	if (CurHead.lngGD3Offset >= CurHead.lngEOFOffset)
+		CurHead.lngGD3Offset = 0x00;
+	if (CurHead.lngLoopOffset >= CurHead.lngEOFOffset)
+		CurHead.lngLoopOffset = 0x00;
+	if (CurHead.lngDataOffset >= CurHead.lngEOFOffset)
+		CurHead.lngDataOffset = 0x40;
+	if (CurHead.lngExtraOffset >= CurHead.lngEOFOffset)
+		CurHead.lngExtraOffset = 0x00;
+	
+	*RetVGMHead = CurHead;
+	return;
+}
+
+static UINT8 ReadGD3Tag(gzFile hFile, UINT32 GD3Offset, GD3_TAG* RetGD3Tag)
+{
+	UINT32 CurPos;
+	UINT32 TempLng;
+	UINT8 ResVal;
+	
+	ResVal = 0x00;
+	
+	// Read GD3 Tag
+	if (GD3Offset)
+	{
+		gzseek(hFile, GD3Offset, SEEK_SET);
+		gzgetLE32(hFile, &TempLng);
+		if (TempLng != FCC_GD3)
+		{
+			GD3Offset = 0x00000000;
+			ResVal = 0x10;	// invalid GD3 offset
+		}
+	}
+	
+	if (RetGD3Tag == NULL)
+		return ResVal;
+	
+	if (! GD3Offset)
+	{
+		RetGD3Tag->fccGD3 = 0x00000000;
+		RetGD3Tag->lngVersion = 0x00000000;
+		RetGD3Tag->lngTagLength = 0x00000000;
+		RetGD3Tag->strTrackNameE = NULL;
+		RetGD3Tag->strTrackNameJ = NULL;
+		RetGD3Tag->strGameNameE = NULL;
+		RetGD3Tag->strGameNameJ = NULL;
+		RetGD3Tag->strSystemNameE = NULL;
+		RetGD3Tag->strSystemNameJ = NULL;
+		RetGD3Tag->strAuthorNameE = NULL;
+		RetGD3Tag->strAuthorNameJ = NULL;
+		RetGD3Tag->strReleaseDate = NULL;
+		RetGD3Tag->strCreator = NULL;
+		RetGD3Tag->strNotes = NULL;
+	}
+	else
+	{
+		//CurPos = GD3Offset;
+		//gzseek(hFile, CurPos, SEEK_SET);
+		//CurPos += gzgetLE32(hFile, &RetGD3Tag->fccGD3);
+		
+		CurPos = GD3Offset + 0x04;		// Save some back seeking, yay!
+		RetGD3Tag->fccGD3 = TempLng;	// (That costs lots of CPU in .gz files.)
+		CurPos += gzgetLE32(hFile, &RetGD3Tag->lngVersion);
+		CurPos += gzgetLE32(hFile, &RetGD3Tag->lngTagLength);
+		
+		TempLng = CurPos + RetGD3Tag->lngTagLength;
+		RetGD3Tag->strTrackNameE =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strTrackNameJ =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strGameNameE =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strGameNameJ =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strSystemNameE =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strSystemNameJ =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strAuthorNameE =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strAuthorNameJ =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strReleaseDate =	ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strCreator =		ReadWStrFromFile(hFile, &CurPos, TempLng);
+		RetGD3Tag->strNotes =		ReadWStrFromFile(hFile, &CurPos, TempLng);
+	}
+	
+	return ResVal;
+}
+
 static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra)
 {
 	UINT32 CurPos;
 	UINT8 CurChp;
 	VGMX_CHIP_DATA32* TempCD;
 	
-	if (! StartOffset)
+	if (! StartOffset || StartOffset >= VGMDataLen)
 	{
 		ChpExtra->ChipCnt = 0x00;
 		ChpExtra->CCData = NULL;
@@ -1165,7 +1490,7 @@ static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra)
 	{
 		TempCD = &ChpExtra->CCData[CurChp];
 		TempCD->Type = VGMData[CurPos + 0x00];
-		memcpy(&TempCD->Data, &VGMData[CurPos + 0x01], 0x04);
+		TempCD->Data = ReadLE32(&VGMData[CurPos + 0x01]);
 		CurPos += 0x05;
 	}
 	
@@ -1178,7 +1503,7 @@ static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra)
 	UINT8 CurChp;
 	VGMX_CHIP_DATA16* TempCD;
 	
-	if (! StartOffset)
+	if (! StartOffset || StartOffset >= VGMDataLen)
 	{
 		ChpExtra->ChipCnt = 0x00;
 		ChpExtra->CCData = NULL;
@@ -1198,8 +1523,9 @@ static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra)
 	{
 		TempCD = &ChpExtra->CCData[CurChp];
 		TempCD->Type = VGMData[CurPos + 0x00];
-		memcpy(&TempCD->Data, &VGMData[CurPos + 0x01], 0x02);
-		CurPos += 0x03;
+		TempCD->Flags = VGMData[CurPos + 0x01];
+		TempCD->Data = ReadLE16(&VGMData[CurPos + 0x02]);
+		CurPos += 0x04;
 	}
 	
 	return;
@@ -1256,6 +1582,7 @@ static wchar_t* MakeEmptyWStr(void)
 
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 {
+	// Note: Works with Windows (16-bit wchar_t) as well as Linux (32-bit wchar_t)
 	UINT32 CurPos;
 	wchar_t* TextStr;
 	wchar_t* TempStr;
@@ -1270,21 +1597,21 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 		return NULL;
 	
 	gzseek(hFile, CurPos, SEEK_SET);
-	TempStr = TextStr;
+	TempStr = TextStr - 1;
 	StrLen = 0x00;
 	do
 	{
-		gzread(hFile, &UnicodeChr, 0x02);
-		*TempStr = (wchar_t)UnicodeChr;
 		TempStr ++;
+		gzgetLE16(hFile, &UnicodeChr);
+		*TempStr = (wchar_t)UnicodeChr;
 		CurPos += 0x02;
 		StrLen ++;
 		if (CurPos >= EOFPos)
 		{
-			*(TempStr - 0x01) = 0x0000;
+			*TempStr = L'\0';
 			break;
 		}
-	} while(*(TempStr - 1));
+	} while(*TempStr != L'\0');
 	
 	TextStr = (wchar_t*)realloc(TextStr, StrLen * sizeof(wchar_t));
 	*FilePos = CurPos;
@@ -1298,10 +1625,8 @@ UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* Ret
 	gzFile hFile;
 	UINT32 FileSize;
 	UINT32 fccHeader;
-	UINT32 CurPos;
 	UINT32 TempLng;
 	VGM_HEADER TempHead;
-	GD3_TAG TempTag;
 	
 	FileSize = GetGZFileLength(FileName);
 	
@@ -1310,7 +1635,7 @@ UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* Ret
 		return 0x00;
 	
 	gzseek(hFile, 0x00, SEEK_SET);
-	gzread(hFile, &fccHeader, 0x04);
+	gzgetLE32(hFile, &fccHeader);
 	if (fccHeader != FCC_VGM)
 		goto OpenErr;
 	
@@ -1321,131 +1646,28 @@ UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* Ret
 	}
 	
 	gzseek(hFile, 0x00, SEEK_SET);
-	gzread(hFile, &TempHead, sizeof(VGM_HEADER));
+	ReadVGMHeader(hFile, &TempHead);
 	
-	// Header preperations
-	if (TempHead.lngVersion < 0x00000101)
-	{
-		TempHead.lngRate = 0;
-	}
-	if (TempHead.lngVersion < 0x00000110)
-	{
-		TempHead.shtPSG_Feedback = 0x0000;
-		TempHead.bytPSG_SRWidth = 0x00;
-		TempHead.lngHzYM2612 = TempHead.lngHzYM2413;
-		TempHead.lngHzYM2151 = TempHead.lngHzYM2413;
-	}
-	if (TempHead.lngVersion < 0x00000150)
-	{
-		TempHead.lngDataOffset = 0x00000000;
-	//}
-	//if (TempHead.lngVersion < 0x00000151)
-	//{
-		TempHead.bytPSG_Flags = 0x00;
-		TempHead.lngHzSPCM = 0x0000;
-		TempHead.lngSPCMIntf = 0x00000000;
-		// all others are zeroed by memset
-	}
-	
-	if (TempHead.lngHzPSG)
-	{
-		if (! TempHead.shtPSG_Feedback)
-			TempHead.shtPSG_Feedback = 0x0009;
-		if (! TempHead.bytPSG_SRWidth)
-			TempHead.bytPSG_SRWidth = 0x10;
-	}
-	
-	// relative -> absolute addresses
-	if (TempHead.lngEOFOffset)
-		TempHead.lngEOFOffset += 0x00000004;
-	else
-	{
+	if (! TempHead.lngEOFOffset || TempHead.lngEOFOffset > FileSize)
 		TempHead.lngEOFOffset = FileSize;
-	}
-	if (TempHead.lngGD3Offset)
-		TempHead.lngGD3Offset += 0x00000014;
-	if (TempHead.lngLoopOffset)
-		TempHead.lngLoopOffset += 0x0000001C;
+	if (TempHead.lngDataOffset < 0x00000040)
+		TempHead.lngDataOffset = 0x00000040;
 	
-	if (TempHead.lngVersion < 0x00000150)
-		TempHead.lngDataOffset = 0x0000000C;
-	if (TempHead.lngDataOffset < 0x0000000C)
-		TempHead.lngDataOffset = 0x0000000C;
-	TempHead.lngDataOffset += 0x00000034;
-	
-	CurPos = TempHead.lngDataOffset;
-	if (TempHead.lngVersion < 0x00000150 /*0x00000151*/)
-		CurPos = 0x40;
-	TempLng = sizeof(VGM_HEADER);
-	if (TempLng > CurPos)
-		memset((UINT8*)&TempHead + CurPos, 0x00, TempLng - CurPos);
-	
-	if (! TempHead.bytLoopModifier)
-		TempHead.bytLoopModifier = 0x10;
-	
-	if (TempHead.lngExtraOffset)
-	{
-		TempHead.lngExtraOffset += 0xBC;
-		
-		CurPos = TempHead.lngExtraOffset;
-		if (CurPos < TempLng)
-			memset((UINT8*)&TempHead + CurPos, 0x00, TempLng - CurPos);
-	}
-	
-	// Read GD3 Tag
-	if (TempHead.lngGD3Offset)
+	/*if (TempHead.lngGD3Offset)
 	{
 		gzseek(hFile, TempHead.lngGD3Offset, SEEK_SET);
-		gzread(hFile, &fccHeader, 0x04);
+		gzgetLE32(hFile, &fccHeader);
 		if (fccHeader != FCC_GD3)
 			TempHead.lngGD3Offset = 0x00000000;
 			//goto OpenErr;
-	}
+	}*/
 	
 	if (RetVGMHead != NULL)
 		*RetVGMHead = TempHead;
 	
+	// Read GD3 Tag
 	if (RetGD3Tag != NULL)
-	{
-		if (! TempHead.lngGD3Offset)
-		{
-			TempTag.fccGD3 = 0x00000000;
-			TempTag.lngVersion = 0x00000000;
-			TempTag.lngTagLength = 0x00000000;
-			TempTag.strTrackNameE = NULL;
-			TempTag.strTrackNameJ = NULL;
-			TempTag.strGameNameE = NULL;
-			TempTag.strGameNameJ = NULL;
-			TempTag.strSystemNameE = NULL;
-			TempTag.strSystemNameJ = NULL;
-			TempTag.strAuthorNameE = NULL;
-			TempTag.strAuthorNameJ = NULL;
-			TempTag.strReleaseDate = NULL;
-			TempTag.strCreator = NULL;
-			TempTag.strNotes = NULL;
-		}
-		else
-		{
-			CurPos = TempHead.lngGD3Offset;
-			gzseek(hFile, CurPos, SEEK_SET);
-			gzread(hFile, &TempTag, 0x0C);
-			CurPos += 0x0C;
-			TempLng = CurPos + TempTag.lngTagLength;
-			TempTag.strTrackNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strTrackNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strGameNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strGameNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strSystemNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strSystemNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strAuthorNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strAuthorNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strReleaseDate = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strCreator = ReadWStrFromFile(hFile, &CurPos, TempLng);
-			TempTag.strNotes = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		}
-		
-		*RetGD3Tag = TempTag;
-	}
+		TempLng = ReadGD3Tag(hFile, TempHead.lngGD3Offset, RetGD3Tag);
 	
 	gzclose(hFile);
 	return FileSize;
@@ -1549,13 +1771,47 @@ UINT32 CalcSampleMSecExt(UINT64 Value, UINT8 Mode, VGM_HEADER* FileHead)
 	return RetVal;
 }
 
+static UINT32 EncryptChipName(void* DstBuf, const void* SrcBuf, UINT32 Length)
+{
+	// using nineko's awesome encryption algorithm
+	// http://forums.sonicretro.org/index.php?showtopic=25300
+	// based on C code by sasuke
+	const UINT8* SrcPos;
+	UINT8* DstPos;
+	UINT32 CurPos;
+	UINT8 CryptShift;	// Src Bit/Dst Byte
+	UINT8 PlainShift;	// Src Byte/Dst Bit
+	
+	if (Length & 0x07)
+		return 0x00;	// Length MUST be a multiple of 8
+	
+	SrcPos = (const UINT8*)SrcBuf;
+	DstPos = (UINT8*)DstBuf;
+	for (CurPos = 0; CurPos < Length; CurPos += 8, SrcPos += 8, DstPos += 8)
+	{
+		for (CryptShift = 0; CryptShift < 8; CryptShift ++)
+		{
+			DstPos[CryptShift] = 0x00;
+			for (PlainShift = 0; PlainShift < 8; PlainShift ++)
+			{
+				if (SrcPos[PlainShift] & (1 << CryptShift))
+					DstPos[CryptShift] |= (1 << PlainShift);
+			}
+		}
+	}
+	
+	return Length;
+}
+
 const char* GetChipName(UINT8 ChipID)
 {
 	const char* CHIP_STRS[CHIP_COUNT] = 
 	{	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
 		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B", "YMF271", "YMZ280B",
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
-		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound"};
+		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
+		"SCSP", "C64"};
+	static char TempStr[0x08];
 	
 	if (ChipID < CHIP_COUNT)
 		return CHIP_STRS[ChipID];
@@ -1566,6 +1822,7 @@ const char* GetChipName(UINT8 ChipID)
 const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 {
 	const char* RetStr;
+	static char TempStr[0x10];
 	
 	if ((ChipID & 0x7F) >= CHIP_COUNT)
 		return NULL;
@@ -1576,22 +1833,56 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 	case 0x00:
 		if (! (ChipID & 0x80))
 		{
-			RetStr = "SN76496";
-			/*
-								 FbMask  Noise Taps  Negate Stereo Dv Freq0		Fb	SR	Flags
-				SN76489			 0x4000, 0x01, 0x02, TRUE,  FALSE, 8, TRUE		03	0F	07 (02|04|00|01)
-				SN76489A		0x10000, 0x04, 0x08, FALSE, FALSE, 8, TRUE		0C	11	05 (00|04|00|01)
-				SN76494			0x10000, 0x04, 0x08, FALSE, FALSE, 1, TRUE		0C	11	0D (00|04|08|01)
-				SN76496			0x10000, 0x04, 0x08, FALSE, FALSE, 8, TRUE		0C	11	05 (00|04|00|01)
-				SN94624			 0x4000, 0x01, 0x02, TRUE,  FALSE, 1, TRUE		03	0F	0F (02|04|08|01)
-				NCR7496			 0x8000, 0x02, 0x20, FALSE, FALSE, 8, TRUE		22	10	05 (00|04|00|01)
-				Game Gear PSG	 0x8000, 0x01, 0x08, TRUE,  TRUE,  8, FALSE		09	10	02 (02|00|00|00)
-				SEGA VDP PSG	 0x8000, 0x01, 0x08, TRUE,  FALSE, 8, FALSE		09	10	06 (02|04|00|00)
-			*/
+			switch(SubType)
+			{
+			case 0x01:
+				RetStr = "SN76489";
+				break;
+			case 0x02:
+				RetStr = "SN76489A";
+				break;
+			case 0x03:
+				RetStr = "SN76494";
+				break;
+			case 0x04:
+				RetStr = "SN76496";
+				break;
+			case 0x05:
+				RetStr = "SN94624";
+				break;
+			case 0x06:
+				RetStr = "NCR7496";
+				break;
+			case 0x07:
+				RetStr = "SEGA PSG";
+				break;
+			default:
+				RetStr = "SN76496";
+				break;
+			}
 		}
 		else
 		{
 			RetStr = "T6W28";
+		}
+		break;
+	case 0x01:
+		if (ChipID & 0x80)
+		{
+			RetStr = "VRC7";
+			if (SubType == 0xFF)
+				RetStr = "VRC6";
+			/*if (SubType == 0x00)
+			{
+				UINT32 TempData[2];
+				
+				//RetStr = "VRC7";
+				//EncryptChipName(TempData, RetStr, 0x08);
+				TempData[0] = 0x00090F0C;
+				TempData[1] = 0x0007080B;
+				EncryptChipName(TempStr, TempData, 0x08);
+				return TempStr;	// "VRC7"
+			}*/
 		}
 		break;
 	case 0x04:
@@ -1607,13 +1898,13 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 		switch(SubType)
 		{
 		case 0x00:
-			RetStr = "AY-3-8910A";
+			RetStr = "AY-3-8910";
 			break;
 		case 0x01:
-			RetStr = "AY-3-8912A";
+			RetStr = "AY-3-8912";
 			break;
 		case 0x02:
-			RetStr = "AY-3-8913A";
+			RetStr = "AY-3-8913";
 			break;
 		case 0x03:
 			RetStr = "AY8930";
@@ -1638,6 +1929,12 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 	case 0x13:
 		RetStr = "GB DMG";
 		break;
+	case 0x14:
+		if (! (ChipID & 0x80))
+			RetStr = "NES APU";
+		else
+			RetStr = "NES APU + FDS";
+		break;
 	case 0x1C:
 		switch(SubType)
 		{
@@ -1650,9 +1947,6 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 			RetStr = "C140 (219)";
 			break;
 		}
-		break;
-	case 0x1F:
-		RetStr = "Q-Sound";
 		break;
 	}
 	// catch all default-cases
@@ -1667,15 +1961,57 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 	UINT32 Clock;
 	UINT8 SubType;
 	UINT8 CurChp;
+	bool AllowBit31;
 	
 	SubType = 0x00;
+	AllowBit31 = 0x00;
 	switch(ChipID & 0x7F)
 	{
 	case 0x00:
 		Clock = FileHead->lngHzPSG;
+		AllowBit31 = 0x01;	// T6W28 Mode
+		if (RetSubType != NULL && ! (Clock & 0x80000000))	// The T6W28 is handles differently.
+		{
+			switch(FileHead->bytPSG_SRWidth)
+			{
+			case 0x0F:	//  0x4000
+				if (FileHead->bytPSG_Flags & 0x08)	// Clock Divider == 1?
+					SubType = 0x05;	// SN94624
+				else
+					SubType = 0x01;	// SN76489
+				break;
+			case 0x10:	//  0x8000
+				if (FileHead->shtPSG_Feedback == 0x0009)
+					SubType = 0x07;	// SEGA PSG
+				else if (FileHead->shtPSG_Feedback == 0x0022)
+					SubType = 0x06;	// NCR7496
+				break;
+			case 0x11:	// 0x10000
+				if (FileHead->bytPSG_Flags & 0x08)	// Clock Divider == 1?
+					SubType = 0x03;	// SN76494
+				else
+					SubType = 0x02;	// SN76489A/SN76496
+				break;
+			}
+			/*
+								 FbMask  Noise Taps  Negate Stereo Dv Freq0		Fb	SR	Flags
+				01 SN76489		 0x4000, 0x01, 0x02, TRUE,  FALSE, 8, TRUE		03	0F	07 (02|04|00|01) [unverified]
+				02 SN76489A		0x10000, 0x04, 0x08, FALSE, FALSE, 8, TRUE		0C	11	05 (00|04|00|01)
+				03 SN76494		0x10000, 0x04, 0x08, FALSE, FALSE, 1, TRUE		0C	11	0D (00|04|08|01)
+				04 SN76496		0x10000, 0x04, 0x08, FALSE, FALSE, 8, TRUE		0C	11	05 (00|04|00|01) [same as SN76489A]
+				05 SN94624		 0x4000, 0x01, 0x02, TRUE,  FALSE, 1, TRUE		03	0F	0F (02|04|08|01) [unverified, SN76489A without /8]
+				06 NCR7496		 0x8000, 0x02, 0x20, FALSE, FALSE, 8, TRUE		22	10	05 (00|04|00|01) [unverified]
+				07 GameGear PSG	 0x8000, 0x01, 0x08, TRUE,  TRUE,  8, FALSE		09	10	02 (02|00|00|00)
+				07 SEGA VDP PSG	 0x8000, 0x01, 0x08, TRUE,  FALSE, 8, FALSE		09	10	06 (02|04|00|00)
+				01 U8106		 0x4000, 0x01, 0x02, TRUE,  FALSE, 8, TRUE		03	0F	07 (02|04|00|01) [unverified, same as SN76489]
+				02 Y2404		0x10000, 0x04, 0x08, FALSE, FALSE; 8, TRUE		0C	11	05 (00|04|00|01) [unverified, same as SN76489A]
+				-- T6W28		 0x4000, 0x01, 0x04, ????,  FALSE, 8, ????		05	0F	?? (??|??|00|01) [It IS stereo, but not in GameGear way].
+			*/
+		}
 		break;
 	case 0x01:
 		Clock = FileHead->lngHzYM2413;
+		AllowBit31 = 0x01;	// VRC7 Mode
 		break;
 	case 0x02:
 		Clock = FileHead->lngHzYM2612;
@@ -1687,6 +2023,8 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		Clock = FileHead->lngHzSPCM;
 		break;
 	case 0x05:
+		if (ChipID & 0x80)
+			return 0;
 		Clock = FileHead->lngHzRF5C68;
 		break;
 	case 0x06:
@@ -1697,9 +2035,11 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		break;
 	case 0x08:
 		Clock = FileHead->lngHzYM2610;
+		AllowBit31 = 0x01;	// YM2610B Mode
 		break;
 	case 0x09:
 		Clock = FileHead->lngHzYM3812;
+		AllowBit31 = 0x01;	// Dual OPL2, panned to the L/R speakers
 		break;
 	case 0x0A:
 		Clock = FileHead->lngHzYM3526;
@@ -1720,9 +2060,14 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		Clock = FileHead->lngHzYMZ280B;
 		break;
 	case 0x10:
+		if (ChipID & 0x80)
+			return 0;
 		Clock = FileHead->lngHzRF5C164;
+		AllowBit31 = 0x01;	// hack for Cosmic Fantasy Stories
 		break;
 	case 0x11:
+		if (ChipID & 0x80)
+			return 0;
 		Clock = FileHead->lngHzPWM;
 		break;
 	case 0x12:
@@ -1734,18 +2079,21 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		break;
 	case 0x14:
 		Clock = FileHead->lngHzNESAPU;
+		AllowBit31 = 0x01;	// FDS Enable
 		break;
 	case 0x15:
 		Clock = FileHead->lngHzMultiPCM;
 		break;
 	case 0x16:
 		Clock = FileHead->lngHzUPD7759;
+		AllowBit31 = 0x01;	// Master/Slave Bit
 		break;
 	case 0x17:
 		Clock = FileHead->lngHzOKIM6258;
 		break;
 	case 0x18:
 		Clock = FileHead->lngHzOKIM6295;
+		AllowBit31 = 0x01;	// Pin 7 State
 		break;
 	case 0x19:
 		Clock = FileHead->lngHzK051649;
@@ -1767,7 +2115,12 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		Clock = FileHead->lngHzPokey;
 		break;
 	case 0x1F:
+		if (ChipID & 0x80)
+			return 0;
 		Clock = FileHead->lngHzQSound;
+		break;
+	case 0x20:
+		Clock = FileHead->lngHzSCSP;
 		break;
 	default:
 		return 0;
@@ -1794,7 +2147,82 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 	
 	if (RetSubType != NULL)
 		*RetSubType = SubType;
-	return Clock & 0xBFFFFFFF;
+	if (AllowBit31)
+		return Clock & 0xBFFFFFFF;
+	else
+		return Clock & 0x3FFFFFFF;
+}
+
+static UINT16 GetChipVolume(VGM_HEADER* FileHead, UINT8 ChipID, UINT8 ChipNum, UINT8 ChipCnt)
+{
+	// ChipID: ID of Chip
+	//		Bit 7 - Is Paired Chip
+	// ChipNum: chip number (0 - first chip, 1 - second chip)
+	// ChipCnt: chip volume divider (number of used chips)
+	const UINT16 CHIP_VOLS[CHIP_COUNT] =
+	{	0x80, 0x200/*0x155*/, 0x100, 0x100, 0x180, 0xB0, 0x100, 0x80,	// 00-07
+		0x80, 0x100, 0x100, 0x100, 0x100, 0x100, 0x100, 0x98,			// 08-0F
+		0x80, 0xE0/*0xCD*/, 0x100, 0xC0, 0x100, 0x40, 0x11E, 0x1C0,		// 10-17
+		0x100/*110*/, 0xA0, 0x100, 0x100, 0x100, 0xB3, 0x100, 0x100,	// 18-1F
+		0x100};
+	UINT16 Volume;
+	UINT8 CurChp;
+	VGMX_CHP_EXTRA16* TempCX;
+	VGMX_CHIP_DATA16* TempCD;
+	
+	Volume = CHIP_VOLS[ChipID & 0x7F];
+	switch(ChipID)
+	{
+	case 0x00:	// SN76496
+		// if T6W28, set Volume Divider to 01
+		if (GetChipClock(&VGMHead, (ChipID << 7) | ChipID, NULL) & 0x80000000)
+		{
+			// The T6W28 consists of 2 "half" chips.
+			ChipNum = 0x01;
+			ChipCnt = 0x01;
+		}
+		break;
+	case 0x18:	// OKIM6295
+		// CP System 1 patch
+		if (VGMTag.strSystemNameE != NULL && ! wcsncmp(VGMTag.strSystemNameE, L"CP", 0x02))
+			Volume = 110;
+		break;
+	case 0x86:	// YM2203's AY
+		Volume /= 2;
+		break;
+	case 0x87:	// YM2608's AY
+		// The YM2608 outputs twice as loud as the YM2203 here.
+		//Volume *= 1;
+		break;
+	case 0x88:	// YM2610's AY
+		//Volume *= 1;
+		break;
+	}
+	if (ChipCnt > 1)
+		Volume /= ChipCnt;
+	
+	TempCX = &VGMH_Extra.Volumes;
+	TempCD = TempCX->CCData;
+	for (CurChp = 0x00; CurChp < TempCX->ChipCnt; CurChp ++, TempCD ++)
+	{
+		if (TempCD->Type == ChipID && (TempCD->Flags & 0x01) == ChipNum)
+		{
+			// Bit 15 - absolute/relative volume
+			//	0 - absolute
+			//	1 - relative (0x0100 = 1.0, 0x80 = 0.5, etc.)
+			if (TempCD->Data & 0x8000)
+				Volume = (Volume * (TempCD->Data & 0x7FFF) + 0x80) >> 8;
+			else
+			{
+				Volume = TempCD->Data;
+				if ((ChipID & 0x80) && DoubleSSGVol)
+					Volume *= 2;
+			}
+			break;
+		}
+	}
+	
+	return Volume;
 }
 
 
@@ -1822,10 +2250,17 @@ static void RestartPlaying(void)
 	PauseSmpls = (PauseTime * SampleRate + 500) / 1000;
 	
 	Chips_GeneralActions(0x01);	// Reset Chips
+	// also does Muting Mask (0x10) and Panning (0x20)
 	
 	if (UseFM)
+	{
 		open_real_fm();	// reset OPL chip and reload settings
+		StartSkipping();
+		AutoStopSkip = true;
+	}
 	
+	Last95Drum = 0xFFFF;
+	Last95Freq = 0;
 	Interpreting = false;
 	ForceVGMExec = true;
 	IsVGMInit = true;
@@ -1847,8 +2282,9 @@ static void RestartPlaying(void)
 static void Chips_GeneralActions(UINT8 Mode)
 {
 	UINT32 AbsVol;
-	UINT16 ChipVol;
+	//UINT16 ChipVol;
 	CAUD_ATTR* CAA;
+	CHIP_OPTS* COpt;
 	UINT8 ChipCnt;
 	UINT8 CurChip;
 	UINT8 CurCSet;	// Chip Set
@@ -1866,6 +2302,9 @@ static void Chips_GeneralActions(UINT8 Mode)
 				CAA->SmpRate = 0x00;
 				CAA->Volume = 0x00;
 				CAA->ChipType = 0xFF;
+				CAA->ChipID = CurCSet;
+				CAA->Resampler = 0x00;
+				CAA->StreamUpdate = &null_update;
 				CAA->Paired = NULL;
 			}
 			CAA = CA_Paired[CurCSet];
@@ -1874,6 +2313,9 @@ static void Chips_GeneralActions(UINT8 Mode)
 				CAA->SmpRate = 0x00;
 				CAA->Volume = 0x00;
 				CAA->ChipType = 0xFF;
+				CAA->ChipID = CurCSet;
+				CAA->Resampler = 0x00;
+				CAA->StreamUpdate = &null_update;
 				CAA->Paired = NULL;
 			}
 		}
@@ -1882,17 +2324,18 @@ static void Chips_GeneralActions(UINT8 Mode)
 		AbsVol = 0x00;
 		if (VGMHead.lngHzPSG)
 		{
-			ChipVol = UseFM ? 0x00 : 0x80;
+			//ChipVol = UseFM ? 0x00 : 0x80;
 			sn764xx_set_emu_core(ChipOpts[0x00].SN76496.EmuCore);
 			ChipOpts[0x01].SN76496.EmuCore = ChipOpts[0x00].SN76496.EmuCore;
 			
 			ChipCnt = (VGMHead.lngHzPSG & 0x40000000) ? 0x02 : 0x01;
-			if (! (VGMHead.lngHzPSG & 0x80000000))
-				ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].SN76496;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x00, NULL) & 0x7FFFFFFF;
+				CAA->ChipType = 0x00;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				ChipClk &= ~0x80000000;
 				ChipClk |= VGMHead.lngHzPSG & ((CurChip & 0x01) << 31);
 				if (! UseFM)
 				{
@@ -1903,29 +2346,33 @@ static void Chips_GeneralActions(UINT8 Mode)
 														(VGMHead.bytPSG_Flags & 0x04) >> 2,
 														(VGMHead.bytPSG_Flags & 0x08) >> 3,
 														(VGMHead.bytPSG_Flags & 0x01) >> 0);
-					CAA->Volume = ChipVol;
+					CAA->StreamUpdate = &sn764xx_stream_update;
+					
+					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+					if (! CurChip || ! (ChipClk & 0x80000000))
+						AbsVol += CAA->Volume;
 				}
 				else
 				{
-					open_fm_option(0x00, 0x00, ChipClk);
-					open_fm_option(0x00, 0x01, VGMHead.bytPSG_SRWidth);
-					open_fm_option(0x00, 0x02, VGMHead.shtPSG_Feedback);
-					open_fm_option(0x00, 0x04, (VGMHead.bytPSG_Flags & 0x02) >> 1);
-					open_fm_option(0x00, 0x05, (VGMHead.bytPSG_Flags & 0x04) >> 2);
-					open_fm_option(0x00, 0x06, (VGMHead.bytPSG_Flags & 0x08) >> 3);
-					open_fm_option(0x00, 0x07, (VGMHead.bytPSG_Flags & 0x01) >> 0);
-					setup_real_fm(0x00, CurChip);
+					open_fm_option(CAA->ChipType, 0x00, ChipClk);
+					open_fm_option(CAA->ChipType, 0x01, VGMHead.bytPSG_SRWidth);
+					open_fm_option(CAA->ChipType, 0x02, VGMHead.shtPSG_Feedback);
+					open_fm_option(CAA->ChipType, 0x04, (VGMHead.bytPSG_Flags & 0x02) >> 1);
+					open_fm_option(CAA->ChipType, 0x05, (VGMHead.bytPSG_Flags & 0x04) >> 2);
+					open_fm_option(CAA->ChipType, 0x06, (VGMHead.bytPSG_Flags & 0x08) >> 3);
+					open_fm_option(CAA->ChipType, 0x07, (VGMHead.bytPSG_Flags & 0x01) >> 0);
+					setup_real_fm(CAA->ChipType, CurChip);
+					
 					CAA->SmpRate = 0x00000000;
 					CAA->Volume = 0x0000;
 				}
 			}
 			if (VGMHead.lngHzPSG & 0x80000000)
 				ChipCnt = 0x01;
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzYM2413)
 		{
-			ChipVol = UseFM ? 0x00 : 0x200/*0x155*/;
+			//ChipVol = UseFM ? 0x00 : 0x200/*0x155*/;
 			if (! UseFM)
 				ym2413_set_emu_core(ChipOpts[0x00].YM2413.EmuCore);
 			else
@@ -1933,524 +2380,693 @@ static void Chips_GeneralActions(UINT8 Mode)
 			ChipOpts[0x01].YM2413.EmuCore = ChipOpts[0x00].YM2413.EmuCore;
 			
 			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM2413;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x01, NULL);
+				CAA->ChipType = 0x01;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				if (! UseFM)
 				{
 					CAA->SmpRate = device_start_ym2413(CurChip, ChipClk);
-					CAA->Volume = ChipVol;
+					CAA->StreamUpdate = &ym2413_stream_update;
+					
+					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+					// WHY has this chip such a low volume???
+					//AbsVol += (CAA->Volume + 1) * 3 / 4;
+					AbsVol += CAA->Volume / 2;
 				}
 				else
 				{
-					setup_real_fm(0x01, CurChip);
+					setup_real_fm(CAA->ChipType, CurChip);
+					
 					CAA->SmpRate = 0x00000000;
 					CAA->Volume = 0x0000;
 				}
 			}
-			// WHY has this chip such a low volume???
-			//AbsVol += ((ChipVol + 1) * 3 / 4) * ChipCnt;
-			AbsVol += ChipVol / 2 * ChipCnt;
 		}
 		if (VGMHead.lngHzYM2612)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ym2612_set_emu_core(ChipOpts[0x00].YM2612.EmuCore);
-			ym2612_set_options(ChipOpts[0x00].YM2612.SpecialFlags);
+			ym2612_set_options((UINT8)ChipOpts[0x00].YM2612.SpecialFlags);
 			ChipOpts[0x01].YM2612.EmuCore = ChipOpts[0x00].YM2612.EmuCore;
 			ChipOpts[0x01].YM2612.SpecialFlags = ChipOpts[0x00].YM2612.SpecialFlags;
 			
 			ChipCnt = (VGMHead.lngHzYM2612 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM2612;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x02, NULL);
+				CAA->ChipType = 0x02;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ym2612(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &ym2612_stream_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzYM2151)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzYM2151 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM2151;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x03, NULL);
+				CAA->ChipType = 0x03;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ym2151(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &ym2151_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzSPCM)
 		{
-			ChipVol = 0x180;
+			//ChipVol = 0x180;
 			ChipCnt = (VGMHead.lngHzSPCM & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].SegaPCM;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x04, NULL);
+				CAA->ChipType = 0x04;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_segapcm(CurChip, ChipClk, VGMHead.lngSPCMIntf);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &SEGAPCM_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzRF5C68)
 		{
-			ChipVol = 0xB0;	// that's right according to MAME, but it's almost too loud
+			//ChipVol = 0xB0;	// that's right according to MAME, but it's almost too loud
 			ChipCnt = 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].RF5C68;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x05, NULL);
+				CAA->ChipType = 0x05;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_rf5c68(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &rf5c68_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzYM2203)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
+			ym2203_set_ay_emu_core(ChipOpts[0x00].YM2203.EmuCore);
+			ChipOpts[0x01].YM2203.EmuCore = ChipOpts[0x00].YM2203.EmuCore;
 			ChipOpts[0x01].YM2203.SpecialFlags = ChipOpts[0x00].YM2203.SpecialFlags;
 			
 			ChipCnt = (VGMHead.lngHzYM2203 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM2203;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x06, NULL);
+				COpt = &ChipOpts[CurChip].YM2203;
+				CAA->ChipType = 0x06;
 				CAA->Paired = &CA_Paired[CurChip][0x00];
-				CAA->Paired->ChipType = 0x86;
-				CAA->SmpRate = device_start_ym2203(CurChip, ChipClk,
-												   ChipOpts[CurChip].YM2203.SpecialFlags & 0x01,
+				CAA->Paired->ChipType = 0x80 | CAA->ChipType;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				CAA->SmpRate = device_start_ym2203(CurChip, ChipClk, COpt->SpecialFlags & 0x01,
 													VGMHead.bytAYFlagYM2203,
 													&CAA->Paired->SmpRate);
-				CAA->Volume = ChipVol;
-				CAA->Paired->Volume = ChipVol;
+				CAA->StreamUpdate = &ym2203_stream_update;
+				CAA->Paired->StreamUpdate = &ym2203_stream_update_ay;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				CAA->Paired->Volume = GetChipVolume(&VGMHead, CAA->Paired->ChipType,
+													CurChip, ChipCnt);
+				AbsVol += CAA->Volume + CAA->Paired->Volume;
 			}
-			AbsVol += ChipVol * 2 * ChipCnt;
 		}
 		if (VGMHead.lngHzYM2608)
 		{
-			ChipVol = 0x80;
+			//ChipVol = 0x80;
+			ym2608_set_ay_emu_core(ChipOpts[0x00].YM2608.EmuCore);
+			ChipOpts[0x01].YM2608.EmuCore = ChipOpts[0x00].YM2608.EmuCore;
 			ChipOpts[0x01].YM2608.SpecialFlags = ChipOpts[0x00].YM2608.SpecialFlags;
 			
 			ChipCnt = (VGMHead.lngHzYM2608 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM2608;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x07, NULL);
+				COpt = &ChipOpts[CurChip].YM2608;
+				CAA->ChipType = 0x07;
 				CAA->Paired = &CA_Paired[CurChip][0x01];
-				CAA->Paired->ChipType = 0x87;
-				CAA->SmpRate = device_start_ym2608(CurChip, ChipClk,
-												   ChipOpts[CurChip].YM2608.SpecialFlags & 0x01,
+				CAA->Paired->ChipType = 0x80 | CAA->ChipType;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				CAA->SmpRate = device_start_ym2608(CurChip, ChipClk, COpt->SpecialFlags & 0x01,
 													VGMHead.bytAYFlagYM2608,
 													&CAA->Paired->SmpRate);
-				CAA->Volume = ChipVol;
-				CAA->Paired->Volume = ChipVol * 2;
+				CAA->StreamUpdate = &ym2608_stream_update;
+				CAA->Paired->StreamUpdate = &ym2608_stream_update_ay;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				CAA->Paired->Volume = GetChipVolume(&VGMHead, CAA->Paired->ChipType,
+													CurChip, ChipCnt);
+				AbsVol += CAA->Volume + CAA->Paired->Volume;
+				//CAA->Volume = ChipVol;
+				//CAA->Paired->Volume = ChipVol * 2;
 			}
-			AbsVol += ChipVol * 2 * ChipCnt;
 		}
 		if (VGMHead.lngHzYM2610)
 		{
-			ChipVol = 0x80;
+			//ChipVol = 0x80;
+			ym2610_set_ay_emu_core(ChipOpts[0x00].YM2610.EmuCore);
+			ChipOpts[0x01].YM2610.EmuCore = ChipOpts[0x00].YM2610.EmuCore;
 			ChipOpts[0x01].YM2610.SpecialFlags = ChipOpts[0x00].YM2610.SpecialFlags;
 			
 			ChipCnt = (VGMHead.lngHzYM2610 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM2610;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x08, NULL);
+				COpt = &ChipOpts[CurChip].YM2610;
+				CAA->ChipType = 0x08;
 				CAA->Paired = &CA_Paired[CurChip][0x02];
-				CAA->Paired->ChipType = 0x88;
-				CAA->SmpRate = device_start_ym2610(CurChip, ChipClk,
-													ChipOpts[CurChip].YM2610.SpecialFlags & 0x01,
+				CAA->Paired->ChipType = 0x80 | CAA->ChipType;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				CAA->SmpRate = device_start_ym2610(CurChip, ChipClk, COpt->SpecialFlags & 0x01,
 													&CAA->Paired->SmpRate);
-				CAA->Volume = ChipVol;
-				CAA->Paired->Volume = ChipVol * 2;
+				CAA->StreamUpdate = (ChipClk & 0x80000000) ? ym2610b_stream_update :
+															ym2610_stream_update;
+				CAA->Paired->StreamUpdate = &ym2610_stream_update_ay;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				CAA->Paired->Volume = GetChipVolume(&VGMHead, CAA->Paired->ChipType,
+													CurChip, ChipCnt);
+				AbsVol += CAA->Volume + CAA->Paired->Volume;
+				//CAA->Volume = ChipVol;
+				//CAA->Paired->Volume = ChipVol * 2;
 			}
-			AbsVol += ChipVol * 2 * ChipCnt;
 		}
 		if (VGMHead.lngHzYM3812)
 		{
-			ChipVol = UseFM ? 0x00 : 0x100;
+			//ChipVol = UseFM ? 0x00 : 0x100;
 			ym3812_set_emu_core(ChipOpts[0x00].YM3812.EmuCore);
 			ChipOpts[0x01].YM3812.EmuCore = ChipOpts[0x00].YM3812.EmuCore;
 			
 			ChipCnt = (VGMHead.lngHzYM3812 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM3812;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x09, NULL);
+				CAA->ChipType = 0x09;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				if (! UseFM)
 				{
 					CAA->SmpRate = device_start_ym3812(CurChip, ChipClk);
-					CAA->Volume = ChipVol;
+					CAA->StreamUpdate = (ChipClk & 0x80000000) ? dual_opl2_stereo :
+																ym3812_stream_update;
+					
+					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+					if (! CurChip || ! (ChipClk & 0x80000000))
+						AbsVol += CAA->Volume * 2;
 				}
 				else
 				{
-					setup_real_fm(0x09, CurChip);
+					setup_real_fm(CAA->ChipType, CurChip);
+					
 					CAA->SmpRate = 0x00000000;
 					CAA->Volume = 0x0000;
 				}
 			}
-			AbsVol += ChipVol * 2 * ChipCnt;
 		}
 		if (VGMHead.lngHzYM3526)
 		{
-			ChipVol = UseFM ? 0x00 : 0x100;
+			//ChipVol = UseFM ? 0x00 : 0x100;
 			ChipCnt = (VGMHead.lngHzYM3526 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YM3526;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x0A, NULL);
+				CAA->ChipType = 0x0A;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				if (! UseFM)
 				{
 					CAA->SmpRate = device_start_ym3526(CurChip, ChipClk);
-					CAA->Volume = ChipVol;
+					CAA->StreamUpdate = &ym3526_stream_update;
+					
+					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+					AbsVol += CAA->Volume * 2;
 				}
 				else
 				{
-					setup_real_fm(0x0A, CurChip);
+					setup_real_fm(CAA->ChipType, CurChip);
+					
 					CAA->SmpRate = 0x00000000;
 					CAA->Volume = 0x0000;
 				}
 			}
-			AbsVol += ChipVol * 2 * ChipCnt;
 		}
 		if (VGMHead.lngHzY8950)
 		{
-			ChipVol = UseFM ? 0x00 : 0x100;
+			//ChipVol = UseFM ? 0x00 : 0x100;
 			ChipCnt = (VGMHead.lngHzY8950 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].Y8950;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x0B, NULL);
+				CAA->ChipType = 0x0B;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				if (! UseFM)
 				{
 					CAA->SmpRate = device_start_y8950(CurChip, ChipClk);
-					CAA->Volume = ChipVol;
+					CAA->StreamUpdate = &y8950_stream_update;
+					
+					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+					AbsVol += CAA->Volume * 2;
 				}
 				else
 				{
-					setup_real_fm(0x0B, CurChip);
+					setup_real_fm(CAA->ChipType, CurChip);
+					
 					CAA->SmpRate = 0x00000000;
 					CAA->Volume = 0x0000;
 				}
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzYMF262)
 		{
-			ChipVol = UseFM ? 0x00 : 0x100;
+			//ChipVol = UseFM ? 0x00 : 0x100;
 			ymf262_set_emu_core(ChipOpts[0x00].YMF262.EmuCore);
 			ChipOpts[0x01].YMF262.EmuCore = ChipOpts[0x00].YMF262.EmuCore;
 			
 			ChipCnt = (VGMHead.lngHzYMF262 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YMF262;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x0C, NULL);
+				CAA->ChipType = 0x0C;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				if (! UseFM)
 				{
 					CAA->SmpRate = device_start_ymf262(CurChip, ChipClk);
-					CAA->Volume = ChipVol;
+					CAA->StreamUpdate = &ymf262_stream_update;
+					
+					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+					AbsVol += CAA->Volume * 2;
 				}
 				else
 				{
-					setup_real_fm(0x0C, CurChip);
+					setup_real_fm(CAA->ChipType, CurChip);
+					
 					CAA->SmpRate = 0x00000000;
 					CAA->Volume = 0x0000;
 				}
 			}
-			AbsVol += ChipVol * 2 * ChipCnt;
 		}
 		if (VGMHead.lngHzYMF278B)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzYMF278B & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YMF278B;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x0D, NULL);
+				CAA->ChipType = 0x0D;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ymf278b(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &ymf278b_pcm_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;	//good as long as it only uses WaveTable Synth
 			}
-			AbsVol += ChipVol * ChipCnt;	//good as long as it only uses WaveTable Synth
 		}
 		if (VGMHead.lngHzYMF271)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzYMF271 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YMF271;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x0E, NULL);
+				CAA->ChipType = 0x0E;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ymf271(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &ymf271_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzYMZ280B)
 		{
-			ChipVol = 0x98;
+			//ChipVol = 0x98;
 			ChipCnt = (VGMHead.lngHzYMZ280B & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].YMZ280B;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x0F, NULL);
+				CAA->ChipType = 0x0F;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ymz280b(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &ymz280b_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += (CAA->Volume * 0x20 / 0x13);
 			}
-			AbsVol += (ChipVol * 0x20 / 0x13) * ChipCnt;
 		}
 		if (VGMHead.lngHzRF5C164)
 		{
-			ChipVol = 0x80;
+			//ChipVol = 0x80;
 			ChipCnt = 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].RF5C164;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x10, NULL);
+				CAA->ChipType = 0x10;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_rf5c164(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &rf5c164_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume * 2;
 			}
-			AbsVol += (ChipVol * 2) * ChipCnt;
 		}
 		if (VGMHead.lngHzPWM)
 		{
-			ChipVol = 0xE0;	// 0xCD
+			//ChipVol = 0xE0;	// 0xCD
 			ChipCnt = 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].PWM;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x11, NULL);
+				CAA->ChipType = 0x11;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_pwm(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &pwm_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzAY8910)
 		{
-			ChipVol = 0x40;
+			//ChipVol = 0x100;
+			ayxx_set_emu_core(ChipOpts[0x00].AY8910.EmuCore);
+			ChipOpts[0x01].AY8910.EmuCore = ChipOpts[0x00].AY8910.EmuCore;
+			
 			ChipCnt = (VGMHead.lngHzAY8910 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].AY8910;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x12, NULL);
-				CAA->SmpRate = device_start_ay8910(CurChip, ChipClk,
+				CAA->ChipType = 0x12;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				if (! UseFM)
+				{
+					CAA->SmpRate = device_start_ayxx(CurChip, ChipClk,
 													VGMHead.bytAYType, VGMHead.bytAYFlag);
-				CAA->Volume = ChipVol;
+					CAA->StreamUpdate = &ayxx_stream_update;
+					
+					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+					AbsVol += CAA->Volume * 2;
+				}
+				else
+				{
+					open_fm_option(CAA->ChipType, 0x00, ChipClk);
+					open_fm_option(CAA->ChipType, 0x01, VGMHead.bytAYType);
+					open_fm_option(CAA->ChipType, 0x02, VGMHead.bytAYFlag);
+					setup_real_fm(CAA->ChipType, CurChip);
+					
+					CAA->SmpRate = 0x00000000;
+					CAA->Volume = 0x0000;
+				}
 			}
-			AbsVol += (ChipVol * 2) * ChipCnt;
 		}
 		if (VGMHead.lngHzGBDMG)
 		{
-			ChipVol = 0x60;
-			gameboy_sound_set_options(ChipOpts[0x00].GameBoy.SpecialFlags);
+			//ChipVol = 0xC0;
+			gameboy_sound_set_options((UINT8)ChipOpts[0x00].GameBoy.SpecialFlags);
 			ChipOpts[0x01].GameBoy.SpecialFlags = ChipOpts[0x00].GameBoy.SpecialFlags;
 			
 			ChipCnt = (VGMHead.lngHzGBDMG & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].GameBoy;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x13, NULL);
+				CAA->ChipType = 0x13;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_gameboy_sound(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &gameboy_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume * 2;
 			}
-			AbsVol += (ChipVol * 2) * ChipCnt;
 		}
 		if (VGMHead.lngHzNESAPU)
 		{
-			ChipVol = 0x80;
+			//ChipVol = 0x100;
+			nes_set_emu_core(ChipOpts[0x00].NES.EmuCore);
+			nes_set_options(ChipOpts[0x00].NES.SpecialFlags);
+			ChipOpts[0x01].NES.EmuCore = ChipOpts[0x00].NES.EmuCore;
+			ChipOpts[0x01].NES.SpecialFlags = ChipOpts[0x00].NES.SpecialFlags;
+			
 			ChipCnt = (VGMHead.lngHzNESAPU & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].NES;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x14, NULL);
-				CAA->SmpRate = device_start_nesapu(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->ChipType = 0x14;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				CAA->SmpRate = device_start_nes(CurChip, ChipClk);
+				CAA->StreamUpdate = &nes_stream_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume * 2;
 			}
-			AbsVol += (ChipVol * 2) * ChipCnt;
 		}
 		if (VGMHead.lngHzMultiPCM)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x40;
 			ChipCnt = (VGMHead.lngHzMultiPCM & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].MultiPCM;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x15, NULL);
+				CAA->ChipType = 0x15;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_multipcm(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &MultiPCM_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume * 4;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzUPD7759)
 		{
-			ChipVol = 0x11E;
+			//ChipVol = 0x11E;
 			ChipCnt = (VGMHead.lngHzUPD7759 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].UPD7759;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x16, NULL);
+				CAA->ChipType = 0x16;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_upd7759(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &upd7759_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzOKIM6258)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x1C0;
+			okim6258_set_options(ChipOpts[0x00].OKIM6258.SpecialFlags);
+			ChipOpts[0x01].OKIM6258.SpecialFlags = ChipOpts[0x00].OKIM6258.SpecialFlags;
+			
 			ChipCnt = (VGMHead.lngHzOKIM6258 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].OKIM6258;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x17, NULL);
+				CAA->ChipType = 0x17;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_okim6258(CurChip, ChipClk,
 													(VGMHead.bytOKI6258Flags & 0x03) >> 0,
 													(VGMHead.bytOKI6258Flags & 0x04) >> 2,
 													(VGMHead.bytOKI6258Flags & 0x08) >> 3);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &okim6258_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume * 2;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzOKIM6295)
 		{
-			ChipVol = 0x100;
+			/*// Use the System Tag to decide between normal and CP System volume level.
+			// I know, this is very hackish, but ATM there's no better solution.
+			if (VGMTag.strSystemNameE != NULL && ! wcsncmp(VGMTag.strSystemNameE, L"CP", 0x02))
+				ChipVol = 110;
+			else
+				ChipVol = 0x100;*/
 			ChipCnt = (VGMHead.lngHzOKIM6295 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].OKIM6295;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x18, NULL);
+				CAA->ChipType = 0x18;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_okim6295(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &okim6295_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume * 2;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzK051649)
 		{
-			ChipVol = 0xA0;
+			//ChipVol = 0xA0;
 			ChipCnt = (VGMHead.lngHzK051649 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].K051649;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x19, NULL);
+				CAA->ChipType = 0x19;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_k051649(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &k051649_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzK054539)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzK054539 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].K054539;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x1A, NULL);
+				CAA->ChipType = 0x1A;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_k054539(CurChip, ChipClk);
+				CAA->StreamUpdate = &k054539_update;
 				k054539_init_flags(CurChip, VGMHead.bytK054539Flags);
-				CAA->Volume = ChipVol;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzHuC6280)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
+			c6280_set_emu_core(ChipOpts[0x00].HuC6280.EmuCore);
+			ChipOpts[0x01].HuC6280.EmuCore = ChipOpts[0x00].HuC6280.EmuCore;
+			
 			ChipCnt = (VGMHead.lngHzHuC6280 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].HuC6280;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x1B, NULL);
+				CAA->ChipType = 0x1B;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_c6280(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &c6280_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzC140)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzC140 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].C140;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x1C, NULL);
+				CAA->ChipType = 0x1C;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_c140(CurChip, ChipClk, VGMHead.bytC140Type);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &c140_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzK053260)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0xB3;
 			ChipCnt = (VGMHead.lngHzK053260 & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].K053260;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x1D, NULL);
+				CAA->ChipType = 0x1D;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_k053260(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &k053260_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzPokey)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzPokey & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].Pokey;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x1E, NULL);
+				CAA->ChipType = 0x1E;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_pokey(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &pokey_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
 		}
 		if (VGMHead.lngHzQSound)
 		{
-			ChipVol = 0x100;
+			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzQSound & 0x40000000) ? 0x02 : 0x01;
-			ChipVol /= ChipCnt;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
 				CAA = &ChipAudio[CurChip].QSound;
-				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | 0x1F, NULL);
+				CAA->ChipType = 0x1F;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_qsound(CurChip, ChipClk);
-				CAA->Volume = ChipVol;
+				CAA->StreamUpdate = &qsound_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
 			}
-			AbsVol += ChipVol * ChipCnt;
+		}
+		if (VGMHead.lngHzSCSP)
+		{
+			scsp_set_options((UINT8)ChipOpts[0x00].SCSP.SpecialFlags);
+			ChipOpts[0x01].SCSP.SpecialFlags = ChipOpts[0x00].SCSP.SpecialFlags;
+			
+			//ChipVol = 0x100;
+			ChipCnt = (VGMHead.lngHzSCSP & 0x40000000) ? 0x02 : 0x01;
+			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
+			{
+				CAA = &ChipAudio[CurChip].SCSP;
+				CAA->ChipType = 0x20;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				CAA->SmpRate = device_start_scsp(CurChip, ChipClk);
+				CAA->StreamUpdate = &SCSP_Update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
+			}
 		}
 		
 		// Initialize DAC Control and PCM Bank
@@ -2500,366 +3116,135 @@ static void Chips_GeneralActions(UINT8 Mode)
 		{
 			CAA = (CAUD_ATTR*)&ChipAudio[CurCSet];
 			for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, CAA ++)
-			{
-				if (! CAA->SmpRate)
-					CAA->Resampler = 0xFF;
-				else if (CAA->SmpRate < SampleRate)
-					CAA->Resampler = 0x01;
-				else if (CAA->SmpRate == SampleRate)
-					CAA->Resampler = 0x02;
-				else if (CAA->SmpRate > SampleRate)
-					CAA->Resampler = 0x03;
-				if (CAA->Resampler == 0x01 || CAA->Resampler == 0x03)
-				{
-					if (ResampleMode == 0x02 || (ResampleMode == 0x01 && CAA->Resampler == 0x03))
-						CAA->Resampler = 0x00;
-				}
-				
-				CAA->SmpP = 0x00;
-				CAA->SmpLast = 0x00;
-				CAA->SmpNext = 0x00;
-				CAA->LSmpl.Left = 0x00;
-				CAA->LSmpl.Right = 0x00;
-				if (CAA->Resampler == 0x01)
-				{
-					// Pregenerate first Sample (the upsampler is always one too late)
-					GetChipStream(CurChip, CurCSet, StreamBufs, 1);
-					CAA->NSmpl.Left = StreamBufs[0x00][0x00];
-					CAA->NSmpl.Right = StreamBufs[0x01][0x00];
-				}
-				else
-				{
-					CAA->NSmpl.Left = 0x00;
-					CAA->NSmpl.Right = 0x00;
-				}
-			}
+				SetupResampler(CAA);
 			
 			CAA = CA_Paired[CurCSet];
 			for (CurChip = 0x00; CurChip < 0x03; CurChip ++, CAA ++)
+				SetupResampler(CAA);
+		}
+		
+		GeneralChipLists();
+		break;
+	case 0x01:	// Reset chips
+		for (CurCSet = 0x00; CurCSet < 0x02; CurCSet ++)
+		{
+		
+		CAA = (CAUD_ATTR*)&ChipAudio[CurCSet];
+		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, CAA ++)
+		{
+			if (CAA->ChipType == 0xFF)	// chip unused
+				continue;
+			else if (CAA->ChipType == 0x00 && ! UseFM)
+				device_reset_sn764xx(CurCSet);
+			else if (CAA->ChipType == 0x01 && ! UseFM)
+				device_reset_ym2413(CurCSet);
+			else if (CAA->ChipType == 0x02)
+				device_reset_ym2612(CurCSet);
+			else if (CAA->ChipType == 0x03)
+				device_reset_ym2151(CurCSet);
+			else if (CAA->ChipType == 0x04)
+				device_reset_segapcm(CurCSet);
+			else if (CAA->ChipType == 0x05)
+				device_reset_rf5c68(CurCSet);
+			else if (CAA->ChipType == 0x06)
+				device_reset_ym2203(CurCSet);
+			else if (CAA->ChipType == 0x07)
+				device_reset_ym2608(CurCSet);
+			else if (CAA->ChipType == 0x08)
+				device_reset_ym2610(CurCSet);
+			else if (CAA->ChipType == 0x09)
 			{
-				if (! CAA->SmpRate)
-					CAA->Resampler = 0xFF;
-				else if (CAA->SmpRate < SampleRate)
+				if (! UseFM)
+				{
+					device_reset_ym3812(CurCSet);
+				}
+				if (FileMode == 0x01)
+				{
+					chip_reg_write(0x09, CurCSet, 0x00, 0x01, 0x20);	// Enable Waveform Select
+					chip_reg_write(0x09, CurCSet, 0x00, 0xBD, 0xC0);	// Disable Rhythm Mode
+				}
+			}
+			else if (CAA->ChipType == 0x0A && ! UseFM)
+				device_reset_ym3526(CurCSet);
+			else if (CAA->ChipType == 0x0B && ! UseFM)
+				device_reset_y8950(CurCSet);
+			else if (CAA->ChipType == 0x0C)
+			{
+				if (! UseFM)
+				{
+					device_reset_ymf262(CurCSet);
+				}
+				if (FileMode >= 0x01)
+				{
+					chip_reg_write(0x0C, CurCSet, 0x01, 0x05, 0x01);	// Enable OPL3-Mode
+					chip_reg_write(0x0C, CurCSet, 0x00, 0xBD, 0xC0);	// Disable Rhythm Mode
+					chip_reg_write(0x0C, CurCSet, 0x01, 0x04, 0x00);	// Disable 4-Op-Mode
+				}
+			}
+			else if (CAA->ChipType == 0x0D)
+				device_reset_ymf278b(CurCSet);
+			else if (CAA->ChipType == 0x0E)
+				device_reset_ymf271(CurCSet);
+			else if (CAA->ChipType == 0x0F)
+				device_reset_ymz280b(CurCSet);
+			else if (CAA->ChipType == 0x10)
+				device_reset_rf5c164(CurCSet);
+			else if (CAA->ChipType == 0x11)
+				device_reset_pwm(CurCSet);
+			else if (CAA->ChipType == 0x12 && ! UseFM)
+				device_reset_ayxx(CurCSet);
+			else if (CAA->ChipType == 0x13)
+				device_reset_gameboy_sound(CurCSet);
+			else if (CAA->ChipType == 0x14)
+				device_reset_nes(CurCSet);
+			else if (CAA->ChipType == 0x15)
+				device_reset_multipcm(CurCSet);
+			else if (CAA->ChipType == 0x16)
+				device_reset_upd7759(CurCSet);
+			else if (CAA->ChipType == 0x17)
+			{
+				device_reset_okim6258(CurCSet);
+				CAA->SmpRate = okim6258_get_vclk(CurCSet);
+				if (CAA->SmpRate < SampleRate)
 					CAA->Resampler = 0x01;
 				else if (CAA->SmpRate == SampleRate)
 					CAA->Resampler = 0x02;
 				else if (CAA->SmpRate > SampleRate)
 					CAA->Resampler = 0x03;
-				if ((ResampleMode == 0x01 && CAA->Resampler == 0x03) || ResampleMode == 0x02)
-					CAA->Resampler = 0x00;
-				
-				CAA->SmpP = 0x00;
+				CAA->SmpP = 1;
+				CAA->SmpNext -= CAA->SmpLast;
 				CAA->SmpLast = 0x00;
-				CAA->SmpNext = 0x00;
-				CAA->LSmpl.Left = 0x00;
-				CAA->LSmpl.Right = 0x00;
-				if (CAA->Resampler == 0x01)
-				{
-					// Pregenerate first Sample (the upsampler is always one too late)
-					GetChipStream(CAA->ChipType, CurCSet, StreamBufs, 1);
-					CAA->NSmpl.Left = StreamBufs[0x00][0x00];
-					CAA->NSmpl.Right = StreamBufs[0x01][0x00];
-				}
-				else
-				{
-					CAA->NSmpl.Left = 0x00;
-					CAA->NSmpl.Right = 0x00;
-				}
 			}
-		}
-		break;
-	case 0x01:	// Reset chips
-		if (VGMHead.lngHzPSG)
-		{
-			ChipCnt = (VGMHead.lngHzPSG & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_reset_sn764xx(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYM2413)
-		{
-			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_reset_ym2413(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYM2612)
-		{
-			ChipCnt = (VGMHead.lngHzYM2612 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ym2612(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2151)
-		{
-			ChipCnt = (VGMHead.lngHzYM2151 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ym2151(CurChip);
-			}
-		}
-		if (VGMHead.lngHzSPCM)
-		{
-			ChipCnt = (VGMHead.lngHzSPCM & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_segapcm(CurChip);
-			}
-		}
-		if (VGMHead.lngHzRF5C68)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_rf5c68(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2203)
-		{
-			ChipCnt = (VGMHead.lngHzYM2203 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ym2203(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2608)
-		{
-			ChipCnt = (VGMHead.lngHzYM2608 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ym2608(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2610)
-		{
-			ChipCnt = (VGMHead.lngHzYM2610 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ym2610(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM3812)
-		{
-			ChipCnt = (VGMHead.lngHzYM3812 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_reset_ym3812(CurChip);
-				}
-				if (FileMode == 0x01)
-				{
-					chip_reg_write(0x09, CurChip, 0x00, 0x01, 0x20);	// Enable Waveform Select
-					chip_reg_write(0x09, CurChip, 0x00, 0xBD, 0xC0);	// Disable Rhythm Mode
-				}
-			}
-		}
-		if (VGMHead.lngHzYM3526)
-		{
-			ChipCnt = (VGMHead.lngHzYM3526 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_reset_ym3526(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzY8950)
-		{
-			ChipCnt = (VGMHead.lngHzY8950 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_reset_y8950(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYMF262)
-		{
-			ChipCnt = (VGMHead.lngHzYMF262 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_reset_ymf262(CurChip);
-				}
-				if (FileMode >= 0x01)
-				{
-					chip_reg_write(0x0C, CurChip, 0x01, 0x05, 0x01);	// Enable OPL3-Mode
-					chip_reg_write(0x0C, CurChip, 0x00, 0xBD, 0xC0);	// Disable Rhythm Mode
-					chip_reg_write(0x0C, CurChip, 0x01, 0x04, 0x00);	// Disable 4-Op-Mode
-				}
-			}
-		}
-		if (VGMHead.lngHzYMF278B)
-		{
-			ChipCnt = (VGMHead.lngHzYMF278B & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ymf278b(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYMF271)
-		{
-			ChipCnt = (VGMHead.lngHzYMF271 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ymf271(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYMZ280B)
-		{
-			ChipCnt = (VGMHead.lngHzYMZ280B & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ymz280b(CurChip);
-			}
-		}
-		if (VGMHead.lngHzRF5C164)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_rf5c164(CurChip);
-			}
-		}
-		if (VGMHead.lngHzPWM)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_pwm(CurChip);
-			}
-		}
-		if (VGMHead.lngHzAY8910)
-		{
-			ChipCnt = (VGMHead.lngHzAY8910 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_ay8910(CurChip);
-			}
-		}
-		if (VGMHead.lngHzGBDMG)
-		{
-			ChipCnt = (VGMHead.lngHzGBDMG & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_gameboy_sound(CurChip);
-			}
-		}
-		if (VGMHead.lngHzNESAPU)
-		{
-			ChipCnt = (VGMHead.lngHzNESAPU & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_nesapu(CurChip);
-			}
-		}
-		if (VGMHead.lngHzMultiPCM)
-		{
-			ChipCnt = (VGMHead.lngHzMultiPCM & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_multipcm(CurChip);
-			}
-		}
-		if (VGMHead.lngHzUPD7759)
-		{
-			ChipCnt = (VGMHead.lngHzUPD7759 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_upd7759(CurChip);
-			}
-		}
-		if (VGMHead.lngHzOKIM6258)
-		{
-			ChipCnt = (VGMHead.lngHzOKIM6258 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_okim6258(CurChip);
-			}
-		}
-		if (VGMHead.lngHzOKIM6295)
-		{
-			ChipCnt = (VGMHead.lngHzOKIM6295 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_okim6295(CurChip);
-			}
-		}
-		if (VGMHead.lngHzK051649)
-		{
-			ChipCnt = (VGMHead.lngHzK051649 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_k051649(CurChip);
-			}
-		}
-		if (VGMHead.lngHzK054539)
-		{
-			ChipCnt = (VGMHead.lngHzK054539 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_k054539(CurChip);
-			}
-		}
-		if (VGMHead.lngHzHuC6280)
-		{
-			ChipCnt = (VGMHead.lngHzHuC6280 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_c6280(CurChip);
-			}
-		}
-		if (VGMHead.lngHzC140)
-		{
-			ChipCnt = (VGMHead.lngHzC140 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_c140(CurChip);
-			}
-		}
-		if (VGMHead.lngHzK053260)
-		{
-			ChipCnt = (VGMHead.lngHzK053260 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_k053260(CurChip);
-			}
-		}
-		if (VGMHead.lngHzPokey)
-		{
-			ChipCnt = (VGMHead.lngHzPokey & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_pokey(CurChip);
-			}
-		}
-		if (VGMHead.lngHzQSound)
-		{
-			ChipCnt = (VGMHead.lngHzQSound & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_reset_pokey(CurChip);
-			}
-		}
+			else if (CAA->ChipType == 0x18)
+				device_reset_okim6295(CurCSet);
+			else if (CAA->ChipType == 0x19)
+				device_reset_k051649(CurCSet);
+			else if (CAA->ChipType == 0x1A)
+				device_reset_k054539(CurCSet);
+			else if (CAA->ChipType == 0x1B)
+				device_reset_c6280(CurCSet);
+			else if (CAA->ChipType == 0x1C)
+				device_reset_c140(CurCSet);
+			else if (CAA->ChipType == 0x1D)
+				device_reset_k053260(CurCSet);
+			else if (CAA->ChipType == 0x1E)
+				device_reset_pokey(CurCSet);
+			else if (CAA->ChipType == 0x1F)
+				device_reset_qsound(CurCSet);
+			else if (CAA->ChipType == 0x20)
+				device_reset_scsp(CurCSet);
+		}	// end for CurChip
+		
+		}	// end for CurCSet
+		
+		Chips_GeneralActions(0x10);	// set muting mask
+		Chips_GeneralActions(0x20);	// set panning
 		
 		for (CurChip = 0x00; CurChip < DacCtrlUsed; CurChip ++)
 		{
 			CurCSet = DacCtrlUsg[CurChip];
 			device_reset_daccontrol(CurCSet);
-			//DacCtrl[CurChip].Enable = false;
+			//DacCtrl[CurCSet].Enable = false;
 		}
 		//DacCtrlUsed = 0x00;
 		//memset(DacCtrlUsg, 0x00, 0x01 * 0xFF);
@@ -2874,281 +3259,85 @@ static void Chips_GeneralActions(UINT8 Mode)
 		PCMTbl.EntryCount = 0x00;
 		break;
 	case 0x02:	// Stop chips
-		if (VGMHead.lngHzPSG)
+		for (CurCSet = 0x00; CurCSet < 0x02; CurCSet ++)
 		{
-			ChipCnt = (VGMHead.lngHzPSG & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_stop_sn764xx(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYM2413)
+		
+		CAA = (CAUD_ATTR*)&ChipAudio[CurCSet];
+		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, CAA ++)
 		{
-			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_stop_ym2413(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYM2612)
-		{
-			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ym2612(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2151)
-		{
-			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ym2151(CurChip);
-			}
-		}
-		if (VGMHead.lngHzSPCM)
-		{
-			//sega_pcm_fwrite_romusage(0x00);
-			ChipCnt = (VGMHead.lngHzSPCM & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_segapcm(CurChip);
-			}
-		}
-		if (VGMHead.lngHzRF5C68)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_rf5c68(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2203)
-		{
-			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ym2203(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2608)
-		{
-			ChipCnt = (VGMHead.lngHzYM2608 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ym2608(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM2610)
-		{
-			ChipCnt = (VGMHead.lngHzYM2610 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ym2610(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYM3812)
-		{
-			ChipCnt = (VGMHead.lngHzYM3812 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_stop_ym3812(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYM3526)
-		{
-			ChipCnt = (VGMHead.lngHzYM3526 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_stop_ym3526(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzY8950)
-		{
-			ChipCnt = (VGMHead.lngHzY8950 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_stop_y8950(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYMF262)
-		{
-			ChipCnt = (VGMHead.lngHzYMF262 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-				{
-					device_stop_ymf262(CurChip);
-				}
-			}
-		}
-		if (VGMHead.lngHzYMF278B)
-		{
-			ChipCnt = (VGMHead.lngHzYMF278B & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ymf278b(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYMF271)
-		{
-			ChipCnt = (VGMHead.lngHzYMF271 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ymf271(CurChip);
-			}
-		}
-		if (VGMHead.lngHzYMZ280B)
-		{
-			ChipCnt = (VGMHead.lngHzYMZ280B & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ymz280b(CurChip);
-			}
-		}
-		if (VGMHead.lngHzRF5C164)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_rf5c164(CurChip);
-			}
-		}
-		if (VGMHead.lngHzPWM)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_pwm(CurChip);
-			}
-		}
-		if (VGMHead.lngHzAY8910)
-		{
-			ChipCnt = (VGMHead.lngHzAY8910 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_ay8910(CurChip);
-			}
-		}
-		if (VGMHead.lngHzGBDMG)
-		{
-			ChipCnt = (VGMHead.lngHzGBDMG & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_gameboy_sound(CurChip);
-			}
-		}
-		if (VGMHead.lngHzNESAPU)
-		{
-			ChipCnt = (VGMHead.lngHzNESAPU & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_nesapu(CurChip);
-			}
-		}
-		if (VGMHead.lngHzMultiPCM)
-		{
-			ChipCnt = (VGMHead.lngHzMultiPCM & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_multipcm(CurChip);
-			}
-		}
-		if (VGMHead.lngHzUPD7759)
-		{
-			ChipCnt = (VGMHead.lngHzUPD7759 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_upd7759(CurChip);
-			}
-		}
-		if (VGMHead.lngHzOKIM6258)
-		{
-			ChipCnt = (VGMHead.lngHzOKIM6258 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_okim6258(CurChip);
-			}
-		}
-		if (VGMHead.lngHzOKIM6295)
-		{
-			ChipCnt = (VGMHead.lngHzOKIM6295 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_okim6295(CurChip);
-			}
-		}
-		if (VGMHead.lngHzK051649)
-		{
-			ChipCnt = (VGMHead.lngHzK051649 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_k051649(CurChip);
-			}
-		}
-		if (VGMHead.lngHzK054539)
-		{
-			ChipCnt = (VGMHead.lngHzK054539 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_k054539(CurChip);
-			}
-		}
-		if (VGMHead.lngHzHuC6280)
-		{
-			ChipCnt = (VGMHead.lngHzHuC6280 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_c6280(CurChip);
-			}
-		}
-		if (VGMHead.lngHzC140)
-		{
-			ChipCnt = (VGMHead.lngHzC140 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_c140(CurChip);
-			}
-		}
-		if (VGMHead.lngHzK053260)
-		{
-			ChipCnt = (VGMHead.lngHzK053260 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_k053260(CurChip);
-			}
-		}
-		if (VGMHead.lngHzPokey)
-		{
-			ChipCnt = (VGMHead.lngHzPokey & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_pokey(CurChip);
-			}
-		}
-		if (VGMHead.lngHzQSound)
-		{
-			ChipCnt = (VGMHead.lngHzQSound & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				device_stop_qsound(CurChip);
-			}
-		}
+			if (CAA->ChipType == 0xFF)	// chip unused
+				continue;
+			else if (CAA->ChipType == 0x00 && ! UseFM)
+				device_stop_sn764xx(CurCSet);
+			else if (CAA->ChipType == 0x01 && ! UseFM)
+				device_stop_ym2413(CurCSet);
+			else if (CAA->ChipType == 0x02)
+				device_stop_ym2612(CurCSet);
+			else if (CAA->ChipType == 0x03)
+				device_stop_ym2151(CurCSet);
+			else if (CAA->ChipType == 0x04)
+				device_stop_segapcm(CurCSet);
+			else if (CAA->ChipType == 0x05)
+				device_stop_rf5c68(CurCSet);
+			else if (CAA->ChipType == 0x06)
+				device_stop_ym2203(CurCSet);
+			else if (CAA->ChipType == 0x07)
+				device_stop_ym2608(CurCSet);
+			else if (CAA->ChipType == 0x08)
+				device_stop_ym2610(CurCSet);
+			else if (CAA->ChipType == 0x09 && ! UseFM)
+				device_stop_ym3812(CurCSet);
+			else if (CAA->ChipType == 0x0A && ! UseFM)
+				device_stop_ym3526(CurCSet);
+			else if (CAA->ChipType == 0x0B && ! UseFM)
+				device_stop_y8950(CurCSet);
+			else if (CAA->ChipType == 0x0C && ! UseFM)
+				device_stop_ymf262(CurCSet);
+			else if (CAA->ChipType == 0x0D)
+				device_stop_ymf278b(CurCSet);
+			else if (CAA->ChipType == 0x0E)
+				device_stop_ymf271(CurCSet);
+			else if (CAA->ChipType == 0x0F)
+				device_stop_ymz280b(CurCSet);
+			else if (CAA->ChipType == 0x10)
+				device_stop_rf5c164(CurCSet);
+			else if (CAA->ChipType == 0x11)
+				device_stop_pwm(CurCSet);
+			else if (CAA->ChipType == 0x12 && ! UseFM)
+				device_stop_ayxx(CurCSet);
+			else if (CAA->ChipType == 0x13)
+				device_stop_gameboy_sound(CurCSet);
+			else if (CAA->ChipType == 0x14)
+				device_stop_nes(CurCSet);
+			else if (CAA->ChipType == 0x15)
+				device_stop_multipcm(CurCSet);
+			else if (CAA->ChipType == 0x16)
+				device_stop_upd7759(CurCSet);
+			else if (CAA->ChipType == 0x17)
+				device_stop_okim6258(CurCSet);
+			else if (CAA->ChipType == 0x18)
+				device_stop_okim6295(CurCSet);
+			else if (CAA->ChipType == 0x19)
+				device_stop_k051649(CurCSet);
+			else if (CAA->ChipType == 0x1A)
+				device_stop_k054539(CurCSet);
+			else if (CAA->ChipType == 0x1B)
+				device_stop_c6280(CurCSet);
+			else if (CAA->ChipType == 0x1C)
+				device_stop_c140(CurCSet);
+			else if (CAA->ChipType == 0x1D)
+				device_stop_k053260(CurCSet);
+			else if (CAA->ChipType == 0x1E)
+				device_stop_pokey(CurCSet);
+			else if (CAA->ChipType == 0x1F)
+				device_stop_qsound(CurCSet);
+			else if (CAA->ChipType == 0x20)
+				device_stop_scsp(CurCSet);
+			
+			CAA->ChipType = 0xFF;	// mark as "unused"
+		}	// end for CurChip
+		
+		}	// end for CurCSet
 		
 		for (CurChip = 0x00; CurChip < DacCtrlUsed; CurChip ++)
 		{
@@ -3168,306 +3357,132 @@ static void Chips_GeneralActions(UINT8 Mode)
 		//memset(&PCMTbl, 0x00, sizeof(PCMBANK_TBL));
 		break;
 	case 0x10:	// Set Muting Mask
-		if (VGMHead.lngHzPSG)
+		for (CurCSet = 0x00; CurCSet < 0x02; CurCSet ++)
 		{
-			ChipCnt = (VGMHead.lngHzPSG & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-					sn764xx_set_mute_mask(CurChip, ChipOpts[CurChip].SN76496.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzYM2413)
+		
+		CAA = (CAUD_ATTR*)&ChipAudio[CurCSet];
+		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, CAA ++)
 		{
-			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
+			if (CAA->ChipType == 0xFF)	// chip unused
+				continue;
+			else if (CAA->ChipType == 0x00 && ! UseFM)
+				sn764xx_set_mute_mask(CurCSet, ChipOpts[CurCSet].SN76496.ChnMute1);
+			else if (CAA->ChipType == 0x01 && ! UseFM)
+				ym2413_set_mute_mask(CurCSet, ChipOpts[CurCSet].YM2413.ChnMute1);
+			else if (CAA->ChipType == 0x02)
+				ym2612_set_mute_mask(CurCSet, ChipOpts[CurCSet].YM2612.ChnMute1);
+			else if (CAA->ChipType == 0x03)
+				ym2151_set_mute_mask(CurCSet, ChipOpts[CurCSet].YM2151.ChnMute1);
+			else if (CAA->ChipType == 0x04)
+				segapcm_set_mute_mask(CurCSet, ChipOpts[CurCSet].SegaPCM.ChnMute1);
+			else if (CAA->ChipType == 0x05)
+				rf5c68_set_mute_mask(CurCSet, ChipOpts[CurCSet].RF5C68.ChnMute1);
+			else if (CAA->ChipType == 0x06)
+				ym2203_set_mute_mask(CurCSet, ChipOpts[CurCSet].YM2203.ChnMute1,
+									ChipOpts[CurCSet].YM2203.ChnMute3);
+			else if (CAA->ChipType == 0x07)
 			{
-				if (! UseFM)
-					ym2413_set_mute_mask(CurChip, ChipOpts[CurChip].YM2413.ChnMute1);
+				MaskVal  = (ChipOpts[CurCSet].YM2608.ChnMute1 & 0x3F) << 0;
+				MaskVal |= (ChipOpts[CurCSet].YM2608.ChnMute2 & 0x7F) << 6;
+				ym2608_set_mute_mask(CurCSet, MaskVal, ChipOpts[CurCSet].YM2608.ChnMute3);
 			}
-		}
-		if (VGMHead.lngHzYM2612)
-		{
-			ChipCnt = (VGMHead.lngHzYM2612 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
+			else if (CAA->ChipType == 0x08)
 			{
-				ym2612_set_mute_mask(CurChip, ChipOpts[CurChip].YM2612.ChnMute1);
+				MaskVal  = (ChipOpts[CurCSet].YM2610.ChnMute1 & 0x3F) << 0;
+				MaskVal |= (ChipOpts[CurCSet].YM2610.ChnMute2 & 0x7F) << 6;
+				ym2610_set_mute_mask(CurCSet, MaskVal, ChipOpts[CurCSet].YM2610.ChnMute3);
 			}
-		}
-		if (VGMHead.lngHzYM2151)
-		{
-			ChipCnt = (VGMHead.lngHzYM2151 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				ym2151_set_mute_mask(CurChip, ChipOpts[CurChip].YM2151.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzSPCM)
-		{
-			ChipCnt = (VGMHead.lngHzSPCM & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				segapcm_set_mute_mask(CurChip, ChipOpts[CurChip].SegaPCM.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzRF5C68)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				rf5c68_set_mute_mask(CurChip, ChipOpts[CurChip].RF5C68.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzYM2203)
-		{
-			ChipCnt = (VGMHead.lngHzYM2203 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				ym2203_set_mute_mask(CurChip, ChipOpts[CurChip].YM2203.ChnMute1,
-									ChipOpts[CurChip].YM2203.ChnMute3);
-			}
-		}
-		if (VGMHead.lngHzYM2608)
-		{
-			ChipCnt = (VGMHead.lngHzYM2608 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				MaskVal  = (ChipOpts[CurChip].YM2608.ChnMute1 & 0x3F) << 0;
-				MaskVal |= (ChipOpts[CurChip].YM2608.ChnMute2 & 0x7F) << 6;
-				ym2608_set_mute_mask(CurChip, MaskVal, ChipOpts[CurChip].YM2608.ChnMute3);
-			}
-		}
-		if (VGMHead.lngHzYM2610)
-		{
-			ChipCnt = (VGMHead.lngHzYM2610 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				MaskVal  = (ChipOpts[CurChip].YM2610.ChnMute1 & 0x3F) << 0;
-				MaskVal |= (ChipOpts[CurChip].YM2610.ChnMute2 & 0x7F) << 6;
-				ym2610_set_mute_mask(CurChip, MaskVal, ChipOpts[CurChip].YM2610.ChnMute3);
-			}
-		}
-		if (VGMHead.lngHzYM3812)
-		{
-			ChipCnt = (VGMHead.lngHzYM3812 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-					ym3812_set_mute_mask(CurChip, ChipOpts[CurChip].YM3812.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzYM3526)
-		{
-			ChipCnt = (VGMHead.lngHzYM3526 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-					ym3526_set_mute_mask(CurChip, ChipOpts[CurChip].YM3526.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzY8950)
-		{
-			ChipCnt = (VGMHead.lngHzY8950 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-					y8950_set_mute_mask(CurChip, ChipOpts[CurChip].Y8950.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzYMF262)
-		{
-			ChipCnt = (VGMHead.lngHzYMF262 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-					ymf262_set_mute_mask(CurChip, ChipOpts[CurChip].YMF262.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzYMF278B)
-		{
-			ChipCnt = (VGMHead.lngHzYMF278B & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				ymf278b_set_mute_mask(CurChip, ChipOpts[CurChip].YMF278B.ChnMute1,
-										ChipOpts[CurChip].YMF278B.ChnMute2);
-			}
-		}
-		if (VGMHead.lngHzYMF271)
-		{
-			ChipCnt = (VGMHead.lngHzYMF271 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				ymf271_set_mute_mask(CurChip, ChipOpts[CurChip].YMF271.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzYMZ280B)
-		{
-			ChipCnt = (VGMHead.lngHzYMZ280B & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				ymz280b_set_mute_mask(CurChip, ChipOpts[CurChip].YMZ280B.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzRF5C164)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				rf5c164_set_mute_mask(CurChip, ChipOpts[CurChip].RF5C164.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzPWM)
-		{
-			ChipCnt = 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				// nothing to mute
-			}
-		}
-		if (VGMHead.lngHzAY8910)
-		{
-			ChipCnt = (VGMHead.lngHzAY8910 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				ay8910_set_mute_mask(CurChip, ChipOpts[CurChip].AY8910.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzGBDMG)
-		{
-			ChipCnt = (VGMHead.lngHzGBDMG & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				gameboy_sound_set_mute_mask(CurChip, ChipOpts[CurChip].GameBoy.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzNESAPU)
-		{
-			ChipCnt = (VGMHead.lngHzNESAPU & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				nesapu_set_mute_mask(CurChip, ChipOpts[CurChip].NES.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzMultiPCM)
-		{
-			ChipCnt = (VGMHead.lngHzMultiPCM & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				multipcm_set_mute_mask(CurChip, ChipOpts[CurChip].MultiPCM.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzUPD7759)
-		{
-			ChipCnt = (VGMHead.lngHzUPD7759 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				// nothing to mute
-			}
-		}
-		if (VGMHead.lngHzOKIM6258)
-		{
-			ChipCnt = (VGMHead.lngHzOKIM6258 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				// nothing to mute
-			}
-		}
-		if (VGMHead.lngHzOKIM6295)
-		{
-			ChipCnt = (VGMHead.lngHzOKIM6295 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				okim6295_set_mute_mask(CurChip, ChipOpts[CurChip].OKIM6295.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzK051649)
-		{
-			ChipCnt = (VGMHead.lngHzK051649 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				k051649_set_mute_mask(CurChip, ChipOpts[CurChip].K051649.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzK054539)
-		{
-			ChipCnt = (VGMHead.lngHzK054539 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				k054539_set_mute_mask(CurChip, ChipOpts[CurChip].K054539.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzHuC6280)
-		{
-			ChipCnt = (VGMHead.lngHzHuC6280 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				c6280_set_mute_mask(CurChip, ChipOpts[CurChip].HuC6280.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzC140)
-		{
-			ChipCnt = (VGMHead.lngHzC140 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				c140_set_mute_mask(CurChip, ChipOpts[CurChip].C140.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzK053260)
-		{
-			ChipCnt = (VGMHead.lngHzK053260 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				k053260_set_mute_mask(CurChip, ChipOpts[CurChip].K053260.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzPokey)
-		{
-			ChipCnt = (VGMHead.lngHzPokey & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				pokey_set_mute_mask(CurChip, ChipOpts[CurChip].Pokey.ChnMute1);
-			}
-		}
-		if (VGMHead.lngHzQSound)
-		{
-			ChipCnt = (VGMHead.lngHzQSound & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				qsound_set_mute_mask(CurChip, ChipOpts[CurChip].QSound.ChnMute1);
-			}
-		}
+			else if (CAA->ChipType == 0x09 && ! UseFM)
+				ym3812_set_mute_mask(CurCSet, ChipOpts[CurCSet].YM3812.ChnMute1);
+			else if (CAA->ChipType == 0x0A && ! UseFM)
+				ym3526_set_mute_mask(CurCSet, ChipOpts[CurCSet].YM3526.ChnMute1);
+			else if (CAA->ChipType == 0x0B && ! UseFM)
+				y8950_set_mute_mask(CurCSet, ChipOpts[CurCSet].Y8950.ChnMute1);
+			else if (CAA->ChipType == 0x0C && ! UseFM)
+				ymf262_set_mute_mask(CurCSet, ChipOpts[CurCSet].YMF262.ChnMute1);
+			else if (CAA->ChipType == 0x0D)
+				ymf278b_set_mute_mask(CurCSet, ChipOpts[CurCSet].YMF278B.ChnMute1,
+										ChipOpts[CurCSet].YMF278B.ChnMute2);
+			else if (CAA->ChipType == 0x0E)
+				ymf271_set_mute_mask(CurCSet, ChipOpts[CurCSet].YMF271.ChnMute1);
+			else if (CAA->ChipType == 0x0F)
+				ymz280b_set_mute_mask(CurCSet, ChipOpts[CurCSet].YMZ280B.ChnMute1);
+			else if (CAA->ChipType == 0x10)
+				rf5c164_set_mute_mask(CurCSet, ChipOpts[CurCSet].RF5C164.ChnMute1);
+			else if (CAA->ChipType == 0x11)
+				;	// PWM - nothing to mute
+			else if (CAA->ChipType == 0x12 && ! UseFM)
+				ayxx_set_mute_mask(CurCSet, ChipOpts[CurCSet].AY8910.ChnMute1);
+			else if (CAA->ChipType == 0x13)
+				gameboy_sound_set_mute_mask(CurCSet, ChipOpts[CurCSet].GameBoy.ChnMute1);
+			else if (CAA->ChipType == 0x14)
+				nes_set_mute_mask(CurCSet, ChipOpts[CurCSet].NES.ChnMute1);
+			else if (CAA->ChipType == 0x15)
+				multipcm_set_mute_mask(CurCSet, ChipOpts[CurCSet].MultiPCM.ChnMute1);
+			else if (CAA->ChipType == 0x16)
+				;	// UPD7759 - nothing to mute
+			else if (CAA->ChipType == 0x17)
+				;	// OKIM6258 - nothing to mute
+			else if (CAA->ChipType == 0x18)
+				okim6295_set_mute_mask(CurCSet, ChipOpts[CurCSet].OKIM6295.ChnMute1);
+			else if (CAA->ChipType == 0x19)
+				k051649_set_mute_mask(CurCSet, ChipOpts[CurCSet].K051649.ChnMute1);
+			else if (CAA->ChipType == 0x1A)
+				k054539_set_mute_mask(CurCSet, ChipOpts[CurCSet].K054539.ChnMute1);
+			else if (CAA->ChipType == 0x1B)
+				c6280_set_mute_mask(CurCSet, ChipOpts[CurCSet].HuC6280.ChnMute1);
+			else if (CAA->ChipType == 0x1C)
+				c140_set_mute_mask(CurCSet, ChipOpts[CurCSet].C140.ChnMute1);
+			else if (CAA->ChipType == 0x1D)
+				k053260_set_mute_mask(CurCSet, ChipOpts[CurCSet].K053260.ChnMute1);
+			else if (CAA->ChipType == 0x1E)
+				pokey_set_mute_mask(CurCSet, ChipOpts[CurCSet].Pokey.ChnMute1);
+			else if (CAA->ChipType == 0x1F)
+				qsound_set_mute_mask(CurCSet, ChipOpts[CurCSet].QSound.ChnMute1);
+			else if (CAA->ChipType == 0x20)
+				scsp_set_mute_mask(CurCSet, ChipOpts[CurCSet].SCSP.ChnMute1);
+		}	// end for CurChip
+		
+		}	// end for CurCSet
 		break;
 	case 0x20:	// Set Panning
-		if (VGMHead.lngHzPSG)
+		for (CurCSet = 0x00; CurCSet < 0x02; CurCSet ++)
 		{
-			ChipCnt = (VGMHead.lngHzPSG & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-					sn764xx_set_panning(CurChip, ChipOpts[CurChip].SN76496.Panning);
-			}
-		}
-		if (VGMHead.lngHzYM2413)
+		
+		CAA = (CAUD_ATTR*)&ChipAudio[CurCSet];
+		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, CAA ++)
 		{
-			ChipCnt = (VGMHead.lngHzYM2413 & 0x40000000) ? 0x02 : 0x01;
-			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-			{
-				if (! UseFM)
-					ym2413_set_panning(CurChip, ChipOpts[CurChip].YM2413.Panning);
-			}
-		}
+			if (CAA->ChipType == 0xFF)	// chip unused
+				continue;
+			else if (CAA->ChipType == 0x00 && ! UseFM)
+				sn764xx_set_panning(CurCSet, ChipOpts[CurCSet].SN76496.Panning);
+			else if (CAA->ChipType == 0x01 && ! UseFM)
+				ym2413_set_panning(CurCSet, ChipOpts[CurCSet].YM2413.Panning);
+		}	// end for CurChip
+		
+		}	// end for CurCSet
 		break;
 	}
 	
 	return;
 }
 
-INLINE INT32 SampleVGM2Playback(INT32 SampleVal)
+INLINE INT32 SampleVGM2Pbk_I(INT32 SampleVal)
 {
 	return (INT32)((INT64)SampleVal * VGMSmplRateMul / VGMSmplRateDiv);
 }
 
-INLINE INT32 SamplePlayback2VGM(INT32 SampleVal)
+INLINE INT32 SamplePbk2VGM_I(INT32 SampleVal)
+{
+	return (INT32)((INT64)SampleVal * VGMSmplRateDiv / VGMSmplRateMul);
+}
+
+INT32 SampleVGM2Playback(INT32 SampleVal)
+{
+	return (INT32)((INT64)SampleVal * VGMSmplRateMul / VGMSmplRateDiv);
+}
+
+INT32 SamplePlayback2VGM(INT32 SampleVal)
 {
 	return (INT32)((INT64)SampleVal * VGMSmplRateDiv / VGMSmplRateMul);
 }
@@ -3692,7 +3707,7 @@ static void InterpretFile(UINT32 SampleCount)
 		if (TempLng)
 			RefreshVolume();
 	}
-	if (AutoStopSkip)
+	if (AutoStopSkip && SampleCount)
 	{
 		StopSkipping();
 		AutoStopSkip = false;
@@ -3717,8 +3732,12 @@ static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data)
 	VGM_PCM_BANK* TempPCM;
 	VGM_PCM_DATA* TempBnk;
 	UINT32 BankSize;
+	bool RetVal;
+	UINT8 BnkType;
+	UINT8 CurDAC;
 	
-	if ((Type & 0x3F) >= PCM_BANK_COUNT || VGMCurLoop)
+	BnkType = Type & 0x3F;
+	if (BnkType >= PCM_BANK_COUNT || VGMCurLoop)
 		return;
 	
 	if (Type == 0x7F)
@@ -3727,19 +3746,21 @@ static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data)
 		return;
 	}
 	
-	TempPCM = &PCMBank[Type & 0x3F];
+	TempPCM = &PCMBank[BnkType];
+	TempPCM->BnkPos ++;
+	if (TempPCM->BnkPos <= TempPCM->BankCount)
+		return;	// Speed hack for restarting playback (skip already loaded blocks)
 	CurBnk = TempPCM->BankCount;
 	TempPCM->BankCount ++;
-	TempPCM->BnkPos ++;
-	if (TempPCM->BnkPos < TempPCM->BankCount)
-		return;	// Speed hack (for restarting playback)
+	if (Last95Max != 0xFFFF)
+		Last95Max = TempPCM->BankCount;
 	TempPCM->Bank = (VGM_PCM_DATA*)realloc(TempPCM->Bank,
 											sizeof(VGM_PCM_DATA) * TempPCM->BankCount);
 	
 	if (! (Type & 0x40))
 		BankSize = DataSize;
 	else
-		memcpy(&BankSize, &Data[0x01], 0x04);
+		BankSize = ReadLE32(&Data[0x01]);
 	TempPCM->Data = realloc(TempPCM->Data, TempPCM->DataSize + BankSize);
 	TempBnk = &TempPCM->Bank[CurBnk];
 	TempBnk->DataStart = TempPCM->DataSize;
@@ -3752,11 +3773,26 @@ static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data)
 	else
 	{
 		TempBnk->Data = TempPCM->Data + TempBnk->DataStart;
-		DecompressDataBlk(TempBnk, DataSize, Data);
+		RetVal = DecompressDataBlk(TempBnk, DataSize, Data);
+		if (! RetVal)
+		{
+			TempBnk->Data = NULL;
+			TempBnk->DataSize = 0x00;
+			//return;
+			goto RefreshDACStrm;	// sorry for the goto, but I don't want to copy-paste the code
+		}
 	}
 	if (BankSize != TempBnk->DataSize)
 		printf("Error reading Data Block! Data Size conflict!\n");
 	TempPCM->DataSize += BankSize;
+	
+	// realloc may've moved the Bank block, so refresh all DAC Streams
+RefreshDACStrm:
+	for (CurDAC = 0x00; CurDAC < DacCtrlUsed; CurDAC ++)
+	{
+		if (DacCtrl[DacCtrlUsg[CurDAC]].Bank == BnkType)
+			daccontrol_refresh_data(DacCtrlUsg[CurDAC], TempPCM->Data, TempPCM->DataSize);
+	}
 	
 	return;
 }
@@ -3820,11 +3856,11 @@ static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 	
 	//Time = GetTickCount();
 	ComprType = Data[0x00];
-	memcpy(&Bank->DataSize, &Data[0x01], 0x04);
+	Bank->DataSize = ReadLE32(&Data[0x01]);
 	BitDec = Data[0x05];
 	BitCmp = Data[0x06];
 	CmpSubType = Data[0x07];
-	memcpy(&AddVal, &Data[0x08], 0x02);
+	AddVal = ReadLE16(&Data[0x08]);
 	
 	switch(ComprType)
 	{
@@ -3886,17 +3922,17 @@ static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 	return;
 }*/
 
-static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data)
+static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data)
 {
 	UINT8 ComprType;
 	UINT8 BitDec;
 	FUINT8 BitCmp;
 	UINT8 CmpSubType;
 	UINT16 AddVal;
-	//UINT32 InPos;
 	const UINT8* InPos;
-	const UINT8* DataEnd;
-	UINT32 OutPos;
+	const UINT8* InDataEnd;
+	UINT8* OutPos;
+	const UINT8* OutDataEnd;
 	FUINT16 InVal;
 	FUINT16 OutVal;
 	FUINT8 ValSize;
@@ -3915,42 +3951,49 @@ static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 	FUINT8 BitMask;
 	FUINT8 OutBit;
 	
+	// Variables for DPCM
+	UINT16 OutMask;
+	
 #if defined(_DEBUG) && defined(WIN32)
 	Time = GetTickCount();
 #endif
 	ComprType = Data[0x00];
-	memcpy(&Bank->DataSize, &Data[0x01], 0x04);
-	BitDec = Data[0x05];
-	BitCmp = Data[0x06];
-	CmpSubType = Data[0x07];
-	memcpy(&AddVal, &Data[0x08], 0x02);
+	Bank->DataSize = ReadLE32(&Data[0x01]);
 	
 	switch(ComprType)
 	{
 	case 0x00:	// n-Bit compression
+		BitDec = Data[0x05];
+		BitCmp = Data[0x06];
+		CmpSubType = Data[0x07];
+		AddVal = ReadLE16(&Data[0x08]);
+		
 		if (CmpSubType == 0x02)
 		{
-			Ent1B = (UINT8*)PCMTbl.Entries;
+			Ent1B = (UINT8*)PCMTbl.Entries;	// Big Endian note: Those are stored in LE and converted when reading.
 			Ent2B = (UINT16*)PCMTbl.Entries;
 			if (! PCMTbl.EntryCount)
 			{
+				Bank->DataSize = 0x00;
 				printf("Error loading table-compressed data block! No table loaded!\n");
-				return;
+				return false;
 			}
 			else if (BitDec != PCMTbl.BitDec || BitCmp != PCMTbl.BitCmp)
 			{
+				Bank->DataSize = 0x00;
 				printf("Warning! Data block and loaded value table incompatible!\n");
-				return;
+				return false;
 			}
 		}
 		
 		ValSize = (BitDec + 7) / 8;
 		InPos = Data + 0x0A;
-		DataEnd = Data + DataSize;
+		InDataEnd = Data + DataSize;
 		InShift = 0;
 		OutShift = BitDec - BitCmp;
+		OutDataEnd = Bank->Data + Bank->DataSize;
 		
-		for (OutPos = 0x00; OutPos < Bank->DataSize && InPos < DataEnd; OutPos += ValSize)
+		for (OutPos = Bank->Data; OutPos < OutDataEnd && InPos < InDataEnd; OutPos += ValSize)
 		{
 			//InVal = ReadBits(Data, InPos, &InShift, BitCmp);
 			// inlined - is 30% faster
@@ -3992,14 +4035,120 @@ static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 					OutVal = Ent1B[InVal];
 					break;
 				case 0x02:
+#ifndef VGM_BIG_ENDIAN
 					OutVal = Ent2B[InVal];
+#else
+					OutVal = ReadLE16((UINT8*)&Ent2B[InVal]);
+#endif
 					break;
 				}
 				break;
 			}
-			memcpy(&Bank->Data[OutPos], &OutVal, ValSize);
+			
+#ifndef VGM_BIG_ENDIAN
+			//memcpy(OutPos, &OutVal, ValSize);
+			if (ValSize == 0x01)
+				*((UINT8*)OutPos) = (UINT8)OutVal;
+			else //if (ValSize == 0x02)
+				*((UINT16*)OutPos) = (UINT16)OutVal;
+#else
+			if (ValSize == 0x01)
+			{
+				*OutPos = (UINT8)OutVal;
+			}
+			else //if (ValSize == 0x02)
+			{
+				OutPos[0x00] = (UINT8)((OutVal & 0x00FF) >> 0);
+				OutPos[0x01] = (UINT8)((OutVal & 0xFF00) >> 8);
+			}
+#endif
 		}
 		break;
+	case 0x01:	// Delta-PCM
+		BitDec = Data[0x05];
+		BitCmp = Data[0x06];
+		OutVal = ReadLE16(&Data[0x08]);
+		
+		Ent1B = (UINT8*)PCMTbl.Entries;
+		Ent2B = (UINT16*)PCMTbl.Entries;
+		if (! PCMTbl.EntryCount)
+		{
+			Bank->DataSize = 0x00;
+			printf("Error loading table-compressed data block! No table loaded!\n");
+			return false;
+		}
+		else if (BitDec != PCMTbl.BitDec || BitCmp != PCMTbl.BitCmp)
+		{
+			Bank->DataSize = 0x00;
+			printf("Warning! Data block and loaded value table incompatible!\n");
+			return false;
+		}
+		
+		ValSize = (BitDec + 7) / 8;
+		OutMask = (1 << BitDec) - 1;
+		InPos = Data + 0x0A;
+		InDataEnd = Data + DataSize;
+		InShift = 0;
+		OutShift = BitDec - BitCmp;
+		OutDataEnd = Bank->Data + Bank->DataSize;
+		AddVal = 0x0000;
+		
+		for (OutPos = Bank->Data; OutPos < OutDataEnd && InPos < InDataEnd; OutPos += ValSize)
+		{
+			//InVal = ReadBits(Data, InPos, &InShift, BitCmp);
+			// inlined - is 30% faster
+			OutBit = 0x00;
+			InVal = 0x0000;
+			BitsToRead = BitCmp;
+			while(BitsToRead)
+			{
+				BitReadVal = (BitsToRead >= 8) ? 8 : BitsToRead;
+				BitsToRead -= BitReadVal;
+				BitMask = (1 << BitReadVal) - 1;
+				
+				InShift += BitReadVal;
+				InValB = (*InPos << InShift >> 8) & BitMask;
+				if (InShift >= 8)
+				{
+					InShift -= 8;
+					InPos ++;
+					if (InShift)
+						InValB |= (*InPos << InShift >> 8) & BitMask;
+				}
+				
+				InVal |= InValB << OutBit;
+				OutBit += BitReadVal;
+			}
+			
+			switch(ValSize)
+			{
+			case 0x01:
+				AddVal = Ent1B[InVal];
+				OutVal += AddVal;
+				OutVal &= OutMask;
+				*((UINT8*)OutPos) = (UINT8)OutVal;
+				break;
+			case 0x02:
+#ifndef VGM_BIG_ENDIAN
+				AddVal = Ent2B[InVal];
+#else
+				AddVal = ReadLE16((UINT8*)&Ent2B[InVal]);
+#endif
+				OutVal += AddVal;
+				OutVal &= OutMask;
+#ifndef VGM_BIG_ENDIAN
+				*((UINT16*)OutPos) = (UINT16)OutVal;
+#else
+				OutPos[0x00] = (UINT8)((OutVal & 0x00FF) >> 0);
+				OutPos[0x01] = (UINT8)((OutVal & 0xFF00) >> 8);
+#endif
+				break;
+			}
+		}
+		break;
+	default:
+		printf("Error: Unknown data block compression!\n");
+		return false;
 	}
 	
 #if defined(_DEBUG) && defined(WIN32)
@@ -4007,7 +4156,7 @@ static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 	printf("Decompression Time: %lu\n", Time);
 #endif
 	
-	return;
+	return true;
 }
 
 static UINT8 GetDACFromPCMBank(void)
@@ -4059,7 +4208,7 @@ static void ReadPCMTable(UINT32 DataSize, const UINT8* Data)
 	PCMTbl.CmpSubType = Data[0x01];
 	PCMTbl.BitDec = Data[0x02];
 	PCMTbl.BitCmp = Data[0x03];
-	memcpy(&PCMTbl.EntryCount, &Data[0x04], 0x02);
+	PCMTbl.EntryCount = ReadLE16(&Data[0x04]);
 	
 	ValSize = (PCMTbl.BitDec + 7) / 8;
 	TblSize = PCMTbl.EntryCount * ValSize;
@@ -4073,6 +4222,7 @@ static void ReadPCMTable(UINT32 DataSize, const UINT8* Data)
 	return;
 }
 
+#define CHIP_CHECK(name)	(ChipAudio[CurChip].name.ChipType != 0xFF)
 static void InterpretVGM(UINT32 SampleCount)
 {
 	INT32 SmplPlayed;
@@ -4094,7 +4244,7 @@ static void InterpretVGM(UINT32 SampleCount)
 	if (PausePlay && ! ForceVGMExec)
 		return;
 	
-	SmplPlayed = SamplePlayback2VGM(VGMSmplPlayed + SampleCount);
+	SmplPlayed = SamplePbk2VGM_I(VGMSmplPlayed + SampleCount);
 	while(VGMSmplPos <= SmplPlayed)
 	{
 		Command = VGMData[VGMPos + 0x00];
@@ -4228,8 +4378,8 @@ static void InterpretVGM(UINT32 SampleCount)
 				{
 					VGMPos = VGMHead.lngLoopOffset;
 					VGMSmplPos -= VGMHead.lngLoopSamples;
-					VGMSmplPlayed -= SampleVGM2Playback(VGMHead.lngLoopSamples);
-					SmplPlayed = SamplePlayback2VGM(VGMSmplPlayed + SampleCount);
+					VGMSmplPlayed -= SampleVGM2Pbk_I(VGMHead.lngLoopSamples);
+					SmplPlayed = SamplePbk2VGM_I(VGMSmplPlayed + SampleCount);
 					VGMCurLoop ++;
 					
 					if (VGMMaxLoopM && VGMCurLoop >= VGMMaxLoopM)
@@ -4237,7 +4387,7 @@ static void InterpretVGM(UINT32 SampleCount)
 #ifndef CONSOLE_MODE
 						if (! FadePlay)
 						{
-							FadeStart = SampleVGM2Playback(VGMHead.lngTotalSamples +
+							FadeStart = SampleVGM2Pbk_I(VGMHead.lngTotalSamples +
 															(VGMCurLoop - 1) * VGMHead.lngLoopSamples);
 						}
 #endif
@@ -4270,41 +4420,35 @@ static void InterpretVGM(UINT32 SampleCount)
 				VGMPos += 0x01;
 				break;
 			case 0x61:	// xx Sample Delay
-				memcpy(&TempSht, &VGMPnt[0x01], 0x02);
+				TempSht = ReadLE16(&VGMPnt[0x01]);
 				VGMSmplPos += TempSht;
 				VGMPos += 0x03;
 				break;
 			case 0x50:	// SN76496 write
-				if (VGMHead.lngHzPSG)
+				if (CHIP_CHECK(SN76496))
 				{
 					chip_reg_write(0x00, CurChip, 0x00, 0x00, VGMPnt[0x01]);
 				}
 				VGMPos += 0x02;
 				break;
 			case 0x51:	// YM2413 write
-				if (VGMHead.lngHzYM2413)
+				if (CHIP_CHECK(YM2413))
 				{
 					chip_reg_write(0x01, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x52:	// YM2612 write port 0
-				if (VGMHead.lngHzYM2612)
-				{
-					chip_reg_write(0x02, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
-				}
-				VGMPos += 0x03;
-				break;
 			case 0x53:	// YM2612 write port 1
-				if (VGMHead.lngHzYM2612)
+				if (CHIP_CHECK(YM2612))
 				{
-					chip_reg_write(0x02, CurChip, 0x01, VGMPnt[0x01], VGMPnt[0x02]);
+					chip_reg_write(0x02, CurChip, Command & 0x01, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMPnt[0x02];
-				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
+				TempLng = ReadLE32(&VGMPnt[0x03]);
 				if (TempLng & 0x80000000)
 				{
 					TempLng &= 0x7FFFFFFF;
@@ -4330,128 +4474,131 @@ static void InterpretVGM(UINT32 SampleCount)
 					if (VGMCurLoop)
 						break;
 					
-					memcpy(&ROMSize, &VGMPnt[0x07], 0x04);
-					memcpy(&DataStart, &VGMPnt[0x0B], 0x04);
+					ROMSize = ReadLE32(&VGMPnt[0x07]);
+					DataStart = ReadLE32(&VGMPnt[0x0B]);
 					DataLen = TempLng - 0x08;
 					ROMData = &VGMPnt[0x0F];
 					switch(TempByt)
 					{
 					case 0x80:	// SegaPCM ROM
-						if (VGMHead.lngHzSPCM)
-						{
-							sega_pcm_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(SegaPCM))
+							break;
+						sega_pcm_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x81:	// YM2608 DELTA-T ROM Image
-						if (VGMHead.lngHzYM2608)
-						{
-							ym2608_write_data_pcmrom(CurChip, 0x02, ROMSize, DataStart, DataLen,
-													ROMData);
-						}
+						if (! CHIP_CHECK(YM2608))
+							break;
+						ym2608_write_data_pcmrom(CurChip, 0x02, ROMSize, DataStart, DataLen,
+												ROMData);
 						break;
 					case 0x82:	// YM2610 ADPCM ROM Image
 					case 0x83:	// YM2610 DELTA-T ROM Image
-						if (VGMHead.lngHzYM2610)
-						{
-							TempByt = 0x01 + (TempByt - 0x82);
-							ym2610_write_data_pcmrom(CurChip, TempByt, ROMSize, DataStart,
-													DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(YM2610))
+							break;
+						TempByt = 0x01 + (TempByt - 0x82);
+						ym2610_write_data_pcmrom(CurChip, TempByt, ROMSize, DataStart, DataLen,
+												ROMData);
 						break;
 					case 0x84:	// YMF278B ROM Image
-						if (VGMHead.lngHzYMF278B)
-						{
-							ymf278b_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(YMF278B))
+							break;
+						ymf278b_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x85:	// YMF271 ROM Image
-						if (VGMHead.lngHzYMF271)
-						{
-							ymf271_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(YMF271))
+							break;
+						ymf271_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x86:	// YMZ280B ROM Image
-						if (VGMHead.lngHzYMZ280B)
-						{
-							ymz280b_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(YMZ280B))
+							break;
+						ymz280b_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x87:	// YMF278B RAM Image
-						if (VGMHead.lngHzYMF278B)
-						{
-							//ymf278b_write_ram(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(YMF278B))
+							break;
+						//ymf278b_write_ram(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x88:	// Y8950 DELTA-T ROM Image
-						if (VGMHead.lngHzY8950 && PlayingMode != 0x01)
-						{
-							y8950_write_data_pcmrom(CurChip, ROMSize, DataStart, DataLen,
-													ROMData);
-						}
+						if (! CHIP_CHECK(Y8950) || PlayingMode == 0x01)
+							break;
+						y8950_write_data_pcmrom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x89:	// MultiPCM ROM Image
-						if (VGMHead.lngHzMultiPCM)
-						{
-							multipcm_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(MultiPCM))
+							break;
+						multipcm_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x8A:	// UPD7759 ROM Image
-						if (VGMHead.lngHzUPD7759)
-						{
-							upd7759_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(UPD7759))
+							break;
+						upd7759_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x8B:	// OKIM6295 ROM Image
-						if (VGMHead.lngHzOKIM6295)
-						{
-							okim6295_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(OKIM6295))
+							break;
+						okim6295_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x8C:	// K054539 ROM Image
-						if (VGMHead.lngHzK054539)
-						{
-							k054539_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(K054539))
+							break;
+						k054539_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x8D:	// C140 ROM Image
-						if (VGMHead.lngHzC140)
-						{
-							c140_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(C140))
+							break;
+						c140_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 					case 0x8E:	// K053260 ROM Image
-						if (VGMHead.lngHzK053260)
-						{
-							k053260_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+						if (! CHIP_CHECK(K053260))
+							break;
+						k053260_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
-					case 0x8F:	// Q-Sound ROM Image
-						if (VGMHead.lngHzQSound)
-						{
-							qsound_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
-						}
+					case 0x8F:	// QSound ROM Image
+						if (! CHIP_CHECK(QSound))
+							break;
+						qsound_write_rom(CurChip, ROMSize, DataStart, DataLen, ROMData);
 						break;
 				//	case 0x8C:	// OKIM6376 ROM Image
-				//		if (VGMHead.lngHzOKIM6376)
-				//		{
-				//		}
+				//		if (! CHIP_CHECK(OKIM6376))
+				//			break;
 				//		break;
 					}
 					break;
 				case 0xC0:	// RAM Write
-					memcpy(&TempSht, &VGMPnt[0x07], 0x02);
-					DataLen = TempLng - 0x02;
-					ROMData = &VGMPnt[0x09];
+					if (! (TempByt & 0x20))
+					{
+						DataStart = ReadLE16(&VGMPnt[0x07]);
+						DataLen = TempLng - 0x02;
+						ROMData = &VGMPnt[0x09];
+					}
+					else
+					{
+						DataStart = ReadLE32(&VGMPnt[0x07]);
+						DataLen = TempLng - 0x04;
+						ROMData = &VGMPnt[0x0B];
+					}
 					switch(TempByt)
 					{
 					case 0xC0:	// RF5C68 RAM Database
-						rf5c68_write_ram(CurChip, TempSht, DataLen, ROMData);
+						if (! CHIP_CHECK(RF5C68))
+							break;
+						rf5c68_write_ram(CurChip, DataStart, DataLen, ROMData);
 						break;
 					case 0xC1:	// RF5C164 RAM Database
-						rf5c164_write_ram(CurChip, TempSht, DataLen, ROMData);
+						if (! CHIP_CHECK(RF5C164))
+							break;
+						rf5c164_write_ram(CurChip, DataStart, DataLen, ROMData);
 						break;
 					case 0xC2:	// NES APU RAM
-						nesapu_write_ram(CurChip, TempSht, DataLen, ROMData);
+						if (! CHIP_CHECK(NES))
+							break;
+						nes_write_ram(CurChip, DataStart, DataLen, ROMData);
+						break;
+					case 0xE0:	// SCSP RAM
+						if (! CHIP_CHECK(SCSP))
+							break;
+						scsp_write_ram(CurChip, DataStart, DataLen, ROMData);
 						break;
 					}
 					break;
@@ -4459,19 +4606,18 @@ static void InterpretVGM(UINT32 SampleCount)
 				VGMPos += 0x07 + TempLng;
 				break;
 			case 0xE0:	// Seek to PCM Data Bank Pos
-				memcpy(&TempLng, &VGMPnt[0x01], 0x04);
-				PCMBank[0x00].DataPos = TempLng;
+				PCMBank[0x00].DataPos = ReadLE32(&VGMPnt[0x01]);
 				VGMPos += 0x05;
 				break;
 			case 0x4F:	// GG Stereo
-				if (VGMHead.lngHzPSG)
+				if (CHIP_CHECK(SN76496))
 				{
 					chip_reg_write(0x00, CurChip, 0x01, 0x00, VGMPnt[0x01]);
 				}
 				VGMPos += 0x02;
 				break;
 			case 0x54:	// YM2151 write
-				if (VGMHead.lngHzYM2151)
+				if (CHIP_CHECK(YM2151))
 				{
 					chip_reg_write(0x03, CurChip, 0x01, VGMPnt[0x01], VGMPnt[0x02]);
 				}
@@ -4479,108 +4625,90 @@ static void InterpretVGM(UINT32 SampleCount)
 				VGMPos += 0x03;
 				break;
 			case 0xC0:	// Sega PCM memory write
-				if (VGMHead.lngHzSPCM)
+				TempSht = ReadLE16(&VGMPnt[0x01]);
+				CurChip = (TempSht & 0x8000) >> 15;
+				if (CHIP_CHECK(SegaPCM))
 				{
-					memcpy(&TempSht, &VGMPnt[0x01], 0x02);
-					CurChip = (TempSht & 0x8000) >> 15;
 					sega_pcm_w(CurChip, TempSht & 0x7FFF, VGMPnt[0x03]);
 				}
 				VGMPos += 0x04;
 				break;
 			case 0xB0:	// RF5C68 register write
-				if (VGMHead.lngHzRF5C68)
+				if (CHIP_CHECK(RF5C68))
 				{
 					chip_reg_write(0x05, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0xC1:	// RF5C164 memory write
-				if (VGMHead.lngHzRF5C68)
+				if (CHIP_CHECK(RF5C68))
 				{
-					memcpy(&TempSht, &VGMPnt[0x01], 0x02);
+					TempSht = ReadLE16(&VGMPnt[0x01]);
 					rf5c68_mem_w(CurChip, TempSht, VGMPnt[0x03]);
 				}
 				VGMPos += 0x04;
 				break;
 			case 0x55:	// YM2203
-				if (VGMHead.lngHzYM2203)
+				if (CHIP_CHECK(YM2203))
 				{
 					chip_reg_write(0x06, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x56:	// YM2608 write port 0
-				if (VGMHead.lngHzYM2608)
-				{
-					chip_reg_write(0x07, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
-				}
-				VGMPos += 0x03;
-				break;
 			case 0x57:	// YM2608 write port 1
-				if (VGMHead.lngHzYM2608)
+				if (CHIP_CHECK(YM2608))
 				{
-					chip_reg_write(0x07, CurChip, 0x01, VGMPnt[0x01], VGMPnt[0x02]);
+					chip_reg_write(0x07, CurChip, Command & 0x01, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x58:	// YM2610 write port 0
-				if (VGMHead.lngHzYM2610)
-				{
-					chip_reg_write(0x08, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
-				}
-				VGMPos += 0x03;
-				break;
 			case 0x59:	// YM2610 write port 1
-				if (VGMHead.lngHzYM2610)
+				if (CHIP_CHECK(YM2610))
 				{
-					chip_reg_write(0x08, CurChip, 0x01, VGMPnt[0x01], VGMPnt[0x02]);
+					chip_reg_write(0x08, CurChip, Command & 0x01, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x5A:	// YM3812 write
-				if (VGMHead.lngHzYM3812)
+				if (CHIP_CHECK(YM3812))
 				{
 					chip_reg_write(0x09, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x5B:	// YM3526 write
-				if (VGMHead.lngHzYM3526)
+				if (CHIP_CHECK(YM3526))
 				{
 					chip_reg_write(0x0A, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x5C:	// Y8950 write
-				if (VGMHead.lngHzY8950)
+				if (CHIP_CHECK(Y8950))
 				{
 					chip_reg_write(0x0B, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x5E:	// YMF262 write port 0
-				if (VGMHead.lngHzYMF262)
-				{
-					chip_reg_write(0x0C, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
-				}
-				VGMPos += 0x03;
-				break;
 			case 0x5F:	// YMF262 write port 1
-				if (VGMHead.lngHzYMF262)
+				if (CHIP_CHECK(YMF262))
 				{
-					chip_reg_write(0x0C, CurChip, 0x01, VGMPnt[0x01], VGMPnt[0x02]);
+					chip_reg_write(0x0C, CurChip, Command & 0x01, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0x5D:	// YMZ280B write
-				if (VGMHead.lngHzYMZ280B)
+				if (CHIP_CHECK(YMZ280B))
 				{
 					chip_reg_write(0x0F, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0xD0:	// YMF278B write
-				if (VGMHead.lngHzYMF278B)
+				if (CHIP_CHECK(YMF278B))
 				{
 					CurChip = (VGMPnt[0x01] & 0x80) >> 7;
 					chip_reg_write(0x0D, CurChip, VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
@@ -4588,7 +4716,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				VGMPos += 0x04;
 				break;
 			case 0xD1:	// YMF271 write
-				if (VGMHead.lngHzYMF271)
+				if (CHIP_CHECK(YMF271))
 				{
 					CurChip = (VGMPnt[0x01] & 0x80) >> 7;
 					chip_reg_write(0x0E, CurChip, VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
@@ -4596,22 +4724,22 @@ static void InterpretVGM(UINT32 SampleCount)
 				VGMPos += 0x04;
 				break;
 			case 0xB1:	// RF5C164 register write
-				if (VGMHead.lngHzRF5C164)
+				if (CHIP_CHECK(RF5C164))
 				{
 					chip_reg_write(0x10, CurChip, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
 			case 0xC2:	// RF5C164 memory write
-				if (VGMHead.lngHzRF5C164)
+				if (CHIP_CHECK(RF5C164))
 				{
-					memcpy(&TempSht, &VGMPnt[0x01], 0x02);
+					TempSht = ReadLE16(&VGMPnt[0x01]);
 					rf5c164_mem_w(CurChip, TempSht, VGMPnt[0x03]);
 				}
 				VGMPos += 0x04;
 				break;
 			case 0xB2:	// PWM channel write
-				if (VGMHead.lngHzPWM)
+				if (CHIP_CHECK(PWM))
 				{
 					chip_reg_write(0x11, CurChip, (VGMPnt[0x01] & 0xF0) >> 4,
 									VGMPnt[0x01] & 0x0F, VGMPnt[0x02]);
@@ -4619,12 +4747,12 @@ static void InterpretVGM(UINT32 SampleCount)
 				VGMPos += 0x03;
 				break;
 			case 0x68:	// PCM RAM write
-				TempByt = VGMPnt[0x02];
+				CurChip = (VGMPnt[0x02] & 0x80) >> 7;
+				TempByt =  VGMPnt[0x02] & 0x7F;
 				
-				DataStart = TempLng = DataLen = 0x00;
-				memcpy(&DataStart, &VGMPnt[0x03], 0x03);
-				memcpy(&TempLng, &VGMPnt[0x06], 0x03);
-				memcpy(&DataLen, &VGMPnt[0x09], 0x03);
+				DataStart = ReadLE24(&VGMPnt[0x03]);
+				TempLng = ReadLE24(&VGMPnt[0x06]);
+				DataLen = ReadLE24(&VGMPnt[0x09]);
 				if (! DataLen)
 					DataLen += 0x01000000;
 				ROMData = GetPointerFromPCMBank(TempByt, DataStart);
@@ -4637,17 +4765,33 @@ static void InterpretVGM(UINT32 SampleCount)
 				switch(TempByt)
 				{
 				case 0x01:
+					if (! CHIP_CHECK(RF5C68))
+						break;
 					rf5c68_write_ram(CurChip, TempLng, DataLen, ROMData);
 					break;
 				case 0x02:
+					if (! CHIP_CHECK(RF5C164))
+						break;
 					rf5c164_write_ram(CurChip, TempLng, DataLen, ROMData);
+					break;
+				case 0x06:
+					if (! CHIP_CHECK(SCSP))
+						break;
+					scsp_write_ram(CurChip, TempLng, DataLen, ROMData);
+					break;
+				case 0x07:
+					if (! CHIP_CHECK(NES))
+						break;
+					Last95Drum = DataStart / DataLen - 1;
+					Last95Max = PCMBank[TempByt].DataSize / DataLen;
+					nes_write_ram(CurChip, TempLng, DataLen, ROMData);
 					break;
 				}
 				VGMPos += 0x0C;
 				break;
 			case 0xA0:	// AY8910 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzAY8910)
+				if (CHIP_CHECK(AY8910))
 				{
 					chip_reg_write(0x12, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4655,7 +4799,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xB3:	// GameBoy DMG write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzGBDMG)
+				if (CHIP_CHECK(GameBoy))
 				{
 					chip_reg_write(0x13, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4663,7 +4807,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xB4:	// NES APU write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzNESAPU)
+				if (CHIP_CHECK(NES))
 				{
 					chip_reg_write(0x14, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4671,7 +4815,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xB5:	// MultiPCM write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzMultiPCM)
+				if (CHIP_CHECK(MultiPCM))
 				{
 					chip_reg_write(0x15, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4679,16 +4823,16 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xC3:	// MultiPCM memory write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzMultiPCM)
+				if (CHIP_CHECK(MultiPCM))
 				{
-					memcpy(&TempSht, &VGMPnt[0x02], 0x02);
-					multipcm_bank_write(CurChip,  VGMPnt[0x01] & 0x7F, TempSht);
+					TempSht = ReadLE16(&VGMPnt[0x02]);
+					multipcm_bank_write(CurChip, VGMPnt[0x01] & 0x7F, TempSht);
 				}
 				VGMPos += 0x04;
 				break;
 			case 0xB6:	// UPD7759 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzUPD7759)
+				if (CHIP_CHECK(UPD7759))
 				{
 					chip_reg_write(0x16, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4696,15 +4840,36 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xB7:	// OKIM6258 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzOKIM6258)
+				if (CHIP_CHECK(OKIM6258))
 				{
 					chip_reg_write(0x17, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+					TempByt = VGMPnt[0x01] & 0x7F;
+					if (TempByt == 0x0B || TempByt == 0x0C)
+					{
+						CAUD_ATTR* CAA = &ChipAudio[CurChip].OKIM6258;
+						
+						TempLng = okim6258_get_vclk(CurChip);
+						if (CAA->SmpRate != TempLng)
+						{
+							// quick and dirty hack to make sample rate changes work
+							CAA->SmpRate = TempLng;
+							if (CAA->SmpRate < SampleRate)
+								CAA->Resampler = 0x01;
+							else if (CAA->SmpRate == SampleRate)
+								CAA->Resampler = 0x02;
+							else if (CAA->SmpRate > SampleRate)
+								CAA->Resampler = 0x03;
+							CAA->SmpP = 1;
+							CAA->SmpNext -= CAA->SmpLast;
+							CAA->SmpLast = 0x00;
+						}
+					}
 				}
 				VGMPos += 0x03;
 				break;
 			case 0xB8:	// OKIM6295 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzOKIM6295)
+				if (CHIP_CHECK(OKIM6295))
 				{
 					chip_reg_write(0x18, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4712,7 +4877,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xD2:	// SCC1 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzK051649)
+				if (CHIP_CHECK(K051649))
 				{
 					chip_reg_write(0x19, CurChip, VGMPnt[0x01] & 0x7F, VGMPnt[0x02],
 									VGMPnt[0x03]);
@@ -4721,7 +4886,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xD3:	// K054539 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzK054539)
+				if (CHIP_CHECK(K054539))
 				{
 					chip_reg_write(0x1A, CurChip, VGMPnt[0x01] & 0x7F, VGMPnt[0x02],
 									VGMPnt[0x03]);
@@ -4730,7 +4895,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xB9:	// HuC6280 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzHuC6280)
+				if (CHIP_CHECK(HuC6280))
 				{
 					chip_reg_write(0x1B, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4738,7 +4903,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xD4:	// C140 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzC140)
+				if (CHIP_CHECK(C140))
 				{
 					chip_reg_write(0x1C, CurChip, VGMPnt[0x01] & 0x7F, VGMPnt[0x02],
 									VGMPnt[0x03]);
@@ -4747,7 +4912,7 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xBA:	// K053260 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzK053260)
+				if (CHIP_CHECK(K053260))
 				{
 					chip_reg_write(0x1D, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
@@ -4755,19 +4920,27 @@ static void InterpretVGM(UINT32 SampleCount)
 				break;
 			case 0xBB:	// Pokey write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzPokey)
+				if (CHIP_CHECK(Pokey))
 				{
 					chip_reg_write(0x1E, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
 				VGMPos += 0x03;
 				break;
-			case 0xBC:	// Q-Sound write
-				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
-				if (VGMHead.lngHzQSound)
+			case 0xC4:	// QSound write
+				if (CHIP_CHECK(QSound))
 				{
-					chip_reg_write(0x1F, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+					chip_reg_write(0x1F, CurChip, VGMPnt[0x01], VGMPnt[0x02], VGMPnt[0x03]);
 				}
-				VGMPos += 0x03;
+				VGMPos += 0x04;
+				break;
+			case 0xC5:	// YMF292/SCSP write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				if (CHIP_CHECK(SCSP))
+				{
+					chip_reg_write(0x20, CurChip, VGMPnt[0x01] & 0x7F, VGMPnt[0x02],
+									VGMPnt[0x03]);
+				}
+				VGMPos += 0x04;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				CurChip = VGMPnt[0x01];
@@ -4785,7 +4958,7 @@ static void InterpretVGM(UINT32 SampleCount)
 					DacCtrlUsed ++;
 				}
 				TempByt = VGMPnt[0x02];	// Chip Type
-				TempSht = (VGMPnt[0x03] << 8) | (VGMPnt[0x04] << 0);
+				TempSht = ReadBE16(&VGMPnt[0x03]);
 				daccontrol_setup_chip(CurChip, TempByt & 0x7F, (TempByt & 0x80) >> 7, TempSht);
 				VGMPos += 0x05;
 				break;
@@ -4801,6 +4974,7 @@ static void InterpretVGM(UINT32 SampleCount)
 					DacCtrl[CurChip].Bank = 0x00;
 				
 				TempPCM = &PCMBank[DacCtrl[CurChip].Bank];
+				Last95Max = TempPCM->BankCount;
 				daccontrol_set_data(CurChip, TempPCM->Data, TempPCM->DataSize,
 									VGMPnt[0x03], VGMPnt[0x04]);
 				VGMPos += 0x05;
@@ -4812,7 +4986,8 @@ static void InterpretVGM(UINT32 SampleCount)
 					VGMPos += 0x06;
 					break;
 				}
-				memcpy(&TempLng, &VGMPnt[0x02], 0x04);
+				TempLng = ReadLE32(&VGMPnt[0x02]);
+				Last95Freq = TempLng;
 				daccontrol_set_frequency(CurChip, TempLng);
 				VGMPos += 0x06;
 				break;
@@ -4824,9 +4999,10 @@ static void InterpretVGM(UINT32 SampleCount)
 					VGMPos += 0x0B;
 					break;
 				}
-				memcpy(&DataStart, &VGMPnt[0x02], 0x04);
+				DataStart = ReadLE32(&VGMPnt[0x02]);
+				Last95Drum = 0xFFFF;
 				TempByt = VGMPnt[0x06];
-				memcpy(&DataLen, &VGMPnt[0x07], 0x04);
+				DataLen = ReadLE32(&VGMPnt[0x07]);
 				daccontrol_start(CurChip, DataStart, TempByt, DataLen);
 				VGMPos += 0x0B;
 				break;
@@ -4837,6 +5013,7 @@ static void InterpretVGM(UINT32 SampleCount)
 					VGMPos += 0x02;
 					break;
 				}
+				Last95Drum = 0xFFFF;
 				if (CurChip < 0xFF)
 				{
 					daccontrol_stop(CurChip);
@@ -4857,12 +5034,15 @@ static void InterpretVGM(UINT32 SampleCount)
 					break;
 				}
 				TempPCM = &PCMBank[DacCtrl[CurChip].Bank];
-				memcpy(&TempSht, &VGMPnt[0x02], 0x02);
+				TempSht = ReadLE16(&VGMPnt[0x02]);
+				Last95Drum = TempSht;
+				Last95Max = TempPCM->BankCount;
 				if (TempSht >= TempPCM->BankCount)
 					TempSht = 0x00;
 				TempBnk = &TempPCM->Bank[TempSht];
 				
 				TempByt = DCTRL_LMODE_BYTES |
+							(VGMPnt[0x04] & 0x10) |			// Reverse Mode
 							((VGMPnt[0x04] & 0x01) << 7);	// Looping
 				daccontrol_start(CurChip, TempBnk->DataStart, TempByt, TempBnk->DataSize);
 				VGMPos += 0x05;
@@ -4920,6 +5100,115 @@ static void InterpretVGM(UINT32 SampleCount)
 }
 
 
+static void GeneralChipLists(void)
+{
+	// Generate Chip List for playback loop
+	UINT16 CurBufIdx;
+	CA_LIST* CLstOld;
+	CA_LIST* CLst;
+	CA_LIST* CurLst;
+	UINT8 CurChip;
+	UINT8 CurCSet;
+	CAUD_ATTR* CAA;
+	
+	ChipListAll = NULL;
+	ChipListPause = NULL;
+	//ChipListOpt = NULL;
+	
+	// generate list of all chips that are used in the current VGM
+	CurBufIdx = 0x00;
+	CLstOld = NULL;
+	for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
+	{
+		for (CurCSet = 0x00; CurCSet < 0x02; CurCSet ++)
+		{
+			CAA = (CAUD_ATTR*)&ChipAudio[CurCSet] + CurChip;
+			if (CAA->ChipType != 0xFF)
+			{
+				CLst = &ChipListBuffer[CurBufIdx];
+				CurBufIdx ++;
+				if (CLstOld == NULL)
+					ChipListAll = CLst;
+				else
+					CLstOld->next = CLst;
+				
+				CLst->CAud = CAA;
+				CLst->COpts = (CHIP_OPTS*)&ChipOpts[CurCSet] + CurChip;
+				CLstOld = CLst;
+			}
+		}
+	}
+	if (CLstOld != NULL)
+		CLstOld->next = NULL;
+	
+	// Go through the chip list and copy all chips to a new list, except for a few
+	// selected ones.
+	CLstOld = NULL;
+	CurLst = ChipListAll;
+	while(CurLst != NULL)
+	{
+		// don't emulate the RF5Cxx chips when paused+emulated
+		if (CurLst->CAud->ChipType != 0x05 && CurLst->CAud->ChipType != 0x10)
+		{
+			CLst = &ChipListBuffer[CurBufIdx];
+			CurBufIdx ++;
+			if (CLstOld == NULL)
+				ChipListPause = CLst;
+			else
+				CLstOld->next = CLst;
+			
+			*CLst = *CurLst;
+			CLstOld = CLst;
+		}
+		CurLst = CurLst->next;
+	}
+	if (CLstOld != NULL)
+		CLstOld->next = NULL;
+	
+	return;
+}
+
+static void SetupResampler(CAUD_ATTR* CAA)
+{
+	if (! CAA->SmpRate)
+	{
+		CAA->Resampler = 0xFF;
+		return;
+	}
+	
+	if (CAA->SmpRate < SampleRate)
+		CAA->Resampler = 0x01;
+	else if (CAA->SmpRate == SampleRate)
+		CAA->Resampler = 0x02;
+	else if (CAA->SmpRate > SampleRate)
+		CAA->Resampler = 0x03;
+	if (CAA->Resampler == 0x01 || CAA->Resampler == 0x03)
+	{
+		if (ResampleMode == 0x02 || (ResampleMode == 0x01 && CAA->Resampler == 0x03))
+			CAA->Resampler = 0x00;
+	}
+	
+	CAA->SmpP = 0x00;
+	CAA->SmpLast = 0x00;
+	CAA->SmpNext = 0x00;
+	CAA->LSmpl.Left = 0x00;
+	CAA->LSmpl.Right = 0x00;
+	if (CAA->Resampler == 0x01)
+	{
+		// Pregenerate first Sample (the upsampler is always one too late)
+		CAA->StreamUpdate(CAA->ChipID, StreamBufs, 1);
+		CAA->NSmpl.Left = StreamBufs[0x00][0x00];
+		CAA->NSmpl.Right = StreamBufs[0x01][0x00];
+	}
+	else
+	{
+		CAA->NSmpl.Left = 0x00;
+		CAA->NSmpl.Right = 0x00;
+	}
+	
+	return;
+}
+
 INLINE INT16 Limit2Short(INT32 Value)
 {
 	INT32 NewValue;
@@ -4933,134 +5222,23 @@ INLINE INT16 Limit2Short(INT32 Value)
 	return (INT16)NewValue;
 }
 
-INLINE void GetChipStream(UINT8 ChipID, UINT8 ChipNum, INT32** Buffer, UINT32 BufSize)
+static void null_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 {
-	if (BufSize + 0x02 >= SMPL_BUFSIZE)
-		BufSize = SMPL_BUFSIZE - 0x02;
+	memset(outputs[0x00], 0x00, sizeof(stream_sample_t) * samples);
+	memset(outputs[0x01], 0x00, sizeof(stream_sample_t) * samples);
 	
-	switch(ChipID)
-	{
-	case 0x00:
-		sn764xx_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x01:
-		ym2413_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x02:
-		ym2612_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x03:
-		ym2151_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x04:
-		SEGAPCM_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x05:
-		rf5c68_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x06:
-		ym2203_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x86:
-		ym2203_stream_update_ay(ChipNum, Buffer, BufSize);
-		break;
-	case 0x07:
-		ym2608_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x87:
-		ym2608_stream_update_ay(ChipNum, Buffer, BufSize);
-		break;
-	case 0x08:
-		if (! (VGMHead.lngHzYM2610 & 0x80000000))
-			ym2610_stream_update(ChipNum, Buffer, BufSize);
-		else
-			ym2610b_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x88:
-		ym2610_stream_update_ay(ChipNum, Buffer, BufSize);
-		break;
-	case 0x09:
-		ym3812_stream_update(ChipNum, Buffer, BufSize);
-		if (VGMHead.lngHzYM3812 & 0x80000000)
-		{
-			// Dual-OPL with Stereo
-			if (ChipNum == 0x00)
-				memset(Buffer[0x01], 0x00, sizeof(INT32) * BufSize);	// Mute Right Chanel
-			else if (ChipNum == 0x01)
-				memset(Buffer[0x00], 0x00, sizeof(INT32) * BufSize);	// Mute Left Chanel
-		}
-		break;
-	case 0x0A:
-		ym3526_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x0B:
-		y8950_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x0C:
-		ymf262_stream_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x0D:
-		ymf278b_pcm_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x0E:
-		ymf271_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x0F:
-		ymz280b_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x10:
-		rf5c164_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x11:
-		pwm_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x12:
-		ay8910_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x13:
-		gameboy_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x14:
-		nes_psg_update_sound(ChipNum, Buffer, BufSize);
-		break;
-	case 0x15:
-		MultiPCM_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x16:
-		upd7759_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x17:
-		okim6258_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x18:
-		okim6295_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x19:
-		k051649_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x1A:
-		k054539_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x1B:
-		c6280_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x1C:
-		c140_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x1D:
-		k053260_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x1E:
-		pokey_update(ChipNum, Buffer, BufSize);
-		break;
-	case 0x1F:
-		qsound_update(ChipNum, Buffer, BufSize);
-		break;
-	default:
-		memset(Buffer[0x00], 0x00, sizeof(INT32) * BufSize);
-		memset(Buffer[0x01], 0x00, sizeof(INT32) * BufSize);
-		break;
-	}
+	return;
+}
+
+static void dual_opl2_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples)
+{
+	ym3812_stream_update(ChipID, outputs, samples);
+	
+	// Dual-OPL with Stereo
+	if (ChipID & 0x01)
+		memset(outputs[0x00], 0x00, sizeof(stream_sample_t) * samples);	// Mute Left Chanel
+	else
+		memset(outputs[0x01], 0x00, sizeof(stream_sample_t) * samples);	// Mute Right Chanel
 	
 	return;
 }
@@ -5082,10 +5260,8 @@ INLINE void GetChipStream(UINT8 ChipID, UINT8 ChipNum, INT32** Buffer, UINT32 Bu
 #define fp2i_floor(x)	((x) / FIXPNT_FACT)
 #define fp2i_ceil(x)	((x + FIXPNT_MASK) / FIXPNT_FACT)
 
-static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length)
+static void ResampleChipStream(CA_LIST* CLst, WAVE_32BS* RetSample, UINT32 Length)
 {
-	UINT8 ChipNum;
-	UINT8 ChipIDP;	// ChipID with Paired flag
 	CAUD_ATTR* CAA;
 	INT32* CurBufL;
 	INT32* CurBufR;
@@ -5106,17 +5282,7 @@ static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length
 	INT32 CurSmpl;
 	UINT64 ChipSmpRate;
 	
-	ChipIDP = ChipID & 0x7F;
-	ChipNum = (ChipID & 0x80) >> 7;
-	
-	//TempCOpt = (CHIP_OPTS*)&ChipOpts[ChipNum] + ChipIDP;
-	//if (TempCOpt->Disabled)
-	//	return;
-	// and now that in one long, complicated line
-	if (((CHIP_OPTS*)&ChipOpts[ChipNum] + ChipIDP)->Disabled)
-		return;
-	
-	CAA = (CAUD_ATTR*)&ChipAudio[ChipNum] + ChipIDP;
+	CAA = CLst->CAud;
 	CurBufL = StreamBufs[0x00];
 	CurBufR = StreamBufs[0x01];
 	
@@ -5139,7 +5305,7 @@ static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length
 			{
 				SmpCnt = CAA->SmpNext - CAA->SmpLast;
 				
-				GetChipStream(ChipIDP, ChipNum, StreamBufs, SmpCnt);
+				CAA->StreamUpdate(CAA->ChipID, StreamBufs, SmpCnt);
 				
 				if (SmpCnt == 1)
 				{
@@ -5183,7 +5349,7 @@ static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length
 			CurBufR[0x01] = CAA->NSmpl.Right;
 			StreamPnt[0x00] = &CurBufL[0x02];
 			StreamPnt[0x01] = &CurBufR[0x02];
-			GetChipStream(ChipIDP, ChipNum, StreamPnt, InNow - CAA->SmpNext);
+			CAA->StreamUpdate(CAA->ChipID, StreamPnt, InNow - CAA->SmpNext);
 			
 			InBase = FIXPNT_FACT + (UINT32)(InPosL - (SLINT)CAA->SmpNext * FIXPNT_FACT);
 			SmpCnt = FIXPNT_FACT;
@@ -5213,7 +5379,7 @@ static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length
 			break;
 		case 0x02:	// Copying
 			CAA->SmpNext = CAA->SmpP * CAA->SmpRate / SampleRate;
-			GetChipStream(ChipIDP, ChipNum, StreamBufs, Length);
+			CAA->StreamUpdate(CAA->ChipID, StreamBufs, Length);
 			
 			for (OutPos = 0x00; OutPos < Length; OutPos ++)
 			{
@@ -5232,7 +5398,7 @@ static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length
 			CurBufR[0x00] = CAA->LSmpl.Right;
 			StreamPnt[0x00] = &CurBufL[0x01];
 			StreamPnt[0x01] = &CurBufR[0x01];
-			GetChipStream(ChipIDP, ChipNum, StreamPnt, CAA->SmpNext - CAA->SmpLast);
+			CAA->StreamUpdate(CAA->ChipID, StreamPnt, CAA->SmpNext - CAA->SmpLast);
 			
 			InPosL = (SLINT)(FIXPNT_FACT * CAA->SmpP * ChipSmpRate / SampleRate);
 			// I'm adding 1.0 to avoid negative indexes
@@ -5302,7 +5468,6 @@ static void ResampleChipStream(UINT8 ChipID, WAVE_32BS* RetSample, UINT32 Length
 		}
 		
 		CAA = CAA->Paired;
-		ChipIDP |= 0x80;
 	} while(CAA != NULL);
 	
 	return;
@@ -5337,8 +5502,7 @@ UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
 	WAVE_32BS TempBuf;
 	INT32 CurMstVol;
 	UINT32 RecalcStep;
-	UINT8 CurChip;
-	UINT32 ChipClk;
+	CA_LIST* CurCLst;
 	
 	//memset(Buffer, 0x00, sizeof(WAVE_16BS) * BufferSize);
 	
@@ -5350,8 +5514,33 @@ UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
 		//for (CurSmpl = 0x00; CurSmpl < BufferSize; CurSmpl ++)
 		//	InterpretFile(1);
 		InterpretFile(BufferSize);
+		
+		if (FadePlay && ! FadeStart)
+		{
+			FadeStart = PlayingTime;
+			RecalcStep = FadePlay ? SampleRate / 100 : 0;
+		}
+		//if (RecalcStep && ! (CurSmpl % RecalcStep))
+		if (RecalcStep)
+			CurMstVol = RecalcFadeVolume();
+		
+		if (VGMEnd)
+		{
+			if (PauseSmpls <= BufferSize)
+			{
+				PauseSmpls = 0;
+				EndPlay = true;
+			}
+			else
+			{
+				PauseSmpls -= BufferSize;
+			}
+		}
+		
 		return BufferSize;
 	}
+	
+	CurChipList = (VGMEnd || PausePlay) ? ChipListPause : ChipListAll;
 	
 	for (CurSmpl = 0x00; CurSmpl < BufferSize; CurSmpl ++)
 	{
@@ -5390,24 +5579,17 @@ UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
 		//	1D - K053260
 		//	1E - Pokey
 		//	1F - QSound
+		//	20 - YMF292/SCSP
 		TempBuf.Left = 0x00;
 		TempBuf.Right = 0x00;
-		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
+		CurCLst = CurChipList;
+		while(CurCLst != NULL)
 		{
-			ChipClk = GetChipClock(&VGMHead, CurChip, NULL);
-			if (! ChipClk)
-				continue;	// chip not used
-			
-			if ((VGMEnd || PausePlay) && (CurChip == 0x05 || CurChip == 0x10))
-				continue;	// don't emulate the RF5Cxx chips when paused+emulated
-			
-			ResampleChipStream(CurChip, &TempBuf, 1);
-			if (GetChipClock(&VGMHead, 0x80 | CurChip, NULL))
+			if (! CurCLst->COpts->Disabled)
 			{
-				// No Dual-Chip support for: RF5C68, RF5C164 and PWM
-				if (CurChip != 0x05 && CurChip != 0x10 && CurChip != 0x11)
-					ResampleChipStream(0x80 | CurChip, &TempBuf, 1);
+				ResampleChipStream(CurCLst, &TempBuf, 1);
 			}
+			CurCLst = CurCLst->next;
 		}
 		
 		// ChipData << 9 [ChipVol] >> 5 << 8 [MstVol] >> 11  ->  9-5+8-11 = <<1
@@ -5430,9 +5612,12 @@ UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
 		{
 			if (! PauseSmpls)
 			{
-				EndPlay = true;
-				if (! FullBufFill)
+				//if (! FullBufFill)
+				if (! EndPlay)
+				{
+					EndPlay = true;
 					break;
+				}
 			}
 			else //if (PauseSmpls)
 			{
@@ -5473,7 +5658,7 @@ DWORD WINAPI PlayingThread(void* Arg)
 	
 	while (! CloseThread)
 	{
-		while(PlayingMode != 0x01)
+		while(PlayingMode != 0x01 && ! CloseThread)
 			Sleep(1);
 		
 		if (! PauseThread)
@@ -5544,7 +5729,7 @@ void* PlayingThread(void* Arg)
 	
 	while (! CloseThread)
 	{
-		while(PlayingMode != 0x01)
+		while(PlayingMode != 0x01 && ! CloseThread)
 			Sleep(1);
 		
 		if (! PauseThread)

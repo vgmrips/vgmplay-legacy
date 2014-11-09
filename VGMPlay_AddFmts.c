@@ -8,8 +8,12 @@
 #include <math.h>
 
 #ifdef WIN32
-#include <windows.h>
+//#include <windows.h>
+void __stdcall Sleep(unsigned int dwMilliseconds);
+#else
+#define	Sleep(msec)		usleep(msec * 1000)
 #endif
+
 #include <zlib.h>
 
 #include "chips/mamedef.h"
@@ -71,13 +75,20 @@ typedef struct _dro_version_header_2
 
 #define FCC_CMF		0x464D5443	// 'CTMF'
 #define FCC_DRO1	0x41524244	// 'DBRA'
-#define FCC_DRO2	0x4C504F57	// 'ROPL'
+#define FCC_DRO2	0x4C504F57	// 'WOPL'
 
 extern UINT32 GetGZFileLength(const char* FileName);
+//bool OpenOtherFile(const char* FileName)
+
+INLINE UINT16 ReadLE16(const UINT8* Data);
+INLINE UINT32 ReadLE32(const UINT8* Data);
+INLINE int gzgetLE32(gzFile hFile, UINT32* RetValue);
 
 static UINT32 GetMIDIDelay(UINT32* DelayLen);
 static UINT16 MIDINote2FNum(UINT8 Note, INT8 Pitch);
-void InterpretOther(UINT32 SampleCount);
+static void SendMIDIVolume(UINT8 ChipID, UINT8 Channel, UINT8 Command,
+						   UINT8 ChnIns, UINT8 Volume);
+//void InterpretOther(UINT32 SampleCount);
 
 INLINE INT32 SampleVGM2Playback(INT32 SampleVal);
 INLINE INT32 SamplePlayback2VGM(INT32 SampleVal);
@@ -142,7 +153,7 @@ bool OpenOtherFile(const char* FileName)
 		return false;
 	
 	gzseek(hFile, 0x00, SEEK_SET);
-	gzread(hFile, &fccHeader, 0x04);
+	gzgetLE32(hFile, &fccHeader);
 	switch(fccHeader)
 	{
 	case FCC_VGM:
@@ -152,7 +163,7 @@ bool OpenOtherFile(const char* FileName)
 		FileMode = 0x01;
 		break;
 	case FCC_DRO1:
-		gzread(hFile, &fccHeader, 0x04);
+		gzgetLE32(hFile, &fccHeader);
 		if (fccHeader == FCC_DRO2)
 			FileMode = 0x02;
 		else
@@ -197,15 +208,29 @@ bool OpenOtherFile(const char* FileName)
 		// already done by OpenVGMFile
 		break;
 	case 0x01:	// CMF File
-		gzseek(hFile, 0x00, SEEK_SET);
-		gzread(hFile, &CMFHead, sizeof(CMF_HEADER));
-		
 		// Read Data
 		VGMData = (UINT8*)malloc(VGMDataLen);
 		if (VGMData == NULL)
 			goto OpenErr;
 		gzseek(hFile, 0x00, SEEK_SET);
 		gzread(hFile, VGMData, VGMDataLen);
+		
+#ifndef VGM_BIG_ENDIAN
+		memcpy(&CMFHead, &VGMData[0x00], sizeof(CMF_HEADER));
+#else
+		CMFHead.fccCMF = ReadLE32(&VGMData[0x00]);
+		CMFHead.shtVersion = ReadLE16(&VGMData[0x04]);
+		CMFHead.shtOffsetInsData = ReadLE16(&VGMData[0x06]);
+		CMFHead.shtOffsetMusData = ReadLE16(&VGMData[0x08]);
+		CMFHead.shtTickspQuarter = ReadLE16(&VGMData[0x0A]);
+		CMFHead.shtTickspSecond = ReadLE16(&VGMData[0x0C]);
+		CMFHead.shtOffsetTitle = ReadLE16(&VGMData[0x0E]);
+		CMFHead.shtOffsetAuthor = ReadLE16(&VGMData[0x10]);
+		CMFHead.shtOffsetComments = ReadLE16(&VGMData[0x12]);
+		memcpy(CMFHead.bytChnUsed, &VGMData[0x14], 0x10);
+		CMFHead.shtInstrumentCount = ReadLE16(&VGMData[0x24]);
+		CMFHead.shtTempo = ReadLE16(&VGMData[0x26]);
+#endif
 		
 		if (CMFHead.shtVersion == 0x0100)
 		{
@@ -267,7 +292,13 @@ bool OpenOtherFile(const char* FileName)
 		
 		memset(&VGMHead, 0x00, sizeof(VGM_HEADER));
 		CurPos = 0x00;
-		memcpy(&DROHead, &VGMData[0x00], sizeof(DRO_HEADER));
+#ifndef VGM_BIG_ENDIAN
+		memcpy(&DROHead, &VGMData[CurPos], sizeof(DRO_HEADER));
+#else
+		memcpy(DROHead.cSignature,			&VGMData[CurPos + 0x00], 0x08);
+		DROHead.iVersionMajor = ReadLE16(	&VGMData[CurPos + 0x08]);
+		DROHead.iVersionMinor = ReadLE16(	&VGMData[CurPos + 0x0A]);
+#endif
 		CurPos += sizeof(DRO_HEADER);
 		
 		memcpy(&TempLng, &VGMData[0x08], sizeof(UINT32));
@@ -283,10 +314,10 @@ bool OpenOtherFile(const char* FileName)
 		{
 			// DosBox Version 0.63
 			// the order of the Version Bytes is swapped in this version
-			memcpy(&FileVer, &VGMData[0x0A], sizeof(UINT16));
+			FileVer = DROHead.iVersionMinor;
 			if (FileVer == 0x01)
 			{
-				memcpy(&DROHead.iVersionMinor, &VGMData[0x08], sizeof(UINT16));
+				DROHead.iVersionMinor = DROHead.iVersionMajor;
 				DROHead.iVersionMajor = FileVer;
 			}
 		}
@@ -304,13 +335,16 @@ bool OpenOtherFile(const char* FileName)
 			switch(DROHead.iVersionMajor)
 			{
 			case 0:	// Version 0
-				memcpy(&DRO_V1, &VGMData[CurPos + 0x00], 0x08);
+				DRO_V1.iLengthMS = ReadLE32(&VGMData[CurPos + 0x00]);
+				DRO_V1.iLengthBytes = ReadLE32(&VGMData[CurPos + 0x04]);
 				DRO_V1.iHardwareType = VGMData[CurPos + 0x08];
 				CurPos += 0x09;
 				break;
 			case 1:	// Version 1
-				memcpy(&DRO_V1, &VGMData[CurPos], sizeof(DRO_VER_HEADER_1));
-				CurPos += sizeof(DRO_VER_HEADER_1);
+				DRO_V1.iLengthMS = ReadLE32(&VGMData[CurPos + 0x00]);
+				DRO_V1.iLengthBytes = ReadLE32(&VGMData[CurPos + 0x04]);
+				DRO_V1.iHardwareType = ReadLE32(&VGMData[CurPos + 0x08]);
+				CurPos += 0x0C;
 				break;
 			}
 			
@@ -337,7 +371,15 @@ bool OpenOtherFile(const char* FileName)
 			break;
 		case 2:	// Version 2 (DosBox Version 0.73)
 			// sizeof(DRO_VER_HEADER_2) returns 0x10, but the exact size is 0x0E
-			memcpy(&DROInf, &VGMData[CurPos], 0x0E);
+			//memcpy(&DROInf, &VGMData[CurPos], 0x0E);
+			DROInf.iLengthPairs =	ReadLE32(	&VGMData[CurPos + 0x00]);
+			DROInf.iLengthMS =		ReadLE32(	&VGMData[CurPos + 0x04]);
+			DROInf.iHardwareType =				 VGMData[CurPos + 0x08];
+			DROInf.iFormat =					 VGMData[CurPos + 0x09];
+			DROInf.iCompression =				 VGMData[CurPos + 0x0A];
+			DROInf.iShortDelayCode =			 VGMData[CurPos + 0x0B];
+			DROInf.iLongDelayCode =				 VGMData[CurPos + 0x0C];
+			DROInf.iCodemapLength =				 VGMData[CurPos + 0x0D];
 			CurPos += 0x0E;
 			
 			break;
@@ -382,6 +424,42 @@ OpenErr:
 
 	gzclose(hFile);
 	return false;
+}
+
+INLINE UINT16 ReadLE16(const UINT8* Data)
+{
+	// read 16-Bit Word (Little Endian/Intel Byte Order)
+#ifndef VGM_BIG_ENDIAN
+	return *(UINT16*)Data;
+#else
+	return (Data[0x01] << 8) | (Data[0x00] << 0);
+#endif
+}
+
+INLINE UINT32 ReadLE32(const UINT8* Data)
+{
+	// read 32-Bit Word (Little Endian/Intel Byte Order)
+#ifndef VGM_BIG_ENDIAN
+	return	*(UINT32*)Data;
+#else
+	return	(Data[0x03] << 24) | (Data[0x02] << 16) |
+			(Data[0x01] <<  8) | (Data[0x00] <<  0);
+#endif
+}
+
+INLINE int gzgetLE32(gzFile hFile, UINT32* RetValue)
+{
+#ifndef VGM_BIG_ENDIAN
+	return gzread(hFile, RetValue, 0x04);
+#else
+	int RetVal;
+	UINT8 Data[0x04];
+	
+	RetVal = gzread(hFile, Data, 0x04);
+	*RetValue =	(Data[0x03] << 24) | (Data[0x02] << 16) |
+				(Data[0x01] <<  8) | (Data[0x00] <<  0);
+	return RetVal;
+#endif
 }
 
 static UINT32 GetMIDIDelay(UINT32* DelayLen)
@@ -876,20 +954,30 @@ void InterpretOther(UINT32 SampleCount)
 			case 0x00:	// OPL 2
 				for (TempByt = 0xFF; TempByt >= 0x20; TempByt --)
 					chip_reg_write(0x09, 0x00, 0x00, TempByt, 0x00);
+				chip_reg_write(0x09, 0x00, 0x00, 0x08, 0x00);
+				chip_reg_write(0x09, 0x00, 0x00, 0x01, 0x00);
 				break;
 			case 0x01:	// Dual OPL 2
 				for (TempByt = 0xFF; TempByt >= 0x20; TempByt --)
 					chip_reg_write(0x09, 0x00, 0x00, TempByt, 0x00);
-				Sleep(1);
+				chip_reg_write(0x09, 0x00, 0x00, 0x08, 0x00);
+				chip_reg_write(0x09, 0x00, 0x00, 0x01, 0x00);
+				//Sleep(1);
 				for (TempByt = 0xFF; TempByt >= 0x20; TempByt --)
 					chip_reg_write(0x09, 0x01, 0x00, TempByt, 0x00);
+				chip_reg_write(0x09, 0x01, 0x00, 0x08, 0x00);
+				chip_reg_write(0x09, 0x01, 0x00, 0x01, 0x00);
 				break;
 			case 0x02:	// OPL 3
 				for (TempByt = 0xFF; TempByt >= 0x20; TempByt --)
 					chip_reg_write(0x0C, 0x00, 0x00, TempByt, 0x00);
-				Sleep(1);
+				chip_reg_write(0x0C, 0x00, 0x00, 0x08, 0x00);
+				chip_reg_write(0x0C, 0x00, 0x00, 0x01, 0x00);
+				//Sleep(1);
 				for (TempByt = 0xFF; TempByt >= 0x20; TempByt --)
 					chip_reg_write(0x0C, 0x00, 0x01, TempByt, 0x00);
+				//chip_reg_write(0x0C, 0x00, 0x01, 0x05, 0x00);
+				chip_reg_write(0x0C, 0x00, 0x01, 0x04, 0x00);
 				break;
 			default:
 				for (TempByt = 0xFF; TempByt >= 0x20; TempByt --)

@@ -239,6 +239,9 @@ void SN76489_Update(SN76489_Context* chip, INT32 **buffer, int length)
 			//chip->Channels[3] = PSGVolumeValues[chip->Registers[7]] * ( chip_n->NoiseShiftRegister & 0x1 ) * 2; /* double noise volume */
 			// Now the noise is bipolar, too. -Valley Bell
 			chip->Channels[3] = PSGVolumeValues[chip->Registers[7]] * (( chip_n->NoiseShiftRegister & 0x1 ) * 2 - 1);
+			// due to the way the white noise works here, it seems twice as loud as it should be
+			if (chip->Registers[6] & 0x4 )
+				chip->Channels[3] >>= 1;
 		}
 		else
 			chip->Channels[i] = 0;

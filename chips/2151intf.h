@@ -1,12 +1,12 @@
 #pragma once
 
-typedef struct _ym2151_interface ym2151_interface;
+/*typedef struct _ym2151_interface ym2151_interface;
 struct _ym2151_interface
 {
 	//void (*irqhandler)(const device_config *device, int irq);
 	void (*irqhandler)(int irq);
 	write8_device_func portwritehandler;
-};
+};*/
 
 /*READ8_DEVICE_HANDLER( ym2151_r );
 WRITE8_DEVICE_HANDLER( ym2151_w );

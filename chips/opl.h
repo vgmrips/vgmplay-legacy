@@ -77,12 +77,12 @@ typedef INT8		Bit8s;
 
 #define WAVEPREC		1024		// waveform precision (10 bits)
 
-#define INTFREQU		((fltype)(14318180.0 / 288.0))		// clocking of the chip
-/*#if defined(OPLTYPE_IS_OPL3)
+//#define INTFREQU		((fltype)(14318180.0 / 288.0))		// clocking of the chip
+#if defined(OPLTYPE_IS_OPL3)
 #define INTFREQU		((fltype)(OPL->chip_clock / 288.0))		// clocking of the chip
 #else
 #define INTFREQU		((fltype)(OPL->chip_clock / 72.0))		// clocking of the chip
-#endif*/
+#endif
 
 
 #define OF_TYPE_ATT			0
@@ -169,6 +169,7 @@ typedef struct opl_chip
 	// per-chip variables
 	//Bitu chip_num;
 	op_type op[MAXOPERATORS];
+	Bit8u MuteChn[NUM_CHANNELS + 5];
 	Bitu chip_clock;
 	
 	Bits int_samplerate;
@@ -195,6 +196,9 @@ typedef struct opl_chip
 	
 	fltype recipsamp;	// inverse of sampling rate
 	fltype frqmul[16];
+	
+	ADL_UPDATEHANDLER UpdateHandler;	// stream update handler
+	void* UpdateParam;					// stream update parameter
 } OPL_DATA;
 
 

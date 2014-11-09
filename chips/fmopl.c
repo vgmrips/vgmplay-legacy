@@ -550,7 +550,7 @@ static unsigned int sin_tab[SIN_LEN * 4];
     The whole table takes: 64 * 210 = 13440 samples.
 
     When AM = 1 data is used directly
-    When AM = 0 data is divided by 4 before being used (loosing precision is important)
+    When AM = 0 data is divided by 4 before being used (losing precision is important)
 */
 
 #define LFO_AM_TAB_ELEMENTS 210
@@ -730,6 +730,75 @@ INLINE void advance_lfo(FM_OPL *OPL)
 
 	OPL->lfo_pm_cnt += OPL->lfo_pm_inc;
 	OPL->LFO_PM = ((OPL->lfo_pm_cnt>>LFO_SH) & 7) | OPL->lfo_pm_depth_range;
+}
+
+INLINE void refresh_eg(FM_OPL* OPL)
+{
+	OPL_CH *CH;
+	OPL_SLOT *op;
+	int i;
+	int new_vol;
+
+	for (i=0; i<9*2; i++)
+	{
+		CH  = &OPL->P_CH[i/2];
+		op  = &CH->SLOT[i&1];
+
+		// Envelope Generator
+		switch(op->state)
+		{
+		case EG_ATT:		// attack phase
+			if ( !(OPL->eg_cnt & ((1<<op->eg_sh_ar)-1) ) )
+			{
+				new_vol = op->volume + ((~op->volume *
+							   (eg_inc[op->eg_sel_ar + ((OPL->eg_cnt>>op->eg_sh_ar)&7)])
+							  ) >> 3);
+				if (new_vol <= MIN_ATT_INDEX)
+				{
+					op->volume = MIN_ATT_INDEX;
+					op->state = EG_DEC;
+				}
+			}
+			break;
+		/*case EG_DEC:	// decay phase
+			if ( !(OPL->eg_cnt & ((1<<op->eg_sh_dr)-1) ) )
+			{
+				new_vol = op->volume + eg_inc[op->eg_sel_dr + ((OPL->eg_cnt>>op->eg_sh_dr)&7)];
+
+				if ( new_vol >= op->sl )
+					op->state = EG_SUS;
+			}
+			break;
+		case EG_SUS:	// sustain phase
+			if ( !op->eg_type)	percussive mode
+			{
+				new_vol = op->volume + eg_inc[op->eg_sel_rr + ((OPL->eg_cnt>>op->eg_sh_rr)&7)];
+
+				if ( !(OPL->eg_cnt & ((1<<op->eg_sh_rr)-1) ) )
+				{
+					if ( new_vol >= MAX_ATT_INDEX )
+						op->volume = MAX_ATT_INDEX;
+				}
+			}
+			break;
+		case EG_REL:	// release phase
+			if ( !(OPL->eg_cnt & ((1<<op->eg_sh_rr)-1) ) )
+			{
+				new_vol = op->volume + eg_inc[op->eg_sel_rr + ((OPL->eg_cnt>>op->eg_sh_rr)&7)];
+				if ( new_vol >= MAX_ATT_INDEX )
+				{
+					op->volume = MAX_ATT_INDEX;
+					op->state = EG_OFF;
+				}
+
+			}
+			break;
+		default:
+			break;*/
+		}
+	}
+	
+	return;
 }
 
 /* advance to next sample */
@@ -1838,6 +1907,7 @@ static void OPLResetChip(FM_OPL *OPL)
 }
 
 
+#if 0
 //static STATE_POSTLOAD( OPL_postload )
 static void OPL_postload(void* param)
 {
@@ -1897,7 +1967,7 @@ static void OPL_postload(void* param)
 }
 
 
-/*static void OPLsave_state_channel(OPL_CH *CH)
+static void OPLsave_state_channel(OPL_CH *CH)
 {
 	int slot, ch;
 
@@ -1936,10 +2006,11 @@ static void OPL_postload(void* param)
 			state_save_register_device_item(device, ch * 2 + slot, SLOT->wavetable);
 		}
 	}
-}*/
+}
+#endif
 
 
-/* Register savestate for a virtual YM3812/YM3526Y8950 */
+/* Register savestate for a virtual YM3812/YM3526/Y8950 */
 
 /*static void OPL_save_state(FM_OPL *OPL)
 {
@@ -2070,7 +2141,7 @@ static int OPLWrite(FM_OPL *OPL,int a,int v)
 	}
 	else
 	{	/* data port */
-		if(OPL->UpdateHandler) OPL->UpdateHandler(OPL->UpdateParam,0);
+		if(OPL->UpdateHandler) OPL->UpdateHandler(OPL->UpdateParam/*,0*/);
 		OPLWriteReg(OPL,OPL->address,v);
 	}
 	return OPL->status>>7;
@@ -2174,7 +2245,7 @@ static int OPLTimerOver(FM_OPL *OPL,int c)
 		if( OPL->mode & 0x80 )
 		{	/* CSM mode total level latch and auto key on */
 			int ch;
-			if(OPL->UpdateHandler) OPL->UpdateHandler(OPL->UpdateParam,0);
+			if(OPL->UpdateHandler) OPL->UpdateHandler(OPL->UpdateParam/*,0*/);
 			for(ch=0; ch<9; ch++)
 				CSMKeyControll( &OPL->P_CH[ch] );
 		}
@@ -2264,6 +2335,12 @@ void ym3812_update_one(void *chip, OPLSAMPLE **buffer, int length)
 	OPLSAMPLE	*bufR = buffer[1];
 	int i;
 
+	if (! length)
+	{
+		refresh_eg(OPL);
+		return;
+	}
+	
 	for( i=0; i < length ; i++ )
 	{
 		int lt;
@@ -2547,6 +2624,7 @@ void y8950_write_pcmrom(void *chip, offs_t ROMSize, offs_t DataStart,
 		Y8950->deltat->memory = (UINT8*)realloc(Y8950->deltat->memory, ROMSize);
 		Y8950->deltat->memory_size = ROMSize;
 		memset(Y8950->deltat->memory, 0xFF, ROMSize);
+		YM_DELTAT_calc_mem_mask(Y8950->deltat);
 	}
 	if (DataStart > ROMSize)
 		return;

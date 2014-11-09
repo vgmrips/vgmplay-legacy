@@ -256,11 +256,16 @@ void sn76496_write_reg(void *chip, offs_t offset, UINT8 data)
 		case 7:	/* noise  : volume */
 			R->Volume[c] = R->VolTable[data & 0x0f];
 			if ((data & 0x80) == 0) R->Register[r] = (R->Register[r] & 0x3f0) | (data & 0x0f);
+			
+		//	// "Every volume write resets the waveform to High level.", TmEE, 2012-11-24 on SMSPower
+		//	R->Output[c] = 1;
+		//	R->Count[c] = R->Period[c];
+		//	disabled for now - sounds awful
 			break;
 		case 6:	/* noise  : frequency, mode */
 			{
 #ifdef _DEBUG
-				if ((data & 0x80) == 0) logerror("sn76489: write to reg 6 with bit 7 clear; data was %03x, new write is %02x! report this to LN!\n", R->Register[6], data);
+				//if ((data & 0x80) == 0) logerror("sn76489: write to reg 6 with bit 7 clear; data was %03x, new write is %02x! report this to LN!\n", R->Register[6], data);
 #endif
 				if ((data & 0x80) == 0) R->Register[r] = (R->Register[r] & 0x3f0) | (data & 0x0f);
 				n = R->Register[6];

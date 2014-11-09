@@ -60,23 +60,19 @@ typedef stream_sample_t QSOUND_SAMPLE;
 
 struct QSOUND_CHANNEL
 {
-	INT32 bank;	   /* bank (x16)    */
-	INT32 address;	/* start address */
-	INT32 pitch;	  /* pitch */
-	INT32 reg3;	   /* unknown (always 0x8000) */
-	INT32 loop;	   /* loop address */
-	INT32 end;		/* end address */
-	INT32 vol;		/* master volume */
-	INT32 pan;		/* Pan value */
-	INT32 reg9;	   /* unknown */
+	UINT32 bank;        // bank
+	UINT32 address;     // start/cur address
+	UINT16 loop;        // loop address
+	UINT16 end;         // end address
+	UINT32 freq;        // frequency
+	UINT16 vol;         // master volume
 
-	/* Work variables */
-	INT32 key;		/* Key on / key off */
-
-	INT32 lvol;	   /* left volume */
-	INT32 rvol;	   /* right volume */
-	INT32 lastdt;	 /* last sample value */
-	INT32 offset;	 /* current offset counter */
+	// work variables
+	UINT8 enabled;      // key on / key off
+	int lvol;           // left volume
+	int rvol;           // right volume
+	UINT32 step_ptr;    // current offset counter
+	
 	UINT8 Muted;
 };
 
@@ -86,12 +82,12 @@ struct _qsound_state
 	/* Private variables */
 	//sound_stream * stream;				/* Audio stream */
 	struct QSOUND_CHANNEL channel[QSOUND_CHANNELS];
-	int data;				  /* register latch data */
+	
+	UINT16 data;			/* register latch data */
 	QSOUND_SRC_SAMPLE *sample_rom;	/* Q sound sample ROM */
 	UINT32 sample_rom_length;
 
-	int pan_table[33];		 /* Pan volume table */
-	float frq_ratio;		   /* Frequency ratio */
+	int pan_table[33];		/* Pan volume table */
 
 	//FILE *fpRawDataL;
 	//FILE *fpRawDataR;
@@ -110,7 +106,7 @@ static qsound_state QSoundData[MAX_CHIPS];
 
 /* Function prototypes */
 //static STREAM_UPDATE( qsound_update );
-static void qsound_set_command(qsound_state *chip, int data, int value);
+static void qsound_set_command(qsound_state *chip, UINT8 address, UINT16 data);
 
 //static DEVICE_START( qsound )
 int device_start_qsound(UINT8 ChipID, int clock)
@@ -129,15 +125,12 @@ int device_start_qsound(UINT8 ChipID, int clock)
 	chip->sample_rom = NULL;
 	chip->sample_rom_length = 0x00;
 
-	memset(chip->channel, 0, sizeof(chip->channel));
-
-	chip->frq_ratio = 16.0;
-
 	/* Create pan table */
 	for (i=0; i<33; i++)
-	{
 		chip->pan_table[i]=(int)((256/sqrt(32.0)) * sqrt((double)i));
-	}
+	
+	// init sound regs
+	memset(chip->channel, 0, sizeof(chip->channel));
 
 //	LOG(("Pan table\n"));
 //	for (i=0; i<33; i++)
@@ -200,7 +193,16 @@ void device_stop_qsound(UINT8 ChipID)
 void device_reset_qsound(UINT8 ChipID)
 {
 	qsound_state *chip = &QSoundData[ChipID];
+	int adr;
 	
+	// init sound regs
+	memset(chip->channel, 0, sizeof(chip->channel));
+
+	for (adr = 0x7f; adr >= 0; adr--)
+		qsound_set_command(chip, adr, 0);
+	for (adr = 0x80; adr < 0x90; adr++)
+		qsound_set_command(chip, adr, 0x120);
+
 	return;
 }
 
@@ -237,116 +239,117 @@ UINT8 qsound_r(UINT8 ChipID, offs_t offset)
 	return 0x80;
 }
 
-static void qsound_set_command(qsound_state *chip, int data, int value)
+static void qsound_set_command(qsound_state *chip, UINT8 address, UINT16 data)
 {
-	int ch=0,reg=0;
-	if (data < 0x80)
+	int ch = 0, reg = 0;
+
+	// direct sound reg
+	if (address < 0x80)
 	{
-		ch=data>>3;
-		reg=data & 0x07;
+		ch = address >> 3;
+		reg = address & 0x07;
+	}
+	// >= 0x80 is probably for the dsp?
+	else if (address < 0x90)
+	{
+		ch = address & 0x0F;
+		reg = 8;
+	}
+	else if (address >= 0xba && address < 0xca)
+	{
+		ch = address - 0xba;
+		reg=9;
 	}
 	else
 	{
-		if (data < 0x90)
-		{
-			ch=data-0x80;
-			reg=8;
-		}
-		else
-		{
-			if (data >= 0xba && data < 0xca)
-			{
-				ch=data-0xba;
-				reg=9;
-			}
-			else
-			{
-				/* Unknown registers */
-				ch=99;
-				reg=99;
-			}
-		}
+		/* Unknown registers */
+		ch = 99;
+		reg = 99;
 	}
 
 	switch (reg)
 	{
-		case 0: /* Bank */
-			ch=(ch+1)&0x0f;	/* strange ... */
-			chip->channel[ch].bank=(value&0x7f)<<16;
-#ifdef MAME_DEBUG
-			if (!(value & 0x8000))
-				popmessage("Register3=%04x",value);
-#endif
-
+		case 0:
+			// bank, high bits unknown
+			ch = (ch + 1) & 0x0f;	/* strange ... */
+			chip->channel[ch].bank = (data & 0x7f) << 16;	// Note: The most recent MAME doesn't do "& 0x7F"
+//#ifdef _DEBUG
+			if (data && !(data & 0x8000))
+				printf("QSound Ch %u: Bank = %04x\n",ch,data);
+//#endif
 			break;
-		case 1: /* start */
-			chip->channel[ch].address=value;
+		case 1:
+			// start/cur address
+			chip->channel[ch].address = data;
 			break;
-		case 2: /* pitch */
-			chip->channel[ch].pitch=value * 16;
-			if (!value)
+		case 2:
+			// frequency
+			chip->channel[ch].freq = data;
+			// This was working with the old code, but breaks the songs with the new one.
+			// And I'm pretty sure the hardware won't do this. -Valley Bell
+			/*if (!data)
 			{
-				/* Key off */
-				chip->channel[ch].key=0;
-			}
+				// key off
+				chip->channel[ch].enabled = 0;
+			}*/
 			break;
-		case 3: /* unknown */
-			chip->channel[ch].reg3=value;
+		case 3:
+//#ifdef _DEBUG
+			if (chip->channel[ch].enabled && data != 0x8000)
+				printf("QSound Ch %u: KeyOn = %04x\n",ch,data);
+//#endif
+			// key on (does the value matter? it always writes 0x8000)
+			//chip->channel[ch].enabled = 1;
+			chip->channel[ch].enabled = (data & 0x8000) >> 15;
+			chip->channel[ch].step_ptr = 0;
+			break;
+		case 4:
+			// loop address
+			chip->channel[ch].loop = data;
+			break;
+		case 5:
+			// end address
+			chip->channel[ch].end = data;
+			break;
+		case 6:
+			// master volume
+			if (! chip->channel[ch].enabled && data)
+				printf("QSound update warning - please report!\n");
+			chip->channel[ch].vol = data;
+			break;
+		case 7:
+			// unused?
 #ifdef MAME_DEBUG
-			if (value != 0x8000)
-				popmessage("Register3=%04x",value);
+			popmessage("UNUSED QSOUND REG 7=%04x",data);
 #endif
-			break;
-		case 4: /* loop offset */
-			chip->channel[ch].loop=value;
-			break;
-		case 5: /* end */
-			chip->channel[ch].end=value;
-			break;
-		case 6: /* master volume */
-			if (value==0)
-			{
-				/* Key off */
-				chip->channel[ch].key=0;
-			}
-			else if (chip->channel[ch].key==0)
-			{
-				/* Key on */
-				chip->channel[ch].key=1;
-				chip->channel[ch].offset=0;
-				chip->channel[ch].lastdt=0;
-			}
-			chip->channel[ch].vol=value;
-			break;
-
-		case 7:  /* unused */
-#ifdef MAME_DEBUG
-				popmessage("UNUSED QSOUND REG 7=%04x",value);
-#endif
-
 			break;
 		case 8:
 			{
-			   int pandata=(value-0x10)&0x3f;
-			   if (pandata > 32)
-			   {
-					pandata=32;
-			   }
-			   chip->channel[ch].rvol=chip->pan_table[pandata];
-			   chip->channel[ch].lvol=chip->pan_table[32-pandata];
-			   chip->channel[ch].pan = value;
+				// panning (left=0x0110, centre=0x0120, right=0x0130)
+				// looks like it doesn't write other values than that
+				int pan = (data & 0x3f) - 0x10;
+				if (pan > 0x20)
+					pan = 0x20;
+				if (pan < 0)
+					pan = 0;
+				
+				chip->channel[ch].rvol=chip->pan_table[pan];
+				chip->channel[ch].lvol=chip->pan_table[0x20 - pan];
 			}
 			break;
-		 case 9:
-			chip->channel[ch].reg9=value;
+		case 9:
+			// unknown
 /*
 #ifdef MAME_DEBUG
-            popmessage("QSOUND REG 9=%04x",value);
+            popmessage("QSOUND REG 9=%04x",data);
 #endif
 */
 			break;
+		default:
+			//logerror("%s: write_data %02x = %04x\n", machine().describe_context(), address, data);
+			break;
 	}
-	//LOG(("QSOUND WRITE %02x CH%02d-R%02d =%04x\n", data, ch, reg, value));
+	//LOG(("QSOUND WRITE %02x CH%02d-R%02d =%04x\n", address, ch, reg, data));
 }
 
 
@@ -356,59 +359,68 @@ void qsound_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	//qsound_state *chip = (qsound_state *)param;
 	qsound_state *chip = &QSoundData[ChipID];
 	int i,j;
-	int rvol, lvol, count;
+	UINT32 offset;
+	UINT32 advance;
+	INT8 sample;
 	struct QSOUND_CHANNEL *pC=&chip->channel[0];
-	stream_sample_t  *datap[2];
 
-	datap[0] = outputs[0];
-	datap[1] = outputs[1];
-	memset( datap[0], 0x00, samples * sizeof(*datap[0]) );
-	memset( datap[1], 0x00, samples * sizeof(*datap[1]) );
+	memset( outputs[0], 0x00, samples * sizeof(*outputs[0]) );
+	memset( outputs[1], 0x00, samples * sizeof(*outputs[1]) );
+	if (! chip->sample_rom_length)
+		return;
 
-	for (i=0; i<QSOUND_CHANNELS; i++)
+	for (i=0; i<QSOUND_CHANNELS; i++, pC++)
 	{
-		if (pC->key)
+		if (pC->enabled && ! pC->Muted)
 		{
-			QSOUND_SAMPLE *pOutL=datap[0];
-			QSOUND_SAMPLE *pOutR=datap[1];
-			rvol=(pC->rvol*pC->vol)>>8;
-			lvol=(pC->lvol*pC->vol)>>8;
-
+			QSOUND_SAMPLE *pOutL=outputs[0];
+			QSOUND_SAMPLE *pOutR=outputs[1];
+			
 			for (j=samples-1; j>=0; j--)
 			{
-				count=(pC->offset)>>16;
-				pC->offset &= 0xffff;
-				if (count)
+				advance = (pC->step_ptr >> 12);
+				pC->step_ptr &= 0xfff;
+				pC->step_ptr += pC->freq;
+				
+				if (advance)
 				{
-					pC->address += count;
-					if (pC->address >= pC->end)
+					pC->address += advance;
+					if (pC->freq && pC->address >= pC->end)
 					{
-						if (!pC->loop)
+						if (pC->loop)
 						{
-							/* Reached the end of a non-looped sample */
-							pC->key=0;
+							// Reached the end, restart the loop
+							pC->address -= pC->loop;
+							
+							// Make sure we don't overflow (what does the real chip do in this case?)
+							if (pC->address >= pC->end)
+								pC->address = pC->end - pC->loop;
+							
+							pC->address &= 0xffff;
+						}
+						else
+						{
+							// Reached the end of a non-looped sample
+							//pC->enabled = 0;
+							pC->address --;	// ensure that old ripped VGMs still work
+							pC->step_ptr += 0x1000;
 							break;
 						}
-						/* Reached the end, restart the loop */
-						pC->address = (pC->end - pC->loop) & 0xffff;
 					}
-					pC->lastdt=chip->sample_rom[(pC->bank+pC->address)%(chip->sample_rom_length)];
 				}
-
-				(*pOutL) += ((pC->lastdt * lvol) >> 6);
-				(*pOutR) += ((pC->lastdt * rvol) >> 6);
-				pOutL++;
-				pOutR++;
-				pC->offset += pC->pitch;
+				
+				offset = (pC->bank | pC->address) % chip->sample_rom_length;
+				sample = chip->sample_rom[offset];
+				*pOutL++ += ((sample * pC->lvol * pC->vol) >> 14);
+				*pOutR++ += ((sample * pC->rvol * pC->vol) >> 14);
 			}
 		}
-		pC++;
 	}
 
 	/*if (chip->fpRawDataL)
-		fwrite(datap[0], samples*sizeof(QSOUND_SAMPLE), 1, chip->fpRawDataL);
+		fwrite(outputs[0], samples*sizeof(QSOUND_SAMPLE), 1, chip->fpRawDataL);
 	if (chip->fpRawDataR)
-		fwrite(datap[1], samples*sizeof(QSOUND_SAMPLE), 1, chip->fpRawDataR);*/
+		fwrite(outputs[1], samples*sizeof(QSOUND_SAMPLE), 1, chip->fpRawDataR);*/
 }
 
 void qsound_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t DataLength,

@@ -22,7 +22,6 @@
 //#include "streams.h"
 //#include "cpuintrf.h"
 #include "3526intf.h"
-//#include "fm.h"
 #include "fmopl.h"
 
 #include <memory.h>
@@ -33,7 +32,7 @@ struct _ym3526_state
 	//sound_stream *	stream;
 	//emu_timer *		timer[2];
 	void *			chip;
-	const ym3526_interface *intf;
+	//const ym3526_interface *intf;
 	//const device_config *device;
 };
 
@@ -96,7 +95,7 @@ void ym3526_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	ym3526_update_one(info->chip, outputs, samples);
 }
 
-static void _stream_update(void *param, int interval)
+static void _stream_update(void *param/*, int interval*/)
 {
 	ym3526_state *info = (ym3526_state *)param;
 	//stream_update(info->stream);
@@ -108,7 +107,7 @@ static void _stream_update(void *param, int interval)
 //static DEVICE_START( ym3526 )
 int device_start_ym3526(UINT8 ChipID, int clock)
 {
-	static const ym3526_interface dummy = { 0 };
+	//static const ym3526_interface dummy = { 0 };
 	//ym3526_state *info = get_safe_token(device);
 	ym3526_state *info;
 	int rate;
@@ -122,7 +121,7 @@ int device_start_ym3526(UINT8 ChipID, int clock)
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
 	//info->intf = device->static_config ? (const ym3526_interface *)device->static_config : &dummy;
-	info->intf = &dummy;
+	//info->intf = &dummy;
 	//info->device = device;
 
 	/* stream system initialize */

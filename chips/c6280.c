@@ -87,9 +87,6 @@ typedef struct {
     UINT32 wave_freq_tab[4096];
 } c6280_t;
 
-#define MAX_CHIPS	0x02
-static c6280_t C6280Data[MAX_CHIPS];
-
 /*INLINE c6280_t *get_safe_token(device_t *device)
 {
 	assert(device != NULL);
@@ -230,7 +227,7 @@ static void c6280_write(c6280_t *p, int offset, int data)
 
 
 //static STREAM_UPDATE( c6280_update )
-void c6280_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
+void c6280m_update(void* param, stream_sample_t **outputs, int samples)
 {
     static const int scale_tab[] = {
         0x00, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F,
@@ -238,8 +235,7 @@ void c6280_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
     };
     int ch;
     int i;
-    //c6280_t *p = (c6280_t *)param;
-	c6280_t *p = &C6280Data[ChipID];
+    c6280_t *p = (c6280_t *)param;
 
     int lmal = (p->balance >> 4) & 0x0F;
     int rmal = (p->balance >> 0) & 0x0F;
@@ -332,22 +328,21 @@ void c6280_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 /*--------------------------------------------------------------------------*/
 
 //static DEVICE_START( c6280 )
-int device_start_c6280(UINT8 ChipID, int clock)
+void* device_start_c6280m(int clock, int rate)
 {
     //int rate = device->clock()/16;
-	int rate = clock/16;
     //c6280_t *info = get_safe_token(device);
 	c6280_t *info;
 	UINT8 CurChn;
 
-	if (ChipID >= MAX_CHIPS)
+	info = (c6280_t*)malloc(sizeof(c6280_t));
+	if (info == NULL)
 		return 0;
-	
-	info = &C6280Data[ChipID];
+	memset(info, 0x00, sizeof(c6280_t));
 	
     /* Initialize PSG emulator */
     //c6280_init(device, info, device->clock(), rate);
-	c6280_init(info, clock, rate);
+	c6280_init(info, clock & 0x7FFFFFFF, rate);
 
     /* Create stereo stream */
     //info->stream = device->machine().sound().stream_alloc(*device, 0, 2, rate, info, c6280_update);
@@ -355,19 +350,21 @@ int device_start_c6280(UINT8 ChipID, int clock)
 	for (CurChn = 0; CurChn < 6; CurChn ++)
 		info->channel[CurChn].Muted = 0x00;
 	
-	return rate;
+	return info;
 }
 
-void device_stop_c6280(UINT8 ChipID)
+void device_stop_c6280m(void* chip)
 {
-	c6280_t *info = &C6280Data[ChipID];
+	c6280_t *info = (c6280_t *)chip;
+	
+	free(info);
 	
 	return;
 }
 
-void device_reset_c6280(UINT8 ChipID)
+void device_reset_c6280m(void* chip)
 {
-	c6280_t *info = &C6280Data[ChipID];
+	c6280_t *info = (c6280_t *)chip;
 	UINT8 CurChn;
 	t_channel* TempChn;
 	
@@ -395,27 +392,27 @@ void device_reset_c6280(UINT8 ChipID)
 }
 
 //READ8_DEVICE_HANDLER( c6280_r )
-UINT8 c6280_r(UINT8 ChipID, offs_t offset)
+UINT8 c6280m_r(void* chip, offs_t offset)
 {
     //c6280_t *info = get_safe_token(device);
-	c6280_t *info = &C6280Data[ChipID];
+	c6280_t *info = (c6280_t *)chip;
 	//return h6280io_get_buffer(info->cpudevice);
 	return 0;
 }
 
 //WRITE8_DEVICE_HANDLER( c6280_w )
-void c6280_w(UINT8 ChipID, offs_t offset, UINT8 data)
+void c6280m_w(void* chip, offs_t offset, UINT8 data)
 {
     //c6280_t *info = get_safe_token(device);
-	c6280_t *info = &C6280Data[ChipID];
+	c6280_t *info = (c6280_t *)chip;
 	//h6280io_set_buffer(info->cpudevice, data);
 	c6280_write(info, offset, data);
 }
 
 
-void c6280_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
+void c6280m_set_mute_mask(void* chip, UINT32 MuteMask)
 {
-	c6280_t *info = &C6280Data[ChipID];
+	c6280_t *info = (c6280_t *)chip;
 	UINT8 CurChn;
 	
 	for (CurChn = 0; CurChn < 6; CurChn ++)

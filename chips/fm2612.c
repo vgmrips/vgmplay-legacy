@@ -13,7 +13,7 @@
 /*
 ** History:
 **
-** 2006~2009  Eke-Eke (Genesis Plus GX):
+** 2006~2012  Eke-Eke (Genesis Plus GX):
 ** Huge thanks to Nemesis, lot of those fixes came from his tests on Sega Genesis hardware
 ** More informations at http://gendev.spritesmind.net/forum/viewtopic.php?t=386
 **
@@ -26,7 +26,7 @@
 **
 **  - fixed LFO implementation:
 **      .added support for CH3 special mode: fixes various sound effects (birds in Warlock, bug sound in Aladdin...)
-**      .modified LFO behavior when switched off (AM/PM current level is held) and on (LFO step is reseted): fixes intro in Spider-Man & Venom : Separation Anxiety
+**      .inverted LFO AM waveform: fixes Spider-Man & Venom : Separation Anxiety (intro), California Games (surfing event)
 **      .improved LFO timing accuracy: now updated AFTER sample output, like EG/PG updates, and without any precision loss anymore.
 **  - improved internal timers emulation
 **  - adjusted lowest EG rates increment values
@@ -387,7 +387,7 @@ static const UINT32 lfo_samples_per_step[8] = {108, 77, 71, 67, 62, 44, 8, 5};
    5.9 dB = 0, 1, 2, 3, 4, 5, 6, 7, 8....63, 63, 62, 61, 60, 59,.....2,1,0
    1.4 dB = 0, 0, 0, 0, 1, 1, 1, 1, 2,...15, 15, 15, 15, 14, 14,.....0,0,0
 
-  (1.4 dB is loosing precision as you can see)
+  (1.4 dB is losing precision as you can see)
 
   It's implemented as generator from 0..126 with step 2 then a shift
   right N times, where N is:
@@ -617,7 +617,7 @@ typedef struct
 #endif
 	UINT32		clock;				/* master clock  (Hz)   */
 	UINT32		rate;				/* sampling rate (Hz)   */
-	UINT16		address;			/* address register     */
+	UINT8		address;			/* address register     */
 	UINT8		status;				/* status flag          */
 	UINT32		mode;				/* mode  CSM / 3SLOT    */
 	UINT8		fn_h;				/* freq latch           */
@@ -693,9 +693,15 @@ typedef struct
 	UINT8		addr_A1;			/* address line A1      */
 
 	/* dac output (YM2612) */
-	int			dacen;
+	//int			dacen;
+	UINT8		dacen;
+	UINT8		dac_test;
 	INT32		dacout;
 	UINT8		MuteDAC;
+	
+	UINT8		WaveOutMode;
+	INT32		WaveL;
+	INT32		WaveR;
 } YM2612;
 
 /* log output level */
@@ -715,6 +721,10 @@ typedef struct
 }
 
 extern UINT8 IsVGMInit;
+static UINT8 PseudoSt = 0x00;
+/*#include <stdio.h>
+static FILE* hFile;
+static UINT32 FileSample;*/
 
 /* status set and IRQ handling */
 INLINE void FM_STATUS_SET(FM_ST *ST,int flag)
@@ -755,7 +765,10 @@ INLINE void FM_KEYON(FM_OPN *OPN, FM_CH *CH , int s )
 {
 	FM_SLOT *SLOT = &CH->SLOT[s];
 
-	if( !SLOT->key && !OPN->SL3.key_csm)
+	// Note by Valley Bell:
+	//  I assume that the CSM mode shouldn't affect channels
+	//  other than FM3, so I added a check for it here.
+	if( !SLOT->key && (!OPN->SL3.key_csm || CH == &OPN->P_CH[3]))
 	{
 		/* restart Phase Generator */
 		SLOT->phase = 0;
@@ -770,7 +783,7 @@ INLINE void FM_KEYON(FM_OPN *OPN, FM_CH *CH , int s )
 		else
 		{
 			/* force attenuation level to 0 */
-			SLOT->volume = MIN_ATT_INDEX;
+		 	SLOT->volume = MIN_ATT_INDEX;
 
 			/* directly switch to Decay (or Sustain) */
 			SLOT->state = (SLOT->sl == MIN_ATT_INDEX) ? EG_SUS : EG_DEC;
@@ -790,7 +803,7 @@ INLINE void FM_KEYOFF(FM_OPN *OPN, FM_CH *CH , int s )
 {
 	FM_SLOT *SLOT = &CH->SLOT[s];
 
-	if (SLOT->key && !OPN->SL3.key_csm)
+	if (SLOT->key && (!OPN->SL3.key_csm || CH == &OPN->P_CH[3]))
 	{
 		if (IsVGMInit)	// workaround for VGMs trimmed with VGMTool
 		{
@@ -955,6 +968,7 @@ INLINE void set_timers( FM_OPN *OPN, FM_ST *ST, void *n, int v )
 			ST->TAC = (1024-ST->TA);
 			/* External timer handler */
 			if (ST->timer_handler) (ST->timer_handler)(n,0,ST->TAC * ST->timer_prescaler,ST->clock);
+			ST->TAC *= 4096;
 		}
 	}
 	else
@@ -977,6 +991,7 @@ INLINE void TimerAOver(FM_ST *ST)
 	/* clear or reload the counter */
 	ST->TAC = (1024-ST->TA);
 	if (ST->timer_handler) (ST->timer_handler)(ST->param,0,ST->TAC * ST->timer_prescaler,ST->clock);
+	ST->TAC *= 4096;
 }
 /* Timer B Overflow */
 INLINE void TimerBOver(FM_ST *ST)
@@ -1231,12 +1246,14 @@ INLINE void advance_lfo(FM_OPN *OPN)
 			/* There are 128 LFO steps */
 			OPN->lfo_cnt = ( OPN->lfo_cnt + 1 ) & 127;
 
-			/* triangle */
-			/* AM: 0 to 126 step +2, 126 to 0 step -2 */
+			// Valley Bell: Replaced old code (non-inverted triangle) with
+			// the one from Genesis Plus GX 1.71.
+			/* triangle (inverted) */
+			/* AM: from 126 to 0 step -2, 0 to 126 step +2 */
 			if (OPN->lfo_cnt<64)
-				OPN->LFO_AM = OPN->lfo_cnt * 2;
+				OPN->LFO_AM = (OPN->lfo_cnt ^ 63) << 1;
 			else
-				OPN->LFO_AM = 126 - ((OPN->lfo_cnt&63) * 2);
+				OPN->LFO_AM = (OPN->lfo_cnt & 63) << 1;
 
 			/* PM works with 4 times slower clock */
 			OPN->LFO_PM = OPN->lfo_cnt >> 2;
@@ -1776,20 +1793,29 @@ static void OPNWriteMode(FM_OPN *OPN, int r, int v)
 	case 0x22:	/* LFO FREQ (YM2608/YM2610/YM2610B/YM2612) */
 		if (v&8) /* LFO enabled ? */
 		{
-			if (!OPN->lfo_timer_overflow)
+			/*if (!OPN->lfo_timer_overflow)
 			{
-				/* restart LFO */
+				// restart LFO
 				OPN->lfo_cnt   = 0;
 				OPN->lfo_timer = 0;
 				OPN->LFO_AM    = 0;
 				OPN->LFO_PM    = 0;
-			}
+			}*/
 
 			OPN->lfo_timer_overflow = lfo_samples_per_step[v&7] << LFO_SH;
 		}
 		else
 		{
+			// Valley Bell: Ported from Genesis Plus GX 1.71
+			// hold LFO waveform in reset state
 			OPN->lfo_timer_overflow = 0;
+			OPN->lfo_timer = 0;
+			OPN->lfo_cnt = 0;
+			
+			
+			OPN->LFO_PM = 0;
+			OPN->LFO_AM = 126;
+			//OPN->lfo_timer_overflow = 0;
 		}
 		break;
 	case 0x24:	/* timer A High 8*/
@@ -2297,15 +2323,24 @@ void ym2612_update_one(void *chip, FMSAMPLE **buffer, int length)
 		update_ssg_eg_channel(&cch[5]->SLOT[SLOT1]);
 
 		/* calculate FM */
-		chan_calc(F2612, OPN, cch[0]);
-		chan_calc(F2612, OPN, cch[1]);
-		chan_calc(F2612, OPN, cch[2]);
-		chan_calc(F2612, OPN, cch[3]);
-		chan_calc(F2612, OPN, cch[4]);
-		if( F2612->dacen )
-			*cch[5]->connect4 += dacout;
+		if (! F2612->dac_test)
+		{
+			chan_calc(F2612, OPN, cch[0]);
+			chan_calc(F2612, OPN, cch[1]);
+			chan_calc(F2612, OPN, cch[2]);
+			chan_calc(F2612, OPN, cch[3]);
+			chan_calc(F2612, OPN, cch[4]);
+			if( F2612->dacen )
+				*cch[5]->connect4 += dacout;
+			else
+				chan_calc(F2612, OPN, cch[5]);
+		}
 		else
-			chan_calc(F2612, OPN, cch[5]);
+		{
+			out_fm[0] = out_fm[1] = dacout;
+			out_fm[2] = out_fm[3] = dacout;
+			out_fm[5] = dacout;
+		}
 
 		/* advance LFO */
 		advance_lfo(OPN);
@@ -2325,6 +2360,12 @@ void ym2612_update_one(void *chip, FMSAMPLE **buffer, int length)
 			advance_eg_channel(OPN, &cch[5]->SLOT[SLOT1]);
 		}
 
+		/*fprintf(hFile, "%u", FileSample, out_fm[0]);
+		for (lt = 0; lt < 6; lt ++)
+			fprintf(hFile, "\t%d", out_fm[lt]);
+		fprintf(hFile, "\n");
+		FileSample ++;*/
+		
 		if (out_fm[0] > 8192) out_fm[0] = 8192;
 		else if (out_fm[0] < -8192) out_fm[0] = -8192;
 		if (out_fm[1] > 8192) out_fm[1] = 8192;
@@ -2347,8 +2388,16 @@ void ym2612_update_one(void *chip, FMSAMPLE **buffer, int length)
 		rt += ((out_fm[2]>>0) & OPN->pan[5]);
 		lt += ((out_fm[3]>>0) & OPN->pan[6]);
 		rt += ((out_fm[3]>>0) & OPN->pan[7]);
-		lt += ((out_fm[4]>>0) & OPN->pan[8]);
-		rt += ((out_fm[4]>>0) & OPN->pan[9]);
+		if (! F2612->dac_test)
+		{
+			lt += ((out_fm[4]>>0) & OPN->pan[8]);
+			rt += ((out_fm[4]>>0) & OPN->pan[9]);
+		}
+		else
+		{
+			lt += dacout;
+			lt += dacout;
+		}
 		lt += ((out_fm[5]>>0) & OPN->pan[10]);
 		rt += ((out_fm[5]>>0) & OPN->pan[11]);
 
@@ -2360,15 +2409,31 @@ void ym2612_update_one(void *chip, FMSAMPLE **buffer, int length)
 		#endif
 
 		/* buffering */
-		bufL[i] = lt;
-		bufR[i] = rt;
+		if (F2612->WaveOutMode & 0x01)
+			F2612->WaveL = lt;
+		if (F2612->WaveOutMode & 0x02)
+			F2612->WaveR = rt;
+		if (F2612->WaveOutMode ^ 0x03)
+			F2612->WaveOutMode ^= 0x03;
+		bufL[i] = F2612->WaveL;
+		bufR[i] = F2612->WaveR;
 
 		/* CSM mode: if CSM Key ON has occured, CSM Key OFF need to be sent       */
 		/* only if Timer A does not overflow again (i.e CSM Key ON not set again) */
 		OPN->SL3.key_csm <<= 1;
 
 		/* timer A control */
-		INTERNAL_TIMER_A( &OPN->ST , cch[2] )
+		//INTERNAL_TIMER_A( &OPN->ST , cch[2] )
+		{
+			if( OPN->ST.TAC &&  (OPN->ST.timer_handler==0) )
+				if( (OPN->ST.TAC -= (int)(OPN->ST.freqbase*4096)) <= 0 )
+				{
+					TimerAOver( &OPN->ST );
+					// CSM mode total level latch and auto key on
+					if( OPN->ST.mode & 0x80 )
+						CSMKeyControll( OPN, cch[2] );
+				}
+		}
 
 		/* CSM Mode Key ON still disabled */
 		if (OPN->SL3.key_csm & 2)
@@ -2383,10 +2448,10 @@ void ym2612_update_one(void *chip, FMSAMPLE **buffer, int length)
 	}
 
 	/* timer B control */
-	INTERNAL_TIMER_B(&OPN->ST,length)
+//	INTERNAL_TIMER_B(&OPN->ST,length)
 }
 
-//#ifdef __STATE_H__
+#ifdef __STATE_H__
 void ym2612_postload(void *chip)
 {
 	if (chip)
@@ -2417,7 +2482,6 @@ void ym2612_postload(void *chip)
 	}
 }
 
-#ifdef __STATE_H__
 static void YM2612_save_state(YM2612 *F2612, running_device *device)
 {
 	state_save_register_device_item_array(device, 0, F2612->REGS);
@@ -2460,6 +2524,15 @@ void * ym2612_init(void *param, int clock, int rate,
 	/* Extend handler */
 	F2612->OPN.ST.timer_handler = timer_handler;
 	F2612->OPN.ST.IRQ_Handler   = IRQHandler;
+	
+	if (PseudoSt)
+		F2612->WaveOutMode = 0x01;
+	else
+		F2612->WaveOutMode = 0x03;
+	/*hFile = fopen("YM2612.log", "wt");
+	fprintf(hFile, "Clock: %d, Sample Rate: %d\n", clock, rate);
+	fprintf(hFile, "Sample\tCh 0\tCh 1\tCh 2\tCh 3\tCh 4\tCh 5\n");
+	FileSample = 0;*/
 
 #ifdef __STATE_H__
 	YM2612_save_state(F2612, device);
@@ -2471,6 +2544,7 @@ void * ym2612_init(void *param, int clock, int rate,
 void ym2612_shutdown(void *chip)
 {
 	YM2612 *F2612 = (YM2612 *)chip;
+	//fclose(hFile);
 
 	FMCloseTable();
 	//auto_free(F2612->OPN.ST.device->machine, F2612);
@@ -2495,7 +2569,7 @@ void ym2612_reset_chip(void *chip)
 
 	OPN->lfo_timer = 0;
 	OPN->lfo_cnt   = 0;
-	OPN->LFO_AM    = 0;
+	OPN->LFO_AM    = 126;
 	OPN->LFO_PM    = 0;
 
 	OPN->ST.TAC    = 0;
@@ -2530,7 +2604,11 @@ void ym2612_reset_chip(void *chip)
 
 	/* DAC mode clear */
 	F2612->dacen = 0;
+	F2612->dac_test = 0;
 	F2612->dacout = 0;
+	
+	if (F2612->WaveOutMode == 0x02)
+		F2612->WaveOutMode >>= 1;
 }
 
 /* YM2612 write */
@@ -2569,6 +2647,10 @@ int ym2612_write(void *chip, int a, UINT8 v)
 			case 0x2b:	/* DAC Sel  (YM2612) */
 				/* b7 = dac enable */
 				F2612->dacen = v & 0x80;
+				break;
+			case 0x2C:	// undocumented: DAC Test Reg
+				// b5 = volume enable
+				F2612->dac_test = v & 0x20;
 				break;
 			default:	/* OPN section */
 				ym2612_update_req(F2612->OPN.ST.param);
@@ -2649,6 +2731,13 @@ void ym2612_set_mutemask(void *chip, UINT32 MuteMask)
 	for (CurChn = 0; CurChn < 6; CurChn ++)
 		F2612->CH[CurChn].Muted = (MuteMask >> CurChn) & 0x01;
 	F2612->MuteDAC = (MuteMask >> 6) & 0x01;
+	
+	return;
+}
+
+void ym2612_setoptions(UINT8 Flags)
+{
+	PseudoSt = (Flags >> 2) & 0x01;
 	
 	return;
 }

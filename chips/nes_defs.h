@@ -66,6 +66,7 @@ typedef struct queue_s
 #define  APU_WRB2    0x06
 #define  APU_WRB3    0x07
 #define  APU_WRC0    0x08
+#define  APU_WRC1    0x09
 #define  APU_WRC2    0x0A
 #define  APU_WRC3    0x0B
 #define  APU_WRD0    0x0C
@@ -141,8 +142,9 @@ typedef struct dpcm_s
 	boolean enabled;
 	boolean irq_occurred;
 	//address_space *memory;
-	uint8 *memory;
-	signed char vol;
+	const uint8 *memory;
+	//signed char vol;
+	signed short vol;
 	boolean Muted;
 } dpcm_t;
 
@@ -188,13 +190,17 @@ static const uint8 vbl_length[32] =
 /* frequency limit of square channels */
 static const int freq_limit[8] =
 {
-   0x3FF, 0x555, 0x666, 0x71C, 0x787, 0x7C1, 0x7E0, 0x7F0,
+   //0x3FF, 0x555, 0x666, 0x71C, 0x787, 0x7C1, 0x7E0, 0x7F0,
+   // Fixed, thanks to Delek
+   0x3FF, 0x555, 0x666, 0x71C, 0x787, 0x7C1, 0x7E0, 0x7F2,
 };
 
 /* table of noise frequencies */
 static const int noise_freq[16] =
 {
-   4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 2046
+   //4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 2046
+   // Fixed, thanks to Delek
+   4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068
 };
 
 /* dpcm transfer freqs */

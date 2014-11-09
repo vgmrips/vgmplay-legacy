@@ -4,7 +4,10 @@
 #define ADLIBEMU(name)			adlib_OPL3_##name
 #endif
 
-void* ADLIBEMU(init)(UINT32 clock, UINT32 samplerate);
+typedef void (*ADL_UPDATEHANDLER)(void *param);
+
+void* ADLIBEMU(init)(UINT32 clock, UINT32 samplerate,
+					 ADL_UPDATEHANDLER UpdateHandler, void* param);
 void ADLIBEMU(stop)(void *chip);
 void ADLIBEMU(reset)(void *chip);
 
@@ -13,3 +16,5 @@ void ADLIBEMU(getsample)(void *chip, INT32 ** sndptr, INT32 numsamples);
 
 UINT32 ADLIBEMU(reg_read)(void *chip, UINT32 port);
 void ADLIBEMU(write_index)(void *chip, UINT32 port, UINT8 val);
+
+void ADLIBEMU(set_mute_mask)(void *chip, UINT32 MuteMask);

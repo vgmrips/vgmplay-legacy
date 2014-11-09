@@ -857,7 +857,7 @@ void upd7759_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t Da
 	{
 		chip->rombase = (UINT8*)realloc(chip->rombase, ROMSize);
 		chip->romsize = ROMSize;
-		memset(chip->rom, 0xFF, ROMSize);
+		memset(chip->rombase, 0xFF, ROMSize);
 		
 		chip->rom = chip->rombase + chip->romoffset;
 	}

@@ -12,7 +12,3 @@ void RefreshVolume(void);
 void StartSkipping(void);
 void StopSkipping(void);
 void ym2413opl_set_emu_core(UINT8 Emulator);
-
-#ifndef WIN32
-void Sleep(UINT32 msec);
-#endif

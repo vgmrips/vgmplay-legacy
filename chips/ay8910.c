@@ -9,6 +9,13 @@
 
   Mostly rewritten by couriersud in 2008
 
+  Public documentation:
+
+  - http://privatfrickler.de/blick-auf-den-chip-soundchip-general-instruments-ay-3-8910/
+    Die pictures of the AY8910
+
+  - US Patent 4933980
+
   Games using ADSR: gyruss
 
   A list with more games using ADSR can be found here:
@@ -125,7 +132,7 @@ has twice the steps, happening twice as fast.
 #define ENABLE_REGISTER_TEST		(0)		/* Enable preprogrammed registers */
 
 //#define MAX_OUTPUT 0x7fff
-#define MAX_OUTPUT 0x8000
+#define MAX_OUTPUT 0x4000
 #define NUM_CHANNELS 3
 
 /* register id's */
@@ -155,6 +162,7 @@ has twice the steps, happening twice as fast.
 //#define TONE_ENVELOPE(_psg, _chan)	(((_psg)->regs[AY_AVOL + (_chan)] >> 4) & (((_psg)->device->type() == AY8914) ? 3 : 1))
 #define TONE_ENVELOPE(_psg, _chan)	(((_psg)->regs[AY_AVOL + (_chan)] >> 4) & (((_psg)->chip_type == CHTYPE_AY8914) ? 3 : 1))
 #define ENVELOPE_PERIOD(_psg)		(((_psg)->regs[AY_EFINE] | ((_psg)->regs[AY_ECOARSE]<<8)))
+#define NOISE_OUTPUT(_psg)			((_psg)->rng & 1)
 
 #define CHTYPE_AY8910	0x00
 #define CHTYPE_AY8912	0x01
@@ -198,7 +206,7 @@ struct _ay8910_context
 	INT32 last_enable;
 	INT32 count[NUM_CHANNELS];
 	UINT8 output[NUM_CHANNELS];
-	UINT8 output_noise;
+	UINT8 prescale_noise;
 	INT32 count_noise;
 	INT32 count_env;
 	INT8 env_step;
@@ -219,13 +227,14 @@ struct _ay8910_context
 	//devcb_resolved_read8 portBread;
 	//devcb_resolved_write8 portAwrite;
 	//devcb_resolved_write8 portBwrite;
+	UINT8 StereoMask[NUM_CHANNELS];
 	UINT32 MuteMsk[NUM_CHANNELS];
 	UINT8 chip_type;
 	UINT8 IsDisabled;
 };
 
-#define MAX_CHIPS	0x02
-static ay8910_context AY8910Data[MAX_CHIPS];
+//#define MAX_CHIPS	0x02
+//static ay8910_context AY8910Data[MAX_CHIPS];
 
 #define MAX_UPDATE_LEN	0x10	// in samples
 static stream_sample_t AYBuf[NUM_CHANNELS][MAX_UPDATE_LEN];
@@ -615,7 +624,7 @@ static void ay8910_write_reg(ay8910_context *psg, int r, int v)
 }
 
 //static STREAM_UPDATE( ay8910_update )
-void ay8910_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
+/*void ay8910_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 {
 	ay8910_context *psg = &AY8910Data[ChipID];
 	
@@ -624,7 +633,7 @@ void ay8910_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	ay8910_update_one(psg, outputs, samples);
 	
 	return;
-}
+}*/
 
 void ay8910_update_one(void *param, stream_sample_t **outputs, int samples)
 {
@@ -635,8 +644,11 @@ void ay8910_update_one(void *param, stream_sample_t **outputs, int samples)
 	int buf_smpls;
 	stream_sample_t *bufL = outputs[0];
 	stream_sample_t *bufR = outputs[1];
-	stream_sample_t bufSmpl;
-
+	//stream_sample_t bufSmpl;
+	
+	memset(outputs[0], 0x00, samples * sizeof(stream_sample_t));
+	memset(outputs[1], 0x00, samples * sizeof(stream_sample_t));
+	
 	// Speed hack for OPN chips (YM2203, YM26xx), that have an often unused AY8910
 	if (psg->IsDisabled)
 		return;
@@ -646,13 +658,13 @@ void ay8910_update_one(void *param, stream_sample_t **outputs, int samples)
 	buf[0] = AYBuf[0];
 	buf[1] = NULL;
 	buf[2] = NULL;
-	if (psg->streams == NUM_CHANNELS)
-	{
+	//if (psg->streams == NUM_CHANNELS)
+	//{
 		//buf[1] = outputs[1];
 		//buf[2] = outputs[2];
 		buf[1] = AYBuf[1];
 		buf[2] = AYBuf[2];
-	}
+	//}
 
 	/* hack to prevent us from hanging when starting filtered outputs */
 	//if (!psg->ready)
@@ -687,30 +699,26 @@ void ay8910_update_one(void *param, stream_sample_t **outputs, int samples)
 		psg->count_noise++;
 		if (psg->count_noise >= NOISE_PERIOD(psg))
 		{
-			/* Is noise output going to change? */
-			if ((psg->rng + 1) & 2)	/* (bit0^bit1)? */
-			{
-				psg->output_noise ^= 1;
-			}
-
-			/* The Random Number Generator of the 8910 is a 17-bit shift */
-			/* register. The input to the shift register is bit0 XOR bit3 */
-			/* (bit0 is the output). This was verified on AY-3-8910 and YM2149 chips. */
-
-			/* The following is a fast way to compute bit17 = bit0^bit3. */
-			/* Instead of doing all the logic operations, we only check */
-			/* bit0, relying on the fact that after three shifts of the */
-			/* register, what now is bit3 will become bit0, and will */
-			/* invert, if necessary, bit14, which previously was bit17. */
-			if (psg->rng & 1)
-				psg->rng ^= 0x24000; /* This version is called the "Galois configuration". */
-			psg->rng >>= 1;
+			/* toggle the prescaler output. Noise is no different to
+			 * channels.
+			 */
 			psg->count_noise = 0;
+			psg->prescale_noise ^= 1;
+
+			if ( psg->prescale_noise)
+			{
+				/* The Random Number Generator of the 8910 is a 17-bit shift */
+				/* register. The input to the shift register is bit0 XOR bit3 */
+				/* (bit0 is the output). This was verified on AY-3-8910 and YM2149 chips. */
+
+				psg->rng ^= (((psg->rng & 1) ^ ((psg->rng >> 3) & 1)) << 17);
+				psg->rng >>= 1;
+			}
 		}
 
 		for (chan = 0; chan < NUM_CHANNELS; chan++)
 		{
-			psg->vol_enabled[chan] = (psg->output[chan] | TONE_ENABLEQ(psg, chan)) & (psg->output_noise | NOISE_ENABLEQ(psg, chan));
+			psg->vol_enabled[chan] = (psg->output[chan] | TONE_ENABLEQ(psg, chan)) & (NOISE_OUTPUT(psg) | NOISE_ENABLEQ(psg, chan));
 		}
 
 		/* update envelope */
@@ -747,8 +755,8 @@ void ay8910_update_one(void *param, stream_sample_t **outputs, int samples)
 		}
 		psg->env_volume = (psg->env_step ^ psg->attack);
 
-		if (psg->streams == NUM_CHANNELS)
-		{
+		//if (psg->streams == NUM_CHANNELS)
+		//{
 			for (chan = 0; chan < NUM_CHANNELS; chan++)
 				if (TONE_ENVELOPE(psg, chan) != 0)
 				{
@@ -767,7 +775,7 @@ void ay8910_update_one(void *param, stream_sample_t **outputs, int samples)
 				{
 					*(buf[chan]++) = psg->vol_table[chan][psg->vol_enabled[chan] ? TONE_VOLUME(psg, chan) : 0];
 				}
-		}
+		/*}
 		else
 		{
 			*(buf[0]++) = mix_3D(psg);
@@ -776,21 +784,34 @@ void ay8910_update_one(void *param, stream_sample_t **outputs, int samples)
 			             + vol_enabled[1] * psg->vol_table[psg->Vol[1]]
 			             + vol_enabled[2] * psg->vol_table[psg->Vol[2]]) / psg->step;
 #endif
-		}
+		}*/
 		buf_smpls--;
 		
 	}
 	
-	for (cursmpl = 0; cursmpl < samples; cursmpl ++)
+	buf_smpls = samples;
+	if (buf_smpls > MAX_UPDATE_LEN)
+		buf_smpls = MAX_UPDATE_LEN;
+	for (cursmpl = 0; cursmpl < buf_smpls; cursmpl ++)
 	{
-		bufSmpl = AYBuf[0][cursmpl] & psg->MuteMsk[0];
+		/*bufSmpl = AYBuf[0][cursmpl] & psg->MuteMsk[0];
 		if (psg->streams == NUM_CHANNELS)
 		{
 			bufSmpl += AYBuf[1][cursmpl] & psg->MuteMsk[1];
 			bufSmpl += AYBuf[2][cursmpl] & psg->MuteMsk[2];
 		}
 		bufL[cursmpl] += bufSmpl;
-		bufR[cursmpl] += bufSmpl;
+		bufR[cursmpl] += bufSmpl;*/
+		for (chan = 0; chan < NUM_CHANNELS; chan ++)
+		{
+			if (psg->MuteMsk[chan])
+			{
+				if (psg->StereoMask[chan] & 0x01)
+					bufL[cursmpl] += AYBuf[chan][cursmpl];
+				if (psg->StereoMask[chan] & 0x02)
+					bufR[cursmpl] += AYBuf[chan][cursmpl];
+			}
+		}
 	}
 }
 
@@ -802,16 +823,16 @@ static void build_mixer_table(ay8910_context *psg)
 	if ((psg->intf->flags & AY8910_LEGACY_OUTPUT) != 0)
 	{
 #ifdef _DEBUG
-		logerror("AY-3-8910/YM2149 using legacy output levels!\n");
+		//logerror("AY-3-8910/YM2149 using legacy output levels!\n");
 #endif
 		//normalize = 1;
 	}
 	normalize = 1;
 
-	/* skip unneccessary things to speed up the AY8910 init
+	/* skip unnecessary things to speed up the AY8910 init
 		1-channel AY uses the 3D table, 3-channel AY uses envelope and volume
 		but building the 3D table still takes too long */
-	if (psg->streams == NUM_CHANNELS)
+	//if (psg->streams == NUM_CHANNELS)
 	{
 		for (chan=0; chan < NUM_CHANNELS; chan++)
 		{
@@ -819,14 +840,14 @@ static void build_mixer_table(ay8910_context *psg)
 			build_single_table(psg->intf->res_load[chan], psg->par_env, normalize, psg->env_table[chan], 0);
 		}
 	}
-	else
-	{
-		/*
-		 * The previous implementation added all three channels up instead of averaging them.
-		 * The factor of 3 will force the same levels if normalizing is used.
-		 */
-		build_3D_table(psg->intf->res_load[0], psg->par, psg->par_env, normalize, 3, psg->zero_is_off, psg->vol3d_table);
-	}
+	//else
+	//{
+	//	/*
+	//	 * The previous implementation added all three channels up instead of averaging them.
+	//	 * The factor of 3 will force the same levels if normalizing is used.
+	//	 */
+	//	build_3D_table(psg->intf->res_load[0], psg->par, psg->par_env, normalize, 3, psg->zero_is_off, psg->vol3d_table);
+	//}
 }
 
 /*static void ay8910_statesave(ay8910_context *psg, const device_config *device)
@@ -913,6 +934,19 @@ void *ay8910_start_ym(void *infoptr, unsigned char chip_type, int clock, const a
 		if (info->intf->flags & YM2149_PIN26_LOW)
 			master_clock /= 2;
 	}
+	if (intf->flags & AY8910_ZX_STEREO)
+	{
+		// ABC Stereo
+		info->StereoMask[0] = 0x01;
+		info->StereoMask[1] = 0x03;
+		info->StereoMask[2] = 0x02;
+	}
+	else
+	{
+		info->StereoMask[0] = 0x03;
+		info->StereoMask[1] = 0x03;
+		info->StereoMask[2] = 0x03;
+	}
 
 	build_mixer_table(info);
 
@@ -931,6 +965,7 @@ void *ay8910_start_ym(void *infoptr, unsigned char chip_type, int clock, const a
 
 void ay8910_stop_ym(void *chip)
 {
+	free(chip);
 }
 
 void ay8910_reset_ym(void *chip)
@@ -948,7 +983,7 @@ void ay8910_reset_ym(void *chip)
 	psg->count[2] = 0;
 	psg->count_noise = 0;
 	psg->count_env = 0;
-	psg->output_noise = 0x01;
+	psg->prescale_noise = 0;
 	psg->last_enable = -1;	/* force a write */
 	for (i = 0;i < AY_PORTA;i++)
 		ay8910_write_reg(psg,i,0);
@@ -1069,7 +1104,7 @@ int ay8910_read_ym(void *chip)
  *************************************/
 
 //static DEVICE_START( ay8910 )
-int device_start_ay8910(UINT8 ChipID, int clock, unsigned char chip_type, unsigned char Flags)
+/*int device_start_ay8910(UINT8 ChipID, int clock, unsigned char chip_type, unsigned char Flags)
 {
 	static const ay8910_interface generic_ay8910 =
 	{
@@ -1088,6 +1123,30 @@ int device_start_ay8910(UINT8 ChipID, int clock, unsigned char chip_type, unsign
 	ay8910_start_ym(psg, chip_type, clock, &intf);
 	
 	return clock / 8;
+}*/
+int ay8910_start(void **chip, int clock, UINT8 chip_type, UINT8 Flags)
+{
+	static const ay8910_interface generic_ay8910 =
+	{
+		AY8910_LEGACY_OUTPUT,
+		AY8910_DEFAULT_LOADS
+	};
+	ay8910_interface intf = generic_ay8910;
+	ay8910_context *psg = (ay8910_context*)chip;
+	
+	psg = (ay8910_context*)malloc(sizeof(ay8910_context));
+	if(psg == NULL)
+		return 0;
+	memset(psg, 0x00, sizeof(ay8910_context));
+	*chip = psg;
+	
+	intf.flags = Flags;
+	ay8910_start_ym(psg, chip_type, clock, &intf);
+	
+	if (Flags & YM2149_PIN26_LOW)
+		return clock / 16;
+	else
+		return clock / 8;
 }
 
 /*static DEVICE_START( ym2149 )
@@ -1103,7 +1162,7 @@ int device_start_ay8910(UINT8 ChipID, int clock, unsigned char chip_type, unsign
 }*/
 
 //static DEVICE_STOP( ay8910 )
-void device_stop_ay8910(UINT8 ChipID)
+/*void device_stop_ay8910(UINT8 ChipID)
 {
 	ay8910_context *psg = &AY8910Data[ChipID];
 	ay8910_stop_ym(psg);
@@ -1114,7 +1173,7 @@ void device_reset_ay8910(UINT8 ChipID)
 {
 	ay8910_context *psg = &AY8910Data[ChipID];
 	ay8910_reset_ym(psg);
-}
+}*/
 
 /*DEVICE_GET_INFO( ay8910 )
 {
@@ -1214,7 +1273,7 @@ DEVICE_GET_INFO( ymz294 )
  *************************************/
 
 //READ8_DEVICE_HANDLER( ay8910_r )
-UINT8 ay8910_r(UINT8 ChipID, offs_t offset)
+/*UINT8 ay8910_r(UINT8 ChipID, offs_t offset)
 {
 	ay8910_context *psg = &AY8910Data[ChipID];
 	return ay8910_read_ym(psg);
@@ -1224,7 +1283,7 @@ UINT8 ay8910_r(UINT8 ChipID, offs_t offset)
 void ay8910_data_address_w(UINT8 ChipID, offs_t offset, UINT8 data)
 {
 	ay8910_context *psg = &AY8910Data[ChipID];
-	/* note that directly connecting BC1 to A0 puts data on 0 and address on 1 */
+	// note that directly connecting BC1 to A0 puts data on 0 and address on 1
 	ay8910_write_ym(psg, ~offset & 1, data);
 }
 
@@ -1251,7 +1310,7 @@ void ay8910_data_w(UINT8 ChipID, offs_t offset, UINT8 data)
 	return;
 #endif
 	ay8910_data_address_w(ChipID, 0, data);
-}
+}*/
 
 
 void ay8910_set_mute_mask_ym(void *chip, UINT32 MuteMask)
@@ -1265,8 +1324,8 @@ void ay8910_set_mute_mask_ym(void *chip, UINT32 MuteMask)
 	return;
 }
 
-void ay8910_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
+/*void ay8910_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 {
 	ay8910_context *psg = &AY8910Data[ChipID];
 	ay8910_set_mute_mask_ym(psg, MuteMask);
-}
+}*/
