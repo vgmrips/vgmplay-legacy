@@ -13,6 +13,7 @@
 #include <locale.h>	// for setlocale
 #include "stdbool.h"
 #include <math.h>
+#include <errno.h>
 
 #ifdef WIN32
 #include <conio.h>
@@ -1683,12 +1684,19 @@ static bool OpenPlayListFile(const char* FileName)
 	char TempStr[0x1000];	// 4096 chars should be enough
 	char* RetStr;
 	bool IsUTF8;
+	size_t retval;
 	
 	hFile = fopen(FileName, "rt");
 	if (hFile == NULL)
 		return false;
 	
-	fread(TempStr, 0x01, 0x03, hFile);
+	retval = fread(TempStr, 0x01, 0x03, hFile);
+	if (retval != 0x03){
+		fprintf(stderr, "Error while reading playlist file contents (%s): %s\n", FileName, strerror(errno));
+		fclose(hFile);
+		return false;
+	}
+
 	IsUTF8 = ! memcmp(TempStr, UTF8_SIG, 0x03);
 	
 	rewind(hFile);

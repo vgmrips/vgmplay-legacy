@@ -67,6 +67,7 @@
 #include <memory.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include "ymf262.h"
 #include "ymf278b.h"
 
@@ -1098,6 +1099,7 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 	const char* ROM_FILENAME = "yrw801.rom";
 	char* FileName;
 	FILE* hFile;
+	size_t retval;
 	
 	if (! ROMFileSize)
 	{
@@ -1117,8 +1119,10 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 		}
 		if (hFile != NULL)
 		{
-			fread(ROMFile, 0x01, ROMFileSize, hFile);
+			retval = fread(ROMFile, 0x01, ROMFileSize, hFile);
 			fclose(hFile);
+			if (retval != ROMFileSize)
+				fprintf(stderr, "Error while reading OPL4 Sample ROM (%s): %s\n", ROM_FILENAME, strerror(errno));
 		}
 		else
 		{

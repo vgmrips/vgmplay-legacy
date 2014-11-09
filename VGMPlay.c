@@ -31,6 +31,7 @@
 #include <wchar.h>
 #include "stdbool.h"
 #include <math.h>	// for pow()
+#include <errno.h>
 
 #ifdef WIN32
 #include <conio.h>	// for _inp()
@@ -1122,12 +1123,18 @@ UINT32 GetGZFileLength(const char* FileName)
 	FILE* hFile;
 	UINT32 FileSize;
 	UINT16 gzHead;
-	
+	size_t retval;
+
 	hFile = fopen(FileName, "rb");
 	if (hFile == NULL)
 		return 0xFFFFFFFF;
 	
-	fread(&gzHead, 0x02, 0x01, hFile);
+	retval = fread(&gzHead, 0x02, 0x01, hFile);
+	if (retval != 0x01){
+		fprintf(stderr, "Error while reading file header signature (%s): %s\n", FileName, strerror(errno));
+		fclose(hFile);
+		return 0xFFFFFFFF;
+	}
 	
 #ifndef VGM_BIG_ENDIAN
 	if (gzHead != 0x8B1F)
@@ -1143,7 +1150,12 @@ UINT32 GetGZFileLength(const char* FileName)
 	{
 		// .gz File
 		fseek(hFile, -4, SEEK_END);
-		fread(&FileSize, 0x04, 0x01, hFile);
+		retval = fread(&FileSize, 0x04, 0x01, hFile);
+		if (retval != 0x01){
+			fprintf(stderr, "Error while reading gzip file contents (%s): %s\n", FileName, strerror(errno));
+			fclose(hFile);
+			return 0xFFFFFFFF;
+		}
 #ifdef VGM_BIG_ENDIAN
 		FileSize = ReadLE32((UINT8*)&FileSize);
 #endif
