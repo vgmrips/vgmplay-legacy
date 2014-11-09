@@ -77,7 +77,7 @@ EMUOBJS = \
 	$(EMUOBJ)/ymz280b.o
 
 VGMPlay:	$(OBJDIRS) $(MAINOBJS) $(EMUOBJS)
-	$(CC) -lpthread $(MAINOBJS) $(EMUOBJS) -lm -lrt -Wl,-lz -o VGMPlay
+	$(CC) $(MAINOBJS) $(EMUOBJS) -lpthread -lm -lrt -Wl,-lz -o VGMPlay
 
 # compile the main c-files
 $(OBJ)/%.o:	$(SRC)/%.c

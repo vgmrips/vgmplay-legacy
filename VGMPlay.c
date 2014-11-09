@@ -51,7 +51,7 @@
 #endif
 #endif
 
-#include "zlib/zlib.h"
+#include <zlib.h>
 
 #include "chips/mamedef.h"
 

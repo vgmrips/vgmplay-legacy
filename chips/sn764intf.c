@@ -92,8 +92,8 @@ void device_stop_sn764xx(UINT8 ChipID)
 	case EC_MAXIM:
 		SN76489_Shutdown((SN76489_Context*)info->chip);
 		break;
-	}
 #endif
+	}
 }
 
 void device_reset_sn764xx(UINT8 ChipID)
