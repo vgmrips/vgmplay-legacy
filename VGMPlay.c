@@ -1823,7 +1823,6 @@ const char* GetChipName(UINT8 ChipID)
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
 		"SCSP", "C64"};
-	static char TempStr[0x08];
 	
 	if (ChipID < CHIP_COUNT)
 		return CHIP_STRS[ChipID];
@@ -1834,7 +1833,7 @@ const char* GetChipName(UINT8 ChipID)
 const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 {
 	const char* RetStr;
-	static char TempStr[0x10];
+	//static char TempStr[0x10];
 	
 	if ((ChipID & 0x7F) >= CHIP_COUNT)
 		return NULL;
