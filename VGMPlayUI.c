@@ -373,8 +373,9 @@ int main(int argc, char* argv[])
 		ErrRet = SetConsoleCP(ChrPos);			// set input codepage
 		//ErrRet = SetConsoleOutputCP(ChrPos);	// set output codepage (would be a bad idea)
 		
-		fgets(VgmFileName, MAX_PATH, stdin);
-		
+		if (!fgets(VgmFileName, MAX_PATH, stdin))
+			goto ExitProgram;
+
 		// Playing with the console font resets the Console Codepage to OEM, so I have to
 		// convert the file name in this case.
 		if (GetConsoleCP() == GetOEMCP())
@@ -402,7 +403,8 @@ int main(int argc, char* argv[])
 		//	Debug build:	Dynamite D³x [tag display wrong]
 		//	Release build:	Dynamite D³x [tag display wrong]
 #else
-		fgets(VgmFileName, MAX_PATH, stdin);
+		if (!fgets(VgmFileName, MAX_PATH, stdin))
+			goto ExitProgram;
 #endif
 		
 		RemoveNewLines(VgmFileName);
