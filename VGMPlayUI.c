@@ -760,7 +760,8 @@ static void cls(void)
 	// put the cursor at (0, 0)
 	bSuccess = SetConsoleCursorPosition(hConsole, coordScreen);
 #else
-	system("clear");
+	int retval = system("clear");
+	//TODO: get rid of this call to system as it is unsafe (see: https://github.com/vgmrips/vgmplay/issues/3)
 #endif
 	
 	return;
