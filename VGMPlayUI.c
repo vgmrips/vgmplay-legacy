@@ -299,6 +299,10 @@ int main(int argc, char* argv[])
 	
 	// Path 2: exe's directory
 	AppName = GetAppFileName();	// "C:\VGMPlay\VGMPlay.exe"
+
+	if (!AppName)
+		return -1;
+
 	// Note: GetAppFileName always retuens native directory separators.
 	StrPtr = strrchr(AppName, DIR_CHR);
 	if (StrPtr != NULL)
@@ -725,7 +729,11 @@ static char* GetAppFileName(void)
 #ifdef WIN32
 	GetModuleFileName(NULL, AppPath, MAX_PATH);
 #else
-	readlink("/proc/self/exe", AppPath, MAX_PATH);
+	ssize_t retval = readlink("/proc/self/exe", AppPath, MAX_PATH);
+	if (retval == -1){
+		fprintf(stderr, "Error while reading the application filename: %s\n", strerror(errno));
+		return NULL;
+	}
 #endif
 	
 	return AppPath;
