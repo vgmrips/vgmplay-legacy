@@ -1833,7 +1833,6 @@ const char* GetChipName(UINT8 ChipID)
 const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 {
 	const char* RetStr;
-	//static char TempStr[0x10];
 	
 	if ((ChipID & 0x7F) >= CHIP_COUNT)
 		return NULL;
@@ -1880,20 +1879,10 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 	case 0x01:
 		if (ChipID & 0x80)
 		{
-			RetStr = "VRC7";
 			if (SubType == 0xFF)
 				RetStr = "VRC6";
-			/*if (SubType == 0x00)
-			{
-				UINT32 TempData[2];
-				
-				//RetStr = "VRC7";
-				//EncryptChipName(TempData, RetStr, 0x08);
-				TempData[0] = 0x00090F0C;
-				TempData[1] = 0x0007080B;
-				EncryptChipName(TempStr, TempData, 0x08);
-				return TempStr;	// "VRC7"
-			}*/
+			else
+				RetStr = "VRC7";
 		}
 		break;
 	case 0x04:
