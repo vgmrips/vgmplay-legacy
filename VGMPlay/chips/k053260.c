@@ -127,13 +127,14 @@ INLINE int limit( int val, int max, int min )
 //static STREAM_UPDATE( k053260_update )
 void k053260_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 {
-	static const long dpcmcnv[] = { 0,1,2,4,8,16,32,64, -128, -64, -32, -16, -8, -4, -2, -1};
+	static const INT8 dpcmcnv[] = { 0,1,2,4,8,16,32,64, -128, -64, -32, -16, -8, -4, -2, -1};
 
-	int i, j, lvol[4], rvol[4], play[4], loop[4], ppcm_data[4], ppcm[4];
-	unsigned char *rom[4];
+	int i, j, lvol[4], rvol[4], play[4], loop[4], ppcm[4];
+	UINT8 *rom[4];
 	UINT32 delta[4], end[4], pos[4];
+	INT8 ppcm_data[4];
 	int dataL, dataR;
-	signed char d;
+	INT8 d;
 	//k053260_state *ic = (k053260_state *)param;
 	k053260_state *ic = &K053260Data[ChipID];
 
@@ -192,13 +193,14 @@ void k053260_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 								newdata = ( ( rom[i][pos[i] >> BASE_SHIFT] ) ) & 0x0f; /*low nybble*/
 							}
 
-							ppcm_data[i] = (( ( ppcm_data[i] * 62 ) >> 6 ) + dpcmcnv[newdata]);
+							/*ppcm_data[i] = (( ( ppcm_data[i] * 62 ) >> 6 ) + dpcmcnv[newdata]);
 
 							if ( ppcm_data[i] > 127 )
 								ppcm_data[i] = 127;
 							else
 								if ( ppcm_data[i] < -128 )
-									ppcm_data[i] = -128;
+									ppcm_data[i] = -128;*/
+							ppcm_data[i] += dpcmcnv[newdata];
 						}
 
 

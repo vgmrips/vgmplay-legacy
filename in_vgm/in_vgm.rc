@@ -1,0 +1,410 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
+#ifdef _WIN32
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+MainIcon                ICON    DISCARDABLE     "icon.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+TabIcons                BITMAP  DISCARDABLE     "images\\tabicons.bmp"
+LogoBitmap              BITMAP  DISCARDABLE     "images\\logo.bmp"
+#endif    // Neutral resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Deutsch (Deutschland) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_DEU)
+#ifdef _WIN32
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Deutsch (Deutschland) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Englisch (USA) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+DlgCfgTags DIALOG DISCARDABLE  0, 0, 270, 166
+STYLE DS_SETFOREGROUND | DS_3DLOOK | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | 
+    WS_VISIBLE
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX        "Legacy title &formatting",IDC_STATIC,5,5,100,155
+    EDITTEXT        TitleFormatText,10,18,86,12,ES_AUTOHSCROLL
+    LTEXT           "%t\n%a\n%g\n%d\n%s\n%c",IDC_STATIC,10,35,15,51,NOT 
+                    WS_GROUP
+    LTEXT           "Track title*\nTrack author*\nGame name*\nGame release date\nSystem name*\nFile creator",
+                    IDC_STATIC,30,35,65,50,NOT WS_GROUP
+    LTEXT           "* use %?j for Japanese text if available",IDC_STATIC,10,
+                    85,85,20,NOT WS_GROUP
+    LTEXT           "Default:  %t (%g) - %a",IDC_STATIC,10,105,85,10,NOT 
+                    WS_GROUP
+    LTEXT           "Note: this has no effect when Advanced Title Formatting is enabled in Winamp.",
+                    IDC_STATIC,10,120,85,37,NOT WS_GROUP
+    GROUPBOX        "Data formatting",IDC_STATIC,110,5,150,85
+    CONTROL         "Prefer &Japanese text",PreferJapCheck,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,115,15,140,15
+    CONTROL         "Append ""(&FM)"" to YM2413 game titles",FM2413Check,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,115,28,140,15
+    CONTROL         "&Trim whitespace",TrimWhitespcCheck,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,115,44,140,10
+    CONTROL         "Standardise &separators (to ,)",StdSeparatorsCheck,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,115,58,140,10
+    GROUPBOX        "File type",IDC_STATIC,110,110,150,50
+    LTEXT           "Return file &type ID:",IDC_STATIC,115,121,65,12,
+                    SS_CENTERIMAGE | NOT WS_GROUP
+    EDITTEXT        MLTypeText,180,121,74,12,ES_AUTOHSCROLL | ES_NUMBER
+    CTEXT           "0 = audio, 1 = video\nSee the documentation for the usage.",
+                    IDC_STATIC,115,135,140,20,NOT WS_GROUP
+    CONTROL         "Tag fallb&ack in File Info Dialog",TagFallbackCheck,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,115,72,140,10
+END
+
+DlgConfigMain DIALOG DISCARDABLE  0, 0, 286, 210
+STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
+    WS_SYSMENU
+CAPTION "VGM plugin configuration"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    CONTROL         "Immediate &update",ImmediateUpdCheck,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,6,195,83,10
+    PUSHBUTTON      "Help",HelpButton,108,193,52,14,WS_DISABLED
+    PUSHBUTTON      "Cancel",IDCANCEL,169,193,52,14
+    DEFPUSHBUTTON   "OK",IDOK,230,193,52,14
+    CONTROL         "Tab1",TabCollection,"SysTabControl32",TCS_MULTILINE | 
+                    WS_TABSTOP,2,2,280,187
+END
+
+DlgFileInfo DIALOG DISCARDABLE  0, 0, 379, 143
+STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
+    WS_SYSMENU
+CAPTION "VGM File & GD3 Tag Information"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,325,127,52,14
+    GROUPBOX        "Track",IDC_STATIC,2,0,173,40
+    LTEXT           "&Title",IDC_STATIC,7,10,32,12,SS_CENTERIMAGE | NOT 
+                    WS_GROUP
+    EDITTEXT        TrkTitleText,40,10,130,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&Author",IDC_STATIC,7,23,32,12,SS_CENTERIMAGE | NOT 
+                    WS_GROUP
+    EDITTEXT        TrkAuthorText,40,23,130,12,ES_AUTOHSCROLL | ES_READONLY
+    GROUPBOX        "Game",IDC_STATIC,2,40,173,52
+    LTEXT           "Na&me",IDC_STATIC,7,49,32,12,SS_CENTERIMAGE | NOT 
+                    WS_GROUP
+    EDITTEXT        GameNameText,40,49,130,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&System",IDC_STATIC,7,62,32,12,SS_CENTERIMAGE | NOT 
+                    WS_GROUP
+    EDITTEXT        GameSysText,40,62,130,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&Date",IDC_STATIC,7,75,32,12,SS_CENTERIMAGE | NOT 
+                    WS_GROUP
+    EDITTEXT        GameDateText,40,75,130,12,ES_AUTOHSCROLL | ES_READONLY
+    GROUPBOX        "VGM file",IDC_STATIC,179,0,198,125
+    LTEXT           "&Filename",IDC_STATIC,185,10,39,12,SS_CENTERIMAGE | NOT 
+                    WS_GROUP
+    EDITTEXT        VGMFileText,224,10,101,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&Creator",IDC_STATIC,185,23,39,12,SS_CENTERIMAGE
+    EDITTEXT        VGMCrtText,224,23,101,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&Version",IDC_STATIC,185,36,39,12,SS_CENTERIMAGE
+    EDITTEXT        VGMVerText,224,36,23,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&Gain",IDC_STATIC,259,36,31,12,SS_CENTERIMAGE
+    EDITTEXT        VGMGainText,290,36,35,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "Si&ze",IDC_STATIC,185,49,39,12,SS_CENTERIMAGE
+    EDITTEXT        VGMSizeText,224,49,101,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&Length",IDC_STATIC,185,62,39,12,SS_CENTERIMAGE
+    EDITTEXT        VGMLenText,224,62,148,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "&Notes:",IDC_STATIC,185,77,39,8
+    EDITTEXT        VGMNotesText,185,87,188,34,ES_MULTILINE | ES_READONLY | 
+                    WS_VSCROLL
+    LTEXT           "Chips &used:",IDC_STATIC,329,10,39,12,SS_CENTERIMAGE | 
+                    NOT WS_GROUP
+    EDITTEXT        ChipUseText,329,23,42,39,ES_MULTILINE | ES_READONLY | 
+                    NOT WS_BORDER
+    GROUPBOX        "Language",IDC_STATIC,123,92,52,33
+    CONTROL         "&English",LangEngCheck,"Button",BS_AUTORADIOBUTTON | 
+                    WS_TABSTOP,127,103,39,8
+    CONTROL         "&Japanese",LangJapCheck,"Button",BS_AUTORADIOBUTTON | 
+                    WS_TABSTOP,127,113,43,8
+    PUSHBUTTON      "View in &browser",BrwsrInfoButton,123,127,80,14,
+                    WS_DISABLED
+    PUSHBUTTON      "Configure &plugin...",ConfigPluginButton,206,127,80,14
+    CONTROL         103,IDC_STATIC,"Static",SS_BITMAP | SS_REALSIZEIMAGE,2,
+                    95,119,46
+END
+
+DlgCfgPlayback DIALOG DISCARDABLE  0, 0, 270, 166
+STYLE DS_SETFOREGROUND | DS_3DLOOK | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | 
+    WS_VISIBLE
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX        "Sample Rates",IDC_STATIC,5,5,257,40
+    LTEXT           "&Playback Rate",IDC_STATIC,11,16,54,10,NOT WS_GROUP
+    EDITTEXT        SmplPbRateText,65,14,33,12,ES_RIGHT | ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "Hz",IDC_STATIC,102,16,15,10,NOT WS_GROUP
+    LTEXT           "Re&sampling Mode",IDC_STATIC,117,16,59,10,NOT WS_GROUP
+    COMBOBOX        ResmpModeList,182,14,74,43,CBS_DROPDOWNLIST | WS_TABSTOP
+    LTEXT           "C&hip Rate",SmplChipRateLabel,11,30,54,10,NOT WS_GROUP
+    EDITTEXT        SmplChipRateText,65,29,33,12,ES_RIGHT | ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "Hz",SmplChipRateHzLabel,102,31,15,10,NOT WS_GROUP
+    LTEXT           "Chip Sample &Mode",IDC_STATIC,117,31,59,10,NOT WS_GROUP
+    COMBOBOX        ChipSmpModeList,182,29,74,43,CBS_DROPDOWNLIST | 
+                    WS_TABSTOP
+    CONTROL         """S&urround"" Sound",SurroundCheck,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,5,52,85,10
+    GROUPBOX        "Loops",IDC_STATIC,5,66,150,45
+    LTEXT           "Play &loops",IDC_STATIC,11,79,38,10,NOT WS_GROUP
+    EDITTEXT        LoopText,49,77,27,12,ES_RIGHT | ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "times",LoopTimesLabel,81,79,22,10,NOT WS_GROUP
+    LTEXT           "(0 = infinite)",IDC_STATIC,107,79,38,10,NOT WS_GROUP
+    LTEXT           "&Fade over",IDC_STATIC,11,93,38,10,NOT WS_GROUP
+    EDITTEXT        FadeText,49,91,27,12,ES_RIGHT | ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "ms",IDC_STATIC,81,93,22,10,NOT WS_GROUP
+    GROUPBOX        "Pause between tracks",IDC_STATIC,5,115,100,45
+    LTEXT           "&Non-looping",IDC_STATIC,11,127,38,10,NOT WS_GROUP
+    EDITTEXT        PauseNlText,54,126,27,12,ES_RIGHT | ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "ms",IDC_STATIC,86,128,15,10,NOT WS_GROUP
+    LTEXT           "Loop&ing",IDC_STATIC,11,143,38,10,NOT WS_GROUP
+    EDITTEXT        PauseLpText,54,141,27,12,ES_RIGHT | ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "ms",IDC_STATIC,86,143,15,10,NOT WS_GROUP
+    GROUPBOX        "Playback rate",IDC_STATIC,165,48,97,63
+    CONTROL         "&Recorded rate",RateRecRadio,"Button",
+                    BS_AUTORADIOBUTTON,171,59,65,10
+    CONTROL         "&60 Hz",Rate60HzRadio,"Button",BS_AUTORADIOBUTTON,171,
+                    71,36,10
+    CONTROL         "&50 Hz",Rate50HzRadio,"Button",BS_AUTORADIOBUTTON,171,
+                    83,36,10
+    CONTROL         "&Other:",RateOtherRadio,"Button",BS_AUTORADIOBUTTON | 
+                    WS_TABSTOP,171,95,35,10
+    EDITTEXT        RateText,208,94,22,12,ES_RIGHT | ES_AUTOHSCROLL | 
+                    ES_NUMBER
+    LTEXT           "Hz",RateLabel,235,96,17,10,NOT WS_GROUP
+    GROUPBOX        "&Volume",IDC_STATIC,115,115,147,45
+    CONTROL         "Slider1",VolumeSlider,"msctls_trackbar32",TBS_AUTOTICKS | 
+                    WS_TABSTOP,117,126,143,15
+    EDITTEXT        VolumeText,156,146,65,12,ES_CENTER | ES_AUTOHSCROLL | 
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
+END
+
+DlgCfgVgm7z DIALOG DISCARDABLE  0, 0, 270, 166
+STYLE DS_SETFOREGROUND | DS_3DLOOK | DS_CONTROL | WS_CHILD | WS_VISIBLE
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "vgm7z-files are currently not supported.\n\nBut this will change someday.",
+                    IDC_STATIC,5,5,245,35
+END
+
+DlgCfgMuting DIALOG DISCARDABLE  0, 0, 270, 166
+STYLE DS_SETFOREGROUND | DS_3DLOOK | DS_CONTROL | WS_CHILD | WS_VISIBLE
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "&Select Chip:",IDC_STATIC,10,12,50,10
+    COMBOBOX        MutingChipList,60,10,60,80,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        MutingChipNumList,130,10,60,80,CBS_DROPDOWNLIST | 
+                    WS_TABSTOP
+    CONTROL         "Channel &1",MuteChn1Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,30,65,10
+    CONTROL         "Channel &2",MuteChn2Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,45,65,10
+    CONTROL         "Channel &3",MuteChn3Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,60,65,10
+    CONTROL         "Channel &4",MuteChn4Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,75,65,10
+    CONTROL         "Channel &5",MuteChn5Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,90,65,10
+    CONTROL         "Channel &6",MuteChn6Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,105,65,10
+    CONTROL         "Channel &7",MuteChn7Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,120,65,10
+    CONTROL         "Channel &8",MuteChn8Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,20,135,65,10
+    CONTROL         "Channel &9",MuteChn9Check,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,100,30,65,10
+    CONTROL         "Channel 10 (&A)",MuteChn10Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,100,45,65,10
+    CONTROL         "Channel 11 (&B)",MuteChn11Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,100,60,65,10
+    CONTROL         "Channel 12 (&C)",MuteChn12Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,100,75,65,10
+    CONTROL         "Channel 13 (&D)",MuteChn13Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,100,90,65,10
+    CONTROL         "Channel 14 (&E)",MuteChn14Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,100,105,65,10
+    CONTROL         "Channel 15 (&F)",MuteChn15Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,100,120,65,10
+    CONTROL         "Channel 16 (&G)",MuteChn16Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,100,135,65,10
+    CONTROL         "Channel 17 (&H)",MuteChn17Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,30,65,10
+    CONTROL         "Channel 18 (&I)",MuteChn18Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,45,65,10
+    CONTROL         "Channel 19 (&J)",MuteChn19Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,60,65,10
+    CONTROL         "Channel 20 (&K)",MuteChn20Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,75,65,10
+    CONTROL         "Channel 21 (&L)",MuteChn21Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,90,65,10
+    CONTROL         "Channel 22 (&M)",MuteChn22Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,105,65,10
+    CONTROL         "Channel 23 (&N)",MuteChn23Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,120,65,10
+    CONTROL         "Channel 24 (&O)",MuteChn24Check,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,135,65,10
+    CONTROL         "&Reset on track change",ResetMuteCheck,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,10,155,115,10
+    CONTROL         "Disable Chip (&X)",MuteChipCheck,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,180,155,70,10
+END
+
+DlgCfgOptPan DIALOG DISCARDABLE  0, 0, 270, 166
+STYLE DS_SETFOREGROUND | DS_3DLOOK | DS_CONTROL | WS_CHILD | WS_VISIBLE
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "&Select Chip:",IDC_STATIC,10,12,50,10
+    COMBOBOX        EmuOptChipList,60,10,60,80,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    COMBOBOX        EmuOptChipNumList,130,10,60,80,CBS_DROPDOWNLIST | 
+                    WS_TABSTOP
+    GROUPBOX        "E&mulation Core",IDC_STATIC,10,30,245,30
+    CONTROL         "Default Core",EmuCoreRadio1,"Button",BS_AUTORADIOBUTTON,
+                    20,43,105,10
+    CONTROL         "Alternative Core",EmuCoreRadio2,"Button",
+                    BS_AUTORADIOBUTTON,135,43,110,10
+    GROUPBOX        "Panning",IDC_STATIC,10,65,245,95
+    LTEXT           "&1",PanChn1Label,20,80,10,8
+    CONTROL         "Slider1",PanChn1Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,30,80,60,10
+    LTEXT           "&2",PanChn2Label,20,95,10,8
+    CONTROL         "Slider1",PanChn2Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,30,95,60,10
+    LTEXT           "&3",PanChn3Label,20,110,10,8
+    CONTROL         "Slider1",PanChn3Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,30,110,60,10
+    LTEXT           "&4",PanChn4Label,20,125,10,8
+    CONTROL         "Slider1",PanChn4Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,30,125,60,10
+    LTEXT           "&5",PanChn5Label,20,140,10,8
+    CONTROL         "Slider1",PanChn5Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,30,140,60,10
+    LTEXT           "&6",PanChn6Label,95,80,10,8
+    CONTROL         "Slider1",PanChn6Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,105,80,60,10
+    LTEXT           "&7",PanChn7Label,95,95,10,8
+    CONTROL         "Slider1",PanChn7Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,105,95,60,10
+    LTEXT           "&8",PanChn8Label,95,110,10,8
+    CONTROL         "Slider1",PanChn8Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,105,110,60,10
+    LTEXT           "&9",PanChn9Label,95,125,10,8
+    CONTROL         "Slider1",PanChn9Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,105,125,60,10
+    LTEXT           "&A",PanChn10Label,95,140,10,8
+    CONTROL         "Slider1",PanChn10Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,105,140,60,10
+    LTEXT           "&B",PanChn11Label,175,80,10,8
+    CONTROL         "Slider1",PanChn11Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,185,80,60,10
+    LTEXT           "&C",PanChn12Label,175,95,10,8
+    CONTROL         "Slider1",PanChn12Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,185,95,60,10
+    LTEXT           "&D",PanChn13Label,175,110,10,8
+    CONTROL         "Slider1",PanChn13Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,185,110,60,10
+    LTEXT           "&E",PanChn14Label,175,125,10,8
+    CONTROL         "Slider1",PanChn14Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,185,125,60,10
+    LTEXT           "&F",PanChn15Label,175,140,10,8
+    CONTROL         "Slider1",PanChn15Slider,"msctls_trackbar32",
+                    TBS_AUTOTICKS | WS_TABSTOP,185,140,60,10
+END
+
+#endif    // Englisch (USA) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

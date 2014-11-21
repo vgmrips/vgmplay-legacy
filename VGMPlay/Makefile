@@ -136,6 +136,9 @@ EMUOBJS = \
 	$(EMUOBJ)/ym2413hd.o \
 	$(EMUOBJ)/ym2413_opl.o
 
+
+all:	vgmplay
+
 vgmplay:	$(OBJDIRS) $(EMUOBJS) $(MAINOBJS)
 	@echo Linking ...
 	@$(CC) $(MAINOBJS) $(EMUOBJS) $(LDFLAGS) -o vgmplay
@@ -163,7 +166,7 @@ clean:
 install:	vgmplay
 	install -m 755 vgmplay $(DESTDIR)$(PREFIX)/bin/vgmplay
 	install -m 644 vgmplay.1 $(DESTDIR)$(MANPREFIX)/man1/vgmplay.1
-	mkdir -m 644 -p $(DESTDIR)$(PREFIX)/share/vgmplay
+	mkdir -m 755 -p $(DESTDIR)$(PREFIX)/share/vgmplay
 	install -m 644 VGMPlay.ini $(DESTDIR)$(PREFIX)/share/vgmplay/vgmplay.ini
 	-install -m 644 yrw801.rom $(DESTDIR)$(PREFIX)/share/vgmplay/yrw801.rom
 

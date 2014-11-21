@@ -1123,42 +1123,36 @@ UINT32 GetGZFileLength(const char* FileName)
 	FILE* hFile;
 	UINT32 FileSize;
 	UINT16 gzHead;
-	size_t retval;
-
+	size_t RetVal;
+	
 	hFile = fopen(FileName, "rb");
 	if (hFile == NULL)
 		return 0xFFFFFFFF;
 	
-	retval = fread(&gzHead, 0x02, 0x01, hFile);
-	if (retval != 0x01){
-		fprintf(stderr, "Error while reading file header signature (%s): %s\n", FileName, strerror(errno));
-		fclose(hFile);
-		return 0xFFFFFFFF;
-	}
-	
-#ifndef VGM_BIG_ENDIAN
-	if (gzHead != 0x8B1F)
-#else
-	if (gzHead != 0x1F8B)
+	RetVal = fread(&gzHead, 0x02, 0x01, hFile);
+	if (RetVal >= 1)
+	{
+		gzHead = ReadBE16((UINT8*)&gzHead);
+		if (gzHead != 0x1F8B)
+		{
+			RetVal = 0;	// no .gz signature - treat as normal file
+		}
+		else
+		{
+			// .gz File
+			fseek(hFile, -4, SEEK_END);
+			// Note: In the error case it falls back to fseek/ftell.
+			RetVal = fread(&FileSize, 0x04, 0x01, hFile);
+#ifdef VGM_BIG_ENDIAN
+			FileSize = ReadLE32((UINT8*)&FileSize);
 #endif
+		}
+	}
+	if (RetVal <= 0)
 	{
 		// normal file
 		fseek(hFile, 0x00, SEEK_END);
 		FileSize = ftell(hFile);
-	}
-	else
-	{
-		// .gz File
-		fseek(hFile, -4, SEEK_END);
-		retval = fread(&FileSize, 0x04, 0x01, hFile);
-		if (retval != 0x01){
-			fprintf(stderr, "Error while reading gzip file contents (%s): %s\n", FileName, strerror(errno));
-			fclose(hFile);
-			return 0xFFFFFFFF;
-		}
-#ifdef VGM_BIG_ENDIAN
-		FileSize = ReadLE32((UINT8*)&FileSize);
-#endif
 	}
 	
 	fclose(hFile);
@@ -1783,38 +1777,6 @@ UINT32 CalcSampleMSecExt(UINT64 Value, UINT8 Mode, VGM_HEADER* FileHead)
 	return RetVal;
 }
 
-static UINT32 EncryptChipName(void* DstBuf, const void* SrcBuf, UINT32 Length)
-{
-	// using nineko's awesome encryption algorithm
-	// http://forums.sonicretro.org/index.php?showtopic=25300
-	// based on C code by sasuke
-	const UINT8* SrcPos;
-	UINT8* DstPos;
-	UINT32 CurPos;
-	UINT8 CryptShift;	// Src Bit/Dst Byte
-	UINT8 PlainShift;	// Src Byte/Dst Bit
-	
-	if (Length & 0x07)
-		return 0x00;	// Length MUST be a multiple of 8
-	
-	SrcPos = (const UINT8*)SrcBuf;
-	DstPos = (UINT8*)DstBuf;
-	for (CurPos = 0; CurPos < Length; CurPos += 8, SrcPos += 8, DstPos += 8)
-	{
-		for (CryptShift = 0; CryptShift < 8; CryptShift ++)
-		{
-			DstPos[CryptShift] = 0x00;
-			for (PlainShift = 0; PlainShift < 8; PlainShift ++)
-			{
-				if (SrcPos[PlainShift] & (1 << CryptShift))
-					DstPos[CryptShift] |= (1 << PlainShift);
-			}
-		}
-	}
-	
-	return Length;
-}
-
 const char* GetChipName(UINT8 ChipID)
 {
 	const char* CHIP_STRS[CHIP_COUNT] = 
@@ -1822,7 +1784,7 @@ const char* GetChipName(UINT8 ChipID)
 		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B", "YMF271", "YMZ280B",
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
-		"SCSP", "C64"};
+		"SCSP"};
 	
 	if (ChipID < CHIP_COUNT)
 		return CHIP_STRS[ChipID];
@@ -1879,10 +1841,9 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 	case 0x01:
 		if (ChipID & 0x80)
 		{
+			RetStr = "VRC7";
 			if (SubType == 0xFF)
 				RetStr = "VRC6";
-			else
-				RetStr = "VRC7";
 		}
 		break;
 	case 0x04:
@@ -1940,10 +1901,9 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 		{
 		case 0x00:
 		case 0x01:
-		case 0x02:
 			RetStr = "C140";
 			break;
-		case 0x03:
+		case 0x02:
 			RetStr = "C140 (219)";
 			break;
 		}

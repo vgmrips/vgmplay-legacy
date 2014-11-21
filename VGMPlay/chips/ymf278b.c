@@ -67,7 +67,6 @@
 #include <memory.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 #include "ymf262.h"
 #include "ymf278b.h"
 
@@ -773,8 +772,10 @@ static void ymf278b_A_w(YMF278BChip *chip, UINT8 reg, UINT8 data)
 //#ifdef _DEBUG
 //			logerror("YMF278B:  Port A write %02x, %02x\n", reg, data);
 //#endif
-			ymf262_write(chip->fmchip, reg, data);
-			if ((reg & 0xF0) == 0xB0 && (data & 0x20))
+			ymf262_write(chip->fmchip, 1, data);
+			if ((reg & 0xF0) == 0xB0 && (data & 0x20))	// Key On set
+				chip->FMEnabled = 0x01;
+			else if (reg == 0xBD && (data & 0x1F))	// one of the Rhythm bits set
 				chip->FMEnabled = 0x01;
 			break;
 	}
@@ -786,10 +787,10 @@ static void ymf278b_B_w(YMF278BChip *chip, UINT8 reg, UINT8 data)
 	{
 		case 0x05:	// OPL3/OPL4 Enable
 			// actually Bit 1 enables OPL4 WaveTable Synth
-			ymf262_write(chip->fmchip, reg, data & ~0x02);
+			ymf262_write(chip->fmchip, 3, data & ~0x02);
 			break;
 		default:
-			ymf262_write(chip->fmchip, reg, data);
+			ymf262_write(chip->fmchip, 3, data);
 			if ((reg & 0xF0) == 0xB0 && (data & 0x20))
 				chip->FMEnabled = 0x01;
 			break;
@@ -1099,7 +1100,7 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 	const char* ROM_FILENAME = "yrw801.rom";
 	char* FileName;
 	FILE* hFile;
-	size_t retval;
+	size_t RetVal;
 	
 	if (! ROMFileSize)
 	{
@@ -1119,10 +1120,10 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 		}
 		if (hFile != NULL)
 		{
-			retval = fread(ROMFile, 0x01, ROMFileSize, hFile);
+			RetVal = fread(ROMFile, 0x01, ROMFileSize, hFile);
 			fclose(hFile);
-			if (retval != ROMFileSize)
-				fprintf(stderr, "Error while reading OPL4 Sample ROM (%s): %s\n", ROM_FILENAME, strerror(errno));
+			if (RetVal != ROMFileSize)
+				printf("Error while reading OPL4 Sample ROM (%s)!\n", ROM_FILENAME);
 		}
 		else
 		{
@@ -1145,7 +1146,7 @@ static void ymf278b_init(YMF278BChip *chip, int clock, void (*cb)(int))
 	if (((CHIP_SAMPLING_MODE & 0x01) && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		rate = CHIP_SAMPLE_RATE;
-	chip->fmchip = ymf262_init(clock, rate);
+	chip->fmchip = ymf262_init(clock * 8 / 19, rate);
 	chip->FMEnabled = 0x00;
 	
 	chip->rom = NULL;

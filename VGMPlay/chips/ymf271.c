@@ -548,7 +548,9 @@ INLINE void update_lfo(YMF271Chip *chip, YMF271Slot *slot)
 
 INLINE int calculate_slot_volume(YMF271Chip *chip, YMF271Slot *slot)
 {
-	INT64 volume;
+	// Note: Actually everyone of these stores only INT32 (16.16 fixed point),
+	//       but the calculations need INT64.
+	INT32 volume;
 	INT64 env_volume;
 	INT64 lfo_volume = 65536;
 

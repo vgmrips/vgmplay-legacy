@@ -13,7 +13,6 @@
 #include <locale.h>	// for setlocale
 #include "stdbool.h"
 #include <math.h>
-#include <errno.h>
 
 #ifdef WIN32
 #include <conio.h>
@@ -299,11 +298,7 @@ int main(int argc, char* argv[])
 	
 	// Path 2: exe's directory
 	AppName = GetAppFileName();	// "C:\VGMPlay\VGMPlay.exe"
-
-	if (!AppName)
-		return -1;
-
-	// Note: GetAppFileName always retuens native directory separators.
+	// Note: GetAppFileName always returns native directory separators.
 	StrPtr = strrchr(AppName, DIR_CHR);
 	if (StrPtr != NULL)
 	{
@@ -377,9 +372,10 @@ int main(int argc, char* argv[])
 		ErrRet = SetConsoleCP(ChrPos);			// set input codepage
 		//ErrRet = SetConsoleOutputCP(ChrPos);	// set output codepage (would be a bad idea)
 		
-		if (!fgets(VgmFileName, MAX_PATH, stdin))
-			goto ExitProgram;
-
+		StrPtr = fgets(VgmFileName, MAX_PATH, stdin);
+		if (StrPtr == NULL)
+			VgmFileName[0] = '\0';
+		
 		// Playing with the console font resets the Console Codepage to OEM, so I have to
 		// convert the file name in this case.
 		if (GetConsoleCP() == GetOEMCP())
@@ -407,8 +403,9 @@ int main(int argc, char* argv[])
 		//	Debug build:	Dynamite D³x [tag display wrong]
 		//	Release build:	Dynamite D³x [tag display wrong]
 #else
-		if (!fgets(VgmFileName, MAX_PATH, stdin))
-			goto ExitProgram;
+		StrPtr = fgets(VgmFileName, MAX_PATH, stdin);
+		if (StrPtr == NULL)
+			VgmFileName[0] = '\0';
 #endif
 		
 		RemoveNewLines(VgmFileName);
@@ -724,16 +721,17 @@ static void WinNT_Check(void)
 static char* GetAppFileName(void)
 {
 	char* AppPath;
+	int RetVal;
 	
 	AppPath = (char*)malloc(MAX_PATH * sizeof(char));
 #ifdef WIN32
-	GetModuleFileName(NULL, AppPath, MAX_PATH);
+	RetVal = GetModuleFileName(NULL, AppPath, MAX_PATH);
+	if (! RetVal)
+		AppPath[0] = '\0';
 #else
-	ssize_t retval = readlink("/proc/self/exe", AppPath, MAX_PATH);
-	if (retval == -1){
-		fprintf(stderr, "Error while reading the application filename: %s\n", strerror(errno));
-		return NULL;
-	}
+	RetVal = readlink("/proc/self/exe", AppPath, MAX_PATH);
+	if (RetVal == -1)
+		AppPath[0] = '\0';
 #endif
 	
 	return AppPath;
@@ -770,8 +768,7 @@ static void cls(void)
 	// put the cursor at (0, 0)
 	bSuccess = SetConsoleCursorPosition(hConsole, coordScreen);
 #else
-	int retval = system("clear");
-	//TODO: get rid of this call to system as it is unsafe (see: https://github.com/vgmrips/vgmplay/issues/3)
+	system("clear");
 #endif
 	
 	return;
@@ -1299,7 +1296,7 @@ static void ReadOptions(const char* AppName)
 						else if (! stricmp_u(LStr, "MuteMask_PCM"))
 						{
 							TempCOpt->ChnMute2 = strtoul(RStr, NULL, 0);
-							TempCOpt->ChnMute2 &= (1 << CHN_MASK_CNT[CurChip]) - 1;
+							TempCOpt->ChnMute2 &= (1 << (CHN_MASK_CNT[CurChip] + 1)) - 1;
 						}
 						else if (! strnicmp_u(LStr, "MuteFMCh", 0x08))
 						{
@@ -1384,15 +1381,16 @@ static void ReadOptions(const char* AppName)
 						}
 						else if (! strnicmp_u(LStr, "MuteFM", 0x06))
 						{
-							if (! stricmp_u(LStr + 4, "BD"))
+							CurChn = 0xFF;
+							if (! stricmp_u(LStr + 6, "BD"))
 								CurChn = 0x00;
-							else if (! stricmp_u(LStr + 4, "SD"))
+							else if (! stricmp_u(LStr + 6, "SD"))
 								CurChn = 0x01;
-							else if (! stricmp_u(LStr + 4, "TOM"))
+							else if (! stricmp_u(LStr + 6, "TOM"))
 								CurChn = 0x02;
-							else if (! stricmp_u(LStr + 4, "TC"))
+							else if (! stricmp_u(LStr + 6, "TC"))
 								CurChn = 0x03;
-							else if (! stricmp_u(LStr + 4, "HH"))
+							else if (! stricmp_u(LStr + 6, "HH"))
 								CurChn = 0x04;
 							if (CurChn != 0xFF)
 							{
@@ -1687,6 +1685,7 @@ static bool OpenPlayListFile(const char* FileName)
 	const char M3UV2_META[] = "#EXTINF:";
 	const UINT8 UTF8_SIG[] = {0xEF, 0xBB, 0xBF};
 	UINT32 METASTR_LEN;
+	size_t RetVal;
 	
 	FILE* hFile;
 	UINT32 LineNo;
@@ -1695,20 +1694,16 @@ static bool OpenPlayListFile(const char* FileName)
 	char TempStr[0x1000];	// 4096 chars should be enough
 	char* RetStr;
 	bool IsUTF8;
-	size_t retval;
 	
 	hFile = fopen(FileName, "rt");
 	if (hFile == NULL)
 		return false;
 	
-	retval = fread(TempStr, 0x01, 0x03, hFile);
-	if (retval != 0x03){
-		fprintf(stderr, "Error while reading playlist file contents (%s): %s\n", FileName, strerror(errno));
-		fclose(hFile);
-		return false;
-	}
-
-	IsUTF8 = ! memcmp(TempStr, UTF8_SIG, 0x03);
+	RetVal = fread(TempStr, 0x01, 0x03, hFile);
+	if (RetVal >= 0x03)
+		IsUTF8 = ! memcmp(TempStr, UTF8_SIG, 0x03);
+	else
+		IsUTF8 = false;
 	
 	rewind(hFile);
 	

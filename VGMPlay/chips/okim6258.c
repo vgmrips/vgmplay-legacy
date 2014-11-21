@@ -492,6 +492,7 @@ static void okim6258_ctrl_w(UINT8 ChipID, /*offs_t offset, */UINT8 data)
 			info->signal = -2;
 			info->step = 0;
 			info->nibble_shift = 0;
+			info->data_empty = 0x80;
 		}
 		// Resetting the ADPCM sample always seems to reduce the clicks and improves the waveform.
 		// For games that don't use the Multichannel ADPCM driver (whose waveform looks horrible anyway),

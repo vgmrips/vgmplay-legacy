@@ -82,3 +82,16 @@ Updates since 0.4.0u4 (02.11.2013)
 - VGMs using the OKIM6258 or OKIM6295 are now half as loud (affects global volume only, not chip-relative volume)
 - [VGMPlay] fixed crash that happened on Linux when trying to display a large Notes tag (thanks to vampi-the-frog for the report)
 - OKIM6258 lowers its output signal faster if there's no incoming data (reduces clicks)
+
+Updates since 0.4.0u5 (13.04.2014)
+- fixed panning in AdLibEmu with 4-op instruments (it used the bits from Channel+0 instead of Channel+3)
+- fixed panning in AdLibEmu for rhythm channels
+- [VGMPlay] fixed YM2608/YM2610 DeltaT-channel not being muteable via MuteMask_PCM
+- [VGMPlay] fixed muting of YM278B's FM drums
+- applied MAME YM2612 Timer fix (said to fix SFX in Streets of Rage 2, see MAME Testers 05049)
+- fixed C140 sub chip type and C140/System 21 banking (using current MAME code)
+- added code to handle "real" C140 clock
+- fixed "make install" (the share/vgmplay/ folder was created without "execute" rights for users)
+- improved OKIM6258 data cache (should reduce clicks a bit)
+- fixed OPL3 register writes in YMF278B and OPL3 chip clock
+- applied MAME K053260 DPCM decoding fix

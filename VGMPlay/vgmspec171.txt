@@ -212,7 +212,7 @@ The format starts with a 256 byte header:
 0x7C: Volume Modifier (8 bits)
         Volume = 2 ^ (VolumeModifier / 0x20) where VolumeModifier is a number
         from -63 to 192 (-63 = 0xC1, 0 = 0x00, 192 = 0xC0). Also the value -63
-        gets replaces with -64 in order to get make factor of 0.25 possible.
+        gets replaced with -64 in order to make factor of 0.25 possible.
         Therefore the volume can reach levels between 0.25 and 64.
         Default is 0, which is equal to a factor of 1 or 100%.
         Note: Players should support the Volume Modifier in v1.50 files and
@@ -273,15 +273,14 @@ The format starts with a 256 byte header:
 0x96: C140 Chip Type (8 bits)
         Defines the exact type of C140 and its banking method. The values are:
         0x00 - C140, Namco System 2
-        0x01 - C140, Namco System 21a
-        0x02 - C140, Namco System 21b
-        0x03 - 219 ASIC, Namco NA-1/2
+        0x01 - C140, Namco System 21
+        0x02 - 219 ASIC, Namco NA-1/2
         If the C140 is not used then this may be omitted (left at zero).
 0x97: reserved
         Reserved byte for future use. It must be 0.
 0x98: OKIM6295 clock (32 bits)
         Input clock rate in Hz for the OKIM6295 chip. A typical value is
-        4000000. It should be 0 if there is no OKIM6295 chip used.
+        8000000. It should be 0 if there is no OKIM6295 chip used.
 0x9C: K051649 clock (32 bits)
         Input clock rate in Hz for the K051649 chip. A typical value is
         1500000. It should be 0 if there is no K051649 chip used.
@@ -305,10 +304,10 @@ The format starts with a 256 byte header:
         It should be 0 if there is no QSound chip used.
 [VGM 1.71 additions:]
 0xB8: SCSP clock (32 bits)
-        Input clock rate in Hz for the SCSP chip. A typical value is 44100.
+        Input clock rate in Hz for the SCSP chip. A typical value is 22579200.
         It should be 0 if there is no SCSP chip used.
 [VGM 1.70 additions:]
-0xBC: Extra Header Offset
+0xBC: Extra Header Offset (32 bits)
         Relative offset to the extra header or 0 if no extra header is present.
 [VGM 1.71 additions:]
 0xC0: reserved
@@ -360,23 +359,23 @@ written to the chips or timing information. A command is one of:
   0xB1 aa dd : RF5C164, write value dd to register aa
   0xB2 ad dd : PWM, write value ddd to register a (d is MSB, dd is LSB)
   0xB3 aa dd : GameBoy DMG, write value dd to register aa
-               Note: The register 00 equals to GameBoy address FF10.
+               Note: Register 00 equals GameBoy address FF10.
   0xB4 aa dd : NES APU, write value dd to register aa
-               Note: Registers 00-1F equal to NES address 4000-401F,
-                     registers 20-3E equal to NES address 4080-409E,
-                     register 3F equals to NES address 4023,
-                     registers 40-7F equal to NES address 4040-407F.
+               Note: Registers 00-1F equal NES address 4000-401F,
+                     registers 20-3E equal NES address 4080-409E,
+                     register 3F equals NES address 4023,
+                     registers 40-7F equal NES address 4040-407F.
   0xB5 aa dd : MultiPCM, write value dd to register aa
   0xB6 aa dd : uPD7759, write value dd to register aa
-  0xB7 aa dd : OKIM	6258, write value dd to register aa
+  0xB7 aa dd : OKIM6258, write value dd to register aa
   0xB8 aa dd : OKIM6295, write value dd to register aa
   0xB9 aa dd : HuC6280, write value dd to register aa
   0xBA aa dd : K053260, write value dd to register aa
   0xBB aa dd : Pokey, write value dd to register aa
-  0xC0 aaaa dd : Sega PCM, write value dd to memory offset aaaa
-  0xC1 aaaa dd : RF5C68, write value dd to memory offset aaaa
-  0xC2 aaaa dd : RF5C164, write value dd to memory offset aaaa
-  0xC3 cc aaaa : MultiPCM, write set bank offset aaaa to channel cc
+  0xC0 bbaa dd : Sega PCM, write value dd to memory offset aabb
+  0xC1 bbaa dd : RF5C68, write value dd to memory offset aabb
+  0xC2 bbaa dd : RF5C164, write value dd to memory offset aabb
+  0xC3 cc bbaa : MultiPCM, write set bank offset aabb to channel cc
   0xC4 mmll rr : QSound, write value mmll to register rr
                  (mm - data MSB, ll - data LSB)
   0xC5 mmll dd : SCSP, write value dd to memory offset mmll
@@ -624,7 +623,7 @@ Dual chip support is activated by setting bit 30 (0x40000000) in the chip's
 clock value. (Note: The PSG needs this bit set for T6W28 mode.)
 
 Dual Chip Support #1:
-The second chip instance is controlled via seperate commands.
+The second chip instance is controlled via separate commands.
 
 The second SN76489 PSG uses 0x30 (0x3F for GG Stereo).
 All chips of the YM-family that use command 0x5n use 0xAn for the second chip.

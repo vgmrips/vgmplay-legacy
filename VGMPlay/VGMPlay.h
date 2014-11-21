@@ -8,7 +8,7 @@
 #define VGM_VER_STR		"1.70"
 #define VGM_VER_NUM		0x170
 
-#define CHIP_COUNT	0x22
+#define CHIP_COUNT	0x21
 typedef struct chip_options
 {
 	bool Disabled;
