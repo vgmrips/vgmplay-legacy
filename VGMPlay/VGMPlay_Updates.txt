@@ -91,7 +91,12 @@ Updates since 0.4.0u5 (13.04.2014)
 - applied MAME YM2612 Timer fix (said to fix SFX in Streets of Rage 2, see MAME Testers 05049)
 - fixed C140 sub chip type and C140/System 21 banking (using current MAME code)
 - added code to handle "real" C140 clock
-- fixed "make install" (the share/vgmplay/ folder was created without "execute" rights for users)
+- [VGMPlay] fixed "make install" (the share/vgmplay/ folder was created without "execute" rights for users)
 - improved OKIM6258 data cache (should reduce clicks a bit)
-- fixed OPL3 register writes in YMF278B and OPL3 chip clock
+- YMF278B: fixed OPL3 register writes and OPL3 chip clock
 - applied MAME K053260 DPCM decoding fix
+- applied MAME OPLx Key Scale Level fix
+- added 40h-byte-FIFO to UPD7759 chip when in Slave mode, based on how Sega Pico games work
+- fixed T6W28 muting (Noise channel muting was controlled by chip #2, affected in_vgm only)
+  Thanks to the developers of foo_input_vgm for noticing this bug.
+- added NMK112 banking to OKIM6295 emulation

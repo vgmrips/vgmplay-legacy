@@ -472,7 +472,8 @@ void SN76496Update(void *chip, stream_sample_t **outputs, int samples)
 				// Bipolar output
 				vol[i] = R->Output[i] ? +1 : -1;
 				
-				vol[i] &= R->MuteMsk[i];
+				//vol[i] &= R->MuteMsk[i];
+				vol[i] &= R2->MuteMsk[i];	// use MuteMask from chip 0
 				// --- Preparation End ---
 				
 				// Noise Channel
