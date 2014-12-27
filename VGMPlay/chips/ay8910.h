@@ -122,6 +122,7 @@ void device_reset_ay8910(UINT8 ChipID);*/
 
 void ay8910_set_mute_mask_ym(void *chip, UINT32 MuteMask);
 //void ay8910_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
+void ay8910_set_srchg_cb_ym(void *chip, SRATE_CALLBACK CallbackFunc, void* DataPtr);
 
 /*DEVICE_GET_INFO( ay8910 );
 DEVICE_GET_INFO( ay8912 );

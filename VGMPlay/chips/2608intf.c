@@ -446,6 +446,27 @@ void ym2608_set_mute_mask(UINT8 ChipID, UINT32 MuteMaskFM, UINT32 MuteMaskAY)
 	}
 }
 
+void ym2608_set_srchg_cb(UINT8 ChipID, SRATE_CALLBACK CallbackFunc, void* DataPtr, void* AYDataPtr)
+{
+	ym2608_state* info = &YM2608Data[ChipID];
+	
+	if (info->psg != NULL)
+	{
+		switch(AY_EMU_CORE)
+		{
+#ifdef ENABLE_ALL_CORES
+		case EC_MAME:
+			ay8910_set_srchg_cb_ym(info->psg, CallbackFunc, AYDataPtr);
+			break;
+#endif
+		case EC_EMU2149:
+			break;
+		}
+	}
+	
+	return;
+}
+
 
 /**************************************************************************
  * Generic get_info

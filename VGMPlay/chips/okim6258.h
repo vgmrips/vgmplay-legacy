@@ -46,5 +46,6 @@ void okim6258_ctrl_w(UINT8 ChipID, offs_t offset, UINT8 data);*/
 void okim6258_write(UINT8 ChipID, UINT8 Port, UINT8 Data);
 
 void okim6258_set_options(UINT16 Options);
+void okim6258_set_srchg_cb(UINT8 ChipID, SRATE_CALLBACK CallbackFunc, void* DataPtr);
 
 //DECLARE_LEGACY_SOUND_DEVICE(OKIM6258, okim6258);

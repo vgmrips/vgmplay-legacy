@@ -231,6 +231,9 @@ struct _ay8910_context
 	UINT32 MuteMsk[NUM_CHANNELS];
 	UINT8 chip_type;
 	UINT8 IsDisabled;
+	
+	SRATE_CALLBACK SmpRateFunc;
+	void* SmpRateData;
 };
 
 //#define MAX_CHIPS	0x02
@@ -897,6 +900,7 @@ void *ay8910_start_ym(void *infoptr, unsigned char chip_type, int clock, const a
 
 	//info->device = device;
 	info->intf = intf;
+	info->SmpRateFunc = NULL;
 	//devcb_resolve_read8(&info->portAread, &intf->portAread, device);
 	//devcb_resolve_read8(&info->portBread, &intf->portBread, device);
 	//devcb_resolve_write8(&info->portAwrite, &intf->portAwrite, device);
@@ -1021,7 +1025,15 @@ void ay8910_reset_ym(void *chip)
 void ay8910_set_clock_ym(void *chip, int clock)
 {
 	ay8910_context *psg = (ay8910_context *)chip;
+	
+	if ((psg->chip_type & 0xF0) == 0x10 && (psg->intf->flags & YM2149_PIN26_LOW))
+		clock /= 2;
+	
 	//stream_set_sample_rate(psg->channel, clock / 8 );
+	if (psg->SmpRateFunc != NULL)
+		psg->SmpRateFunc(psg->SmpRateData, clock / 8);
+	
+	return;
 }
 
 void ay8910_write_ym(void *chip, int addr, int data)
@@ -1329,3 +1341,14 @@ void ay8910_set_mute_mask_ym(void *chip, UINT32 MuteMask)
 	ay8910_context *psg = &AY8910Data[ChipID];
 	ay8910_set_mute_mask_ym(psg, MuteMask);
 }*/
+
+void ay8910_set_srchg_cb_ym(void *chip, SRATE_CALLBACK CallbackFunc, void* DataPtr)
+{
+	ay8910_context *info = (ay8910_context *)chip;
+	
+	// set Sample Rate Change Callback routine
+	info->SmpRateFunc = CallbackFunc;
+	info->SmpRateData = DataPtr;
+	
+	return;
+}

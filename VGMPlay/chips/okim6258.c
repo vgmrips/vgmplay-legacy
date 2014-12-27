@@ -18,6 +18,8 @@
 #include <math.h>
 #include "okim6258.h"
 
+#define NULL	((void *)0)
+
 #define COMMAND_STOP		(1 << 0)
 #define COMMAND_PLAY		(1 << 1)
 #define	COMMAND_RECORD		(1 << 2)
@@ -62,6 +64,9 @@ struct _okim6258_state
 	UINT8 clock_buffer[0x04];
 	UINT32 initial_clock;
 	UINT8 initial_div;
+	
+	SRATE_CALLBACK SmpRateFunc;
+	void* SmpRateData;
 };
 
 /* step size index shift table */
@@ -293,6 +298,7 @@ int device_start_okim6258(UINT8 ChipID, int clock, int divider, int adpcm_type, 
 	info->clock_buffer[0x01] = (clock & 0x0000FF00) >>  8;
 	info->clock_buffer[0x02] = (clock & 0x00FF0000) >> 16;
 	info->clock_buffer[0x03] = (clock & 0xFF000000) >> 24;
+	info->SmpRateFunc = NULL;
 
 	/* D/A precision is 10-bits but 12-bit data can be output serially to an external DAC */
 	info->output_bits = /*intf->*/output_12bits ? 12 : 10;
@@ -340,6 +346,8 @@ void device_reset_okim6258(UINT8 ChipID)
 	info->clock_buffer[0x02] = (info->initial_clock & 0x00FF0000) >> 16;
 	info->clock_buffer[0x03] = (info->initial_clock & 0xFF000000) >> 24;
 	info->divider = dividers[info->initial_div];
+	if (info->SmpRateFunc != NULL)
+		info->SmpRateFunc(info->SmpRateData, info->master_clock / info->divider);
 	
 	
 	info->signal = -2;
@@ -370,6 +378,8 @@ void okim6258_set_divider(UINT8 ChipID, int val)
 
 	info->divider = dividers[val];
 	//stream_set_sample_rate(info->stream, info->master_clock / divider);
+	if (info->SmpRateFunc != NULL)
+		info->SmpRateFunc(info->SmpRateData, info->master_clock / info->divider);
 }
 
 
@@ -397,6 +407,8 @@ void okim6258_set_clock(UINT8 ChipID, int val)
 								(info->clock_buffer[0x03] << 24);
 	}
 	//stream_set_sample_rate(info->stream, info->master_clock / info->divider);
+	if (info->SmpRateFunc != NULL)
+		info->SmpRateFunc(info->SmpRateData, info->master_clock / info->divider);
 }
 
 
@@ -570,6 +582,17 @@ void okim6258_write(UINT8 ChipID, UINT8 Port, UINT8 Data)
 void okim6258_set_options(UINT16 Options)
 {
 	Iternal10Bit = (Options >> 0) & 0x01;
+	
+	return;
+}
+
+void okim6258_set_srchg_cb(UINT8 ChipID, SRATE_CALLBACK CallbackFunc, void* DataPtr)
+{
+	okim6258_state *info = &OKIM6258Data[ChipID];
+	
+	// set Sample Rate Change Callback routine
+	info->SmpRateFunc = CallbackFunc;
+	info->SmpRateData = DataPtr;
 	
 	return;
 }

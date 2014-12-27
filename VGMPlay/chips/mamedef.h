@@ -57,4 +57,6 @@ typedef INT32 stream_sample_t;
 
 extern stream_sample_t* DUMMYBUF[];
 
+typedef void (*SRATE_CALLBACK)(void*, UINT32);
+
 #endif	// __MAMEDEF_H__

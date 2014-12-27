@@ -31,7 +31,6 @@
 #include <wchar.h>
 #include "stdbool.h"
 #include <math.h>	// for pow()
-#include <errno.h>
 
 #ifdef WIN32
 #include <conio.h>	// for _inp()
@@ -232,6 +231,8 @@ extern void InterpretOther(UINT32 SampleCount);
 
 static void GeneralChipLists(void);
 static void SetupResampler(CAUD_ATTR* CAA);
+static void ChangeChipSampleRate(void* DataPtr, UINT32 NewSmplRate);
+
 INLINE INT16 Limit2Short(INT32 Value);
 static void null_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
 static void dual_opl2_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples);
@@ -2460,6 +2461,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 													&CAA->Paired->SmpRate);
 				CAA->StreamUpdate = &ym2203_stream_update;
 				CAA->Paired->StreamUpdate = &ym2203_stream_update_ay;
+				ym2203_set_srchg_cb(CurChip, &ChangeChipSampleRate, CAA, CAA->Paired);
 				
 				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
 				CAA->Paired->Volume = GetChipVolume(&VGMHead, CAA->Paired->ChipType,
@@ -2489,6 +2491,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 													&CAA->Paired->SmpRate);
 				CAA->StreamUpdate = &ym2608_stream_update;
 				CAA->Paired->StreamUpdate = &ym2608_stream_update_ay;
+				ym2608_set_srchg_cb(CurChip, &ChangeChipSampleRate, CAA, CAA->Paired);
 				
 				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
 				CAA->Paired->Volume = GetChipVolume(&VGMHead, CAA->Paired->ChipType,
@@ -2858,6 +2861,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 													(VGMHead.bytOKI6258Flags & 0x04) >> 2,
 													(VGMHead.bytOKI6258Flags & 0x08) >> 3);
 				CAA->StreamUpdate = &okim6258_update;
+				okim6258_set_srchg_cb(CurChip, &ChangeChipSampleRate, CAA);
 				
 				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
 				AbsVol += CAA->Volume * 2;
@@ -2880,6 +2884,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_okim6295(CurChip, ChipClk);
 				CAA->StreamUpdate = &okim6295_update;
+				okim6295_set_srchg_cb(CurChip, &ChangeChipSampleRate, CAA);
 				
 				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
 				AbsVol += CAA->Volume * 2;
@@ -3162,19 +3167,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 			else if (CAA->ChipType == 0x16)
 				device_reset_upd7759(CurCSet);
 			else if (CAA->ChipType == 0x17)
-			{
 				device_reset_okim6258(CurCSet);
-				CAA->SmpRate = okim6258_get_vclk(CurCSet);
-				if (CAA->SmpRate < SampleRate)
-					CAA->Resampler = 0x01;
-				else if (CAA->SmpRate == SampleRate)
-					CAA->Resampler = 0x02;
-				else if (CAA->SmpRate > SampleRate)
-					CAA->Resampler = 0x03;
-				CAA->SmpP = 1;
-				CAA->SmpNext -= CAA->SmpLast;
-				CAA->SmpLast = 0x00;
-			}
 			else if (CAA->ChipType == 0x18)
 				device_reset_okim6295(CurCSet);
 			else if (CAA->ChipType == 0x19)
@@ -4803,27 +4796,6 @@ static void InterpretVGM(UINT32 SampleCount)
 				if (CHIP_CHECK(OKIM6258))
 				{
 					chip_reg_write(0x17, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
-					TempByt = VGMPnt[0x01] & 0x7F;
-					if (TempByt == 0x0B || TempByt == 0x0C)
-					{
-						CAUD_ATTR* CAA = &ChipAudio[CurChip].OKIM6258;
-						
-						TempLng = okim6258_get_vclk(CurChip);
-						if (CAA->SmpRate != TempLng)
-						{
-							// quick and dirty hack to make sample rate changes work
-							CAA->SmpRate = TempLng;
-							if (CAA->SmpRate < SampleRate)
-								CAA->Resampler = 0x01;
-							else if (CAA->SmpRate == SampleRate)
-								CAA->Resampler = 0x02;
-							else if (CAA->SmpRate > SampleRate)
-								CAA->Resampler = 0x03;
-							CAA->SmpP = 1;
-							CAA->SmpNext -= CAA->SmpLast;
-							CAA->SmpLast = 0x00;
-						}
-					}
 				}
 				VGMPos += 0x03;
 				break;
@@ -5168,6 +5140,29 @@ static void SetupResampler(CAUD_ATTR* CAA)
 	
 	return;
 }
+
+static void ChangeChipSampleRate(void* DataPtr, UINT32 NewSmplRate)
+{
+	CAUD_ATTR* CAA = (CAUD_ATTR*)DataPtr;
+	
+	if (CAA->SmpRate == NewSmplRate)
+		return;
+	
+	// quick and dirty hack to make sample rate changes work
+	CAA->SmpRate = NewSmplRate;
+	if (CAA->SmpRate < SampleRate)
+		CAA->Resampler = 0x01;
+	else if (CAA->SmpRate == SampleRate)
+		CAA->Resampler = 0x02;
+	else if (CAA->SmpRate > SampleRate)
+		CAA->Resampler = 0x03;
+	CAA->SmpP = 1;
+	CAA->SmpNext -= CAA->SmpLast;
+	CAA->SmpLast = 0x00;
+	
+	return;
+}
+
 
 INLINE INT16 Limit2Short(INT32 Value)
 {

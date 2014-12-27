@@ -69,6 +69,9 @@ struct _okim6295_state
 	
 	UINT32	ROMSize;
 	UINT8*	ROM;
+	
+	SRATE_CALLBACK SmpRateFunc;
+	void* SmpRateData;
 };
 
 /* step size index shift table */
@@ -438,6 +441,7 @@ int device_start_okim6295(UINT8 ChipID, int clock)
 	info->initial_clock = clock;
 	info->master_clock = clock & 0x7FFFFFFF;
 	info->pin7_state = (clock & 0x80000000) >> 31;
+	info->SmpRateFunc = NULL;
 
 	/* generate the name and create the stream */
 	divisor = info->pin7_state ? 132 : 165;
@@ -542,16 +546,16 @@ static void okim6295_clock_changed(okim6295_state *info)
 	int divisor;
 	divisor = info->pin7_state ? 132 : 165;
 	//stream_set_sample_rate(info->stream, info->master_clock/divisor);
+	if (info->SmpRateFunc != NULL)
+		info->SmpRateFunc(info->SmpRateData, info->master_clock / divisor);
 }
 
 //void okim6295_set_pin7(running_device *device, int pin7)
 static void okim6295_set_pin7(okim6295_state *info, int pin7)
 {
 	//okim6295_state *info = get_safe_token(device);
-	//int divisor = pin7 ? 132 : 165;
 
 	info->pin7_state = pin7;
-	//stream_set_sample_rate(info->stream, info->master_clock/divisor);
 	okim6295_clock_changed(info);
 }
 
@@ -721,7 +725,9 @@ void okim6295_w(UINT8 ChipID, offs_t offset, UINT8 data)
 		okim6295_clock_changed(chip);
 		break;
 	case 0x0C:
-		okim6295_set_pin7(chip, data);
+		//okim6295_set_pin7(chip, data);
+		chip->pin7_state = data;
+		okim6295_clock_changed(chip);
 		break;
 	case 0x0E:	// NMK112 bank switch enable
 		chip->nmk_mode = data;
@@ -770,6 +776,17 @@ void okim6295_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 	
 	for (CurChn = 0; CurChn < OKIM6295_VOICES; CurChn ++)
 		chip->voice[CurChn].Muted = (MuteMask >> CurChn) & 0x01;
+	
+	return;
+}
+
+void okim6295_set_srchg_cb(UINT8 ChipID, SRATE_CALLBACK CallbackFunc, void* DataPtr)
+{
+	okim6295_state *info = &OKIM6295Data[ChipID];
+	
+	// set Sample Rate Change Callback routine
+	info->SmpRateFunc = CallbackFunc;
+	info->SmpRateData = DataPtr;
 	
 	return;
 }

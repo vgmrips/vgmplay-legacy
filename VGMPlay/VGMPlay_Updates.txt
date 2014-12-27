@@ -100,3 +100,7 @@ Updates since 0.4.0u5 (13.04.2014)
 - fixed T6W28 muting (Noise channel muting was controlled by chip #2, affected in_vgm only)
   Thanks to the developers of foo_input_vgm for noticing this bug.
 - added NMK112 banking to OKIM6295 emulation
+- added callback function for chip sample rate change
+  -> replaces OKIM6258 hack
+  -> fixes OPN SSG with MAME AY emulation
+  -> makes OKIM6295 clock changes work
