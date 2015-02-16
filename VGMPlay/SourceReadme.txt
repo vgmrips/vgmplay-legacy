@@ -23,9 +23,17 @@ using MinGW/MSYS:
 Note: You can compile it without MSYS, but you need to manually create the OBJDIRS paths (or make them use the backslash '\'), because mkdir fails at paths with a forward slash.
 
 
+Compile VGMPlay under GNU/Linux
+-------------------------------
 
-Compile VGMPlay under Linux
----------------------------
-1. [optional step] If you have libao installed, you can edit the Makefile to make VGMPlay use libao instead of OSS.
-2. run "make" in VGMPlay's folder
-3. Done.
+using OSS:
+1. run "make" in VGMPlay's folder
+2. Done.
+
+using libao:
+1. make sure you have libao installed.
+(On Debian-based distros such as Ubuntu or Trisquel, you can do it by running "sudo apt-get install libao-dev")
+2. edit the Makefile to make VGMPlay use libao instead of OSS.
+3. run "make" in VGMPlay's folder
+4. Done.
+
