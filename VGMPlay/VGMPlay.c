@@ -163,12 +163,7 @@ typedef struct pcmbank_table
 } PCMBANK_TBL;
 
 
-// Function Prototypes (prototypes in comments are defined in VGMPlay_Intf.h)
-//void VGMPlay_Init(void);
-//void VGMPlay_Init2(void);
-//void VGMPlay_Deinit(void);
-//char* FindFile(const char* FileName)
-
+// Function Prototypes
 INLINE UINT16 ReadLE16(const UINT8* Data);
 INLINE UINT16 ReadBE16(const UINT8* Data);
 INLINE UINT32 ReadLE24(const UINT8* Data);
@@ -176,32 +171,14 @@ INLINE UINT32 ReadLE32(const UINT8* Data);
 INLINE int gzgetLE16(gzFile hFile, UINT16* RetValue);
 INLINE int gzgetLE32(gzFile hFile, UINT32* RetValue);
 static UINT32 gcd(UINT32 x, UINT32 y);
-//void PlayVGM(void);
-//void StopVGM(void);
-//void RestartVGM(void);
-//void PauseVGM(bool Pause);
-//void SeekVGM(bool Relative, INT32 PlayBkSamples);
-//void RefreshMuting(void);
-//void RefreshPanning(void);
-//void RefreshPlaybackOptions(void);
 
-//UINT32 GetGZFileLength(const char* FileName);
-//bool OpenVGMFile(const char* FileName);
 static void ReadVGMHeader(gzFile hFile, VGM_HEADER* RetVGMHead);
 static UINT8 ReadGD3Tag(gzFile hFile, UINT32 GD3Offset, GD3_TAG* RetGD3Tag);
 static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra);
 static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra);
-//void CloseVGMFile(void);
-//void FreeGD3Tag(GD3_TAG* TagData);
 static wchar_t* MakeEmptyWStr(void);
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos);
-//UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag);
 INLINE UINT32 MulDivRound(UINT64 Number, UINT64 Numerator, UINT64 Denominator);
-//UINT32 CalcSampleMSec(UINT64 Value, UINT8 Mode);
-//UINT32 CalcSampleMSecExt(UINT64 Value, UINT8 Mode, VGM_HEADER* FileHead);
-//const char* GetChipName(UINT8 ChipID);
-//const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType);
-//UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType);
 static UINT16 GetChipVolume(VGM_HEADER* FileHead, UINT8 ChipID, UINT8 ChipNum, UINT8 ChipCnt);
 
 static void RestartPlaying(void);
@@ -209,8 +186,6 @@ static void Chips_GeneralActions(UINT8 Mode);
 
 INLINE INT32 SampleVGM2Pbk_I(INT32 SampleVal);	// inline functions
 INLINE INT32 SamplePbk2VGM_I(INT32 SampleVal);
-//INT32 SampleVGM2Playback(INT32 SampleVal);		// non-inline functions
-//INT32 SamplePlayback2VGM(INT32 SampleVal);
 static UINT8 StartThread(void);
 static UINT8 StopThread(void);
 #if defined(WIN32) && defined(MIXER_MUTING)
@@ -220,7 +195,6 @@ static bool SetMuteControl(bool mute);
 
 static void InterpretFile(UINT32 SampleCount);
 static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data);
-//INLINE FUINT16 ReadBits(UINT8* Data, UINT32* Pos, FUINT8* BitPos, FUINT8 BitsToRead);
 static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data);
 static UINT8 GetDACFromPCMBank(void);
 static UINT8* GetPointerFromPCMBank(UINT8 Type, UINT32 DataPos);
@@ -237,7 +211,6 @@ static void null_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
 static void dual_opl2_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples);
 static void ResampleChipStream(CA_LIST* CLst, WAVE_32BS* RetSample, UINT32 Length);
 static INT32 RecalcFadeVolume(void);
-//UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
 
 #ifdef WIN32
 DWORD WINAPI PlayingThread(void* Arg);
