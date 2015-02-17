@@ -108,7 +108,7 @@ static void PlayVGM_UI(void);
 static INT8 sign(double Value);
 static long int Round(double Value);
 static double RoundSpecial(double Value, double RoundTo);
-static void PrintMinSec(UINT32 SamplePos, UINT32 SmplRate);
+static void PrintTime(UINT32 SamplePos, UINT32 SmplRate);
 
 
 // Options Variables
@@ -222,8 +222,6 @@ extern UINT8 IsVGMInit;
 extern UINT16 Last95Drum;	// for optvgm debugging
 extern UINT16 Last95Max;	// for optvgm debugging
 extern UINT32 Last95Freq;	// for optvgm debugging
-
-static bool PrintMSHours;
 
 int main(int argc, char* argv[])
 {
@@ -484,7 +482,6 @@ int main(int argc, char* argv[])
 		ErrorHappened = false;
 		FadeTime = FadeTimeN;
 		PauseTime = PauseTimeL;
-		PrintMSHours = (VGMHead.lngTotalSamples >= 158760000);	// 44100 smpl * 60 sec * 60 min
 		ShowVGMTag();
 		NextPLCmd = 0x80;
 		PlayVGM_UI();
@@ -541,7 +538,6 @@ int main(int argc, char* argv[])
 			else
 				FadeTime = FadeTimeN;
 			PauseTime = VGMHead.lngLoopOffset ? PauseTimeL : PauseTimeJ;
-			PrintMSHours = (VGMHead.lngTotalSamples >= 158760000);
 			ShowVGMTag();
 			NextPLCmd = 0x00;
 			PlayVGM_UI();
@@ -2022,7 +2018,7 @@ static void ShowVGMTag(void)
 	if (VGMHead.lngLoopOffset)
 	{
 		printf("Yes (");
-		PrintMinSec(VGMHead.lngLoopSamples, VGMSampleRate);
+		PrintTime(VGMHead.lngLoopSamples, VGMSampleRate);
 		printf(")\n");
 	}
 	else
@@ -2232,9 +2228,9 @@ static void PlayVGM_UI(void)
 			}
 			//if (PlaySmpl > VGMPbSmplCount)
 			//	PlaySmpl = VGMPbSmplCount;
-			PrintMinSec(PlaySmpl, SampleRate);
+			PrintTime(PlaySmpl, SampleRate);
 			printf(" / ");
-			PrintMinSec(VGMPbSmplCount, SampleRate);
+			PrintTime(VGMPbSmplCount, SampleRate);
 			printf(" seconds");
 			if (Show95Cmds && Last95Max != 0xFFFF)
 			{
@@ -2604,26 +2600,21 @@ static double RoundSpecial(double Value, double RoundTo)
 	return (long int)(Value / RoundTo + 0.5 * sign(Value)) * RoundTo;
 }
 
-static void PrintMinSec(UINT32 SamplePos, UINT32 SmplRate)
+static void PrintTime(UINT32 SamplePos, UINT32 SmplRate)
 {
 	float TimeSec;
 	UINT16 TimeMin;
 	UINT16 TimeHours;
 	
-	TimeSec = (float)RoundSpecial(SamplePos / (double)SmplRate, 0.01);
-	//TimeSec = SamplePos / (float)SmplRate;
-	TimeMin = (UINT16)TimeSec / 60;
+	TimeSec = (float) RoundSpecial(SamplePos / (double)SmplRate, 0.01);
+	TimeMin = (UINT16) TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	if (! PrintMSHours)
-	{
-		printf("%02hu:%05.2f", TimeMin, TimeSec);
-	}
-	else
-	{
-		TimeHours = TimeMin / 60;
-		TimeMin %= 60;
-		printf("%hu:%02hu:%05.2f", TimeHours, TimeMin, TimeSec);
-	}
-	
+	TimeHours = TimeMin / 60;
+	TimeMin %= 60;
+
+	if (TimeHours > 0)
+    printf("%hu:", TimeHours);
+
+	printf("%02hu:%05.2f", TimeMin, TimeSec);
 	return;
 }
