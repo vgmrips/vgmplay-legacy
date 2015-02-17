@@ -349,40 +349,7 @@ int main(int argc, char* argv[])
 #if defined(XMAS_EXTRA)
 	XMasEnable = XMas_Extra(VgmFileName, 0x00);
 #endif
-	
-#if 0
-	{	// Print hex characters of file name (for vgm-player script debugging)
-		const char* CurChr;
-		
-#ifdef WIN32
-		printf("Input CP: %d, Output CP: %d\n", GetConsoleCP(), GetConsoleOutputCP());
-#endif
-		printf("VgmFileName: ");
-		
-		CurChr = VgmFileName;
-		while(*CurChr != '\0')
-		{
-			printf("%02X ", (UINT8)*CurChr);
-			CurChr ++;
-		}
-		printf("%02X\n", (UINT8)*CurChr);
-		_getch();
-	}
-#endif
-#if 0
-	{	// strip spaces and \n (fixed bugs with vgm-player script with un-7z)
-		char* CurChr;
-		
-		// trim \n and spaces off
-		CurChr = strchr(VgmFileName, '\n');
-		if (CurChr != NULL)
-			*CurChr = '\0';
-		CurChr = VgmFileName + strlen(VgmFileName) - 1;
-		while(CurChr > VgmFileName && *CurChr == ' ')
-			*(CurChr --) = '\0';
-	}
-#endif
-	
+
 	FirstInit = true;
 	StreamStarted = false;
 	FileExt = GetFileExtention(VgmFileName);
