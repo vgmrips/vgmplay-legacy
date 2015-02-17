@@ -18,7 +18,6 @@
 #include <conio.h>
 #include <windows.h>
 #else
-#include <limits.h>	// for PATH_MAX
 #include <termios.h>
 #include <unistd.h>	// for STDIN_FILENO and usleep()
 #include <sys/time.h>	// for struct timeval in _kbhit()
@@ -81,7 +80,7 @@ extern volatile bool ThreadPauseConfrm;
 extern bool ThreadNoWait;	// don't reset the timer
 extern UINT16 AUDIOBUFFERU;
 extern UINT32 SMPL_P_BUFFER;
-extern char SoundLogFile[MAX_PATH];
+extern char SoundLogFile[PATH_MAX];
 
 extern UINT8 OPL_MODE;
 extern UINT8 OPL_CHIPS;
@@ -89,10 +88,10 @@ extern UINT8 OPL_CHIPS;
 UINT8 NEED_LARGE_AUDIOBUFS;
 
 extern char* AppPaths[8];
-static char AppPathBuffer[MAX_PATH * 2];
+static char AppPathBuffer[PATH_MAX * 2];
 
-static char PLFileBase[MAX_PATH];
-static char PLFileName[MAX_PATH];
+static char PLFileBase[PATH_MAX];
+static char PLFileName[PATH_MAX];
 static UINT32 PLFileCount;
 static char** PlayListFile;
 static UINT32 CurPLFile;
@@ -101,7 +100,7 @@ static UINT8 PLMode;	// set to 1 to show Playlist text
 static bool FirstInit;
 extern bool AutoStopSkip;
 
-static char VgmFileName[MAX_PATH];
+static char VgmFileName[PATH_MAX];
 static UINT8 FileMode;
 extern VGM_HEADER VGMHead;
 extern UINT32 VGMDataLen;
@@ -297,7 +296,7 @@ int main(int argc, char* argv[])
 		ErrRet = SetConsoleCP(ChrPos);			// set input codepage
 		//ErrRet = SetConsoleOutputCP(ChrPos);	// set output codepage (would be a bad idea)
 		
-		StrPtr = fgets(VgmFileName, MAX_PATH, stdin);
+		StrPtr = fgets(VgmFileName, PATH_MAX, stdin);
 		if (StrPtr == NULL)
 			VgmFileName[0] = '\0';
 		
@@ -328,7 +327,7 @@ int main(int argc, char* argv[])
 		//	Debug build:	Dynamite D³x [tag display wrong]
 		//	Release build:	Dynamite D³x [tag display wrong]
 #else
-		StrPtr = fgets(VgmFileName, MAX_PATH, stdin);
+		StrPtr = fgets(VgmFileName, PATH_MAX, stdin);
 		if (StrPtr == NULL)
 			VgmFileName[0] = '\0';
 #endif
@@ -613,13 +612,13 @@ static char* GetAppFileName(void)
 	char* AppPath;
 	int RetVal;
 	
-	AppPath = (char*)malloc(MAX_PATH * sizeof(char));
+	AppPath = (char*)malloc(PATH_MAX * sizeof(char));
 #ifdef WIN32
-	RetVal = GetModuleFileName(NULL, AppPath, MAX_PATH);
+	RetVal = GetModuleFileName(NULL, AppPath, PATH_MAX);
 	if (! RetVal)
 		AppPath[0] = '\0';
 #else
-	RetVal = readlink("/proc/self/exe", AppPath, MAX_PATH);
+	RetVal = readlink("/proc/self/exe", AppPath, PATH_MAX);
 	if (RetVal == -1)
 		AppPath[0] = '\0';
 #endif
@@ -1468,7 +1467,7 @@ static bool XMas_Extra(char* FileName, bool Mode)
 		if (XMasData)
 		{
 #ifdef WIN32
-			GetEnvironmentVariable("Temp", FileName, MAX_PATH);
+			GetEnvironmentVariable("Temp", FileName, PATH_MAX);
 #else
 			strcpy(FileName, "/tmp");
 #endif
@@ -1944,7 +1943,7 @@ static void PlayVGM_UI(void)
 	UINT8 KeyCode;
 	UINT32 VGMPlaySt;
 	UINT32 VGMPlayEnd;
-	char WavFileName[MAX_PATH];
+	char WavFileName[PATH_MAX];
 	char* TempStr;
 	WAVE_16BS* TempBuf;
 	UINT8 RetVal;

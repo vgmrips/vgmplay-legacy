@@ -90,7 +90,7 @@ UINT32 SndLogLen;
 UINT32 BlocksSent;
 UINT32 BlocksPlayed;
 
-char SoundLogFile[MAX_PATH];
+char SoundLogFile[PATH_MAX];
 
 #ifdef USE_LIBAO
 ao_device* dev_ao;

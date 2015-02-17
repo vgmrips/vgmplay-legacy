@@ -4,7 +4,7 @@
 #ifdef WIN32
 #include <mmsystem.h>
 #else
-#define MAX_PATH	PATH_MAX
+#include <limits.h>	// for PATH_MAX
 #endif
 
 #define SAMPLESIZE		sizeof(WAVE_16BS)

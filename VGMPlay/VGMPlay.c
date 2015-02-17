@@ -32,33 +32,6 @@
 #include "stdbool.h"
 #include <math.h>	// for pow()
 #include <errno.h>
-
-#ifdef WIN32
-#include <conio.h>	// for _inp()
-#include <windows.h>
-#else	//ifdef UNIX
-#include <limits.h>		// for PATH_MAX
-#include <pthread.h>	// for pthread functions
-#include <time.h>		// for clock_gettime()
-#include <unistd.h>		// for usleep()
-
-#define MAX_PATH	PATH_MAX
-#define	Sleep(msec)	usleep(msec * 1000)
-
-#undef MIXER_MUTING		// I didn't get the Mixer Control to work under GNU/Linux
-
-#ifdef MIXER_MUTING
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <linux/soundcard.h>
-#endif
-#endif	// WIN32/UNIX
-
-// integer types for fast integer calculation
-// the bit number is unused (it's an orientation)
-#define FUINT8	unsigned int
-#define FUINT16	unsigned int
-
 #include "chips/mamedef.h"
 #include "chips/ChipIncl.h"
 #include "ChipMapper.h"
@@ -67,6 +40,29 @@
 #ifdef CONSOLE_MODE
 #include "Stream.h"
 #endif
+
+#ifdef WIN32
+#include <conio.h>	// for _inp()
+#include <windows.h>
+
+#else	//ifdef UNIX
+#include <pthread.h>	// for pthread functions
+#include <time.h>		// for clock_gettime()
+#include <unistd.h>		// for usleep()
+#define	Sleep(msec)	usleep(msec * 1000)
+
+#undef MIXER_MUTING		// I didn't get the Mixer Control to work under GNU/Linux
+#ifdef MIXER_MUTING
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <linux/soundcard.h>
+#endif  // MIXER_MUTING
+#endif	// WIN32/UNIX
+
+// integer types for fast integer calculation
+// the bit number is unused (it's an orientation)
+#define FUINT8	unsigned int
+#define FUINT16	unsigned int
 
 typedef struct chip_audio_attributes CAUD_ATTR;
 struct chip_audio_attributes
