@@ -30,6 +30,7 @@
 #define printerr(x)	fprintf(stderr, x)
 
 #include "chips/mamedef.h"
+//#include "chips/multipcm.h"
 
 #include "Stream.h"
 #include "VGMPlay.h"
@@ -61,6 +62,8 @@ void WaveOutLinuxCallBack(void);
 #define APP_NAME	"VGM Player"
 #define APP_NAME_L	L"VGM Player"
 
+
+#define LOG_SAMPLES	(SampleRate / 5)
 
 int main(int argc, char* argv[]);
 static void RemoveNewLines(char* String);
@@ -2043,9 +2046,6 @@ static void ShowVGMTag(void)
 	return;
 }
 
-
-#define LOG_SAMPLES	(SampleRate / 5)
-UINT8 multipcm_get_channels(UINT8 ChipID, UINT32* ChannelMask);
 static void PlayVGM_UI(void)
 {
 	INT32 VGMPbSmplCount;

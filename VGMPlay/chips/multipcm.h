@@ -20,3 +20,6 @@ void multipcm_bank_write(UINT8 ChipID, UINT8 offset, UINT16 data);
 
 void multipcm_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
 //DECLARE_LEGACY_SOUND_DEVICE(MULTIPCM, multipcm);
+
+UINT8 multipcm_get_channels(UINT8 ChipID, UINT32* ChannelMask);
+
