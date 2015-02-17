@@ -3730,131 +3730,6 @@ RefreshDACStrm:
 	return;
 }
 
-/*INLINE FUINT16 ReadBits(UINT8* Data, UINT32* Pos, FUINT8* BitPos, FUINT8 BitsToRead)
-{
-	FUINT8 BitReadVal;
-	UINT32 InPos;
-	FUINT8 InVal;
-	FUINT8 BitMask;
-	FUINT8 InShift;
-	FUINT8 OutBit;
-	FUINT16 RetVal;
-	
-	InPos = *Pos;
-	InShift = *BitPos;
-	OutBit = 0x00;
-	RetVal = 0x0000;
-	while(BitsToRead)
-	{
-		BitReadVal = (BitsToRead >= 8) ? 8 : BitsToRead;
-		BitsToRead -= BitReadVal;
-		BitMask = (1 << BitReadVal) - 1;
-		
-		InShift += BitReadVal;
-		InVal = (Data[InPos] << InShift >> 8) & BitMask;
-		if (InShift >= 8)
-		{
-			InShift -= 8;
-			InPos ++;
-			if (InShift)
-				InVal |= (Data[InPos] << InShift >> 8) & BitMask;
-		}
-		
-		RetVal |= InVal << OutBit;
-		OutBit += BitReadVal;
-	}
-	
-	*Pos = InPos;
-	*BitPos = InShift;
-	return RetVal;
-}
-
-static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data)
-{
-	UINT8 ComprType;
-	UINT8 BitDec;
-	FUINT8 BitCmp;
-	UINT8 CmpSubType;
-	UINT16 AddVal;
-	UINT32 InPos;
-	UINT32 OutPos;
-	FUINT16 InVal;
-	FUINT16 OutVal;
-	FUINT8 ValSize;
-	FUINT8 InShift;
-	FUINT8 OutShift;
-	UINT8* Ent1B;
-	UINT16* Ent2B;
-	//UINT32 Time;
-	
-	//Time = GetTickCount();
-	ComprType = Data[0x00];
-	Bank->DataSize = ReadLE32(&Data[0x01]);
-	BitDec = Data[0x05];
-	BitCmp = Data[0x06];
-	CmpSubType = Data[0x07];
-	AddVal = ReadLE16(&Data[0x08]);
-	
-	switch(ComprType)
-	{
-	case 0x00:	// n-Bit compression
-		if (CmpSubType == 0x02)
-		{
-			Ent1B = (UINT8*)PCMTbl.Entries;
-			Ent2B = (UINT16*)PCMTbl.Entries;
-			if (! PCMTbl.EntryCount)
-			{
-				printf("Error loading table-compressed data block! No table loaded!\n");
-				return;
-			}
-			else if (BitDec != PCMTbl.BitDec || BitCmp != PCMTbl.BitCmp)
-			{
-				printf("Warning! Data block and loaded value table incompatible!\n");
-				return;
-			}
-		}
-		
-		ValSize = (BitDec + 7) / 8;
-		InPos = 0x0A;
-		InShift = 0;
-		OutShift = BitDec - BitCmp;
-		
-		for (OutPos = 0x00; OutPos < Bank->DataSize; OutPos += ValSize)
-		{
-			if (InPos >= DataSize)
-				break;
-			InVal = ReadBits(Data, &InPos, &InShift, BitCmp);
-			switch(CmpSubType)
-			{
-			case 0x00:	// Copy
-				OutVal = InVal + AddVal;
-				break;
-			case 0x01:	// Shift Left
-				OutVal = (InVal << OutShift) + AddVal;
-				break;
-			case 0x02:	// Table
-				switch(ValSize)
-				{
-				case 0x01:
-					OutVal = Ent1B[InVal];
-					break;
-				case 0x02:
-					OutVal = Ent2B[InVal];
-					break;
-				}
-				break;
-			}
-			memcpy(&Bank->Data[OutPos], &OutVal, ValSize);
-		}
-		break;
-	}
-	
-	//Time = GetTickCount() - Time;
-	//printf("Decompression Time: %lu\n", Time);
-	
-	return;
-}*/
-
 static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data)
 {
 	UINT8 ComprType;
@@ -3928,8 +3803,6 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 		
 		for (OutPos = Bank->Data; OutPos < OutDataEnd && InPos < InDataEnd; OutPos += ValSize)
 		{
-			//InVal = ReadBits(Data, InPos, &InShift, BitCmp);
-			// inlined - is 30% faster
 			OutBit = 0x00;
 			InVal = 0x0000;
 			BitsToRead = BitCmp;
@@ -4028,8 +3901,6 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 		
 		for (OutPos = Bank->Data; OutPos < OutDataEnd && InPos < InDataEnd; OutPos += ValSize)
 		{
-			//InVal = ReadBits(Data, InPos, &InShift, BitCmp);
-			// inlined - is 30% faster
 			OutBit = 0x00;
 			InVal = 0x0000;
 			BitsToRead = BitCmp;
