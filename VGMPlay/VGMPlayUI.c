@@ -32,6 +32,7 @@
 #include "chips/mamedef.h"
 //#include "chips/multipcm.h"
 
+#include "utils.h"
 #include "Stream.h"
 #include "VGMPlay.h"
 #include "VGMPlay_Intf.h"
@@ -108,11 +109,6 @@ static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag);
 static void ShowVGMTag(void);
 
 static void PlayVGM_UI(void);
-static INT8 sign(double Value);
-static long int Round(double Value);
-static double RoundSpecial(double Value, double RoundTo);
-static void PrintTime(UINT32 SamplePos, UINT32 SmplRate);
-
 
 // Options Variables
 extern UINT32 SampleRate;	// Note: also used by some sound cores to
@@ -2579,42 +2575,3 @@ static void PlayVGM_UI(void)
 	return;
 }
 
-static INT8 sign(double Value)
-{
-	if (Value > 0.0)
-		return 1;
-	else if (Value < 0.0)
-		return -1;
-	else
-		return 0;
-}
-
-static long int Round(double Value)
-{
-	// Alternative:	(fabs(Value) + 0.5) * sign(Value);
-	return (long int)(Value + 0.5 * sign(Value));
-}
-
-static double RoundSpecial(double Value, double RoundTo)
-{
-	return (long int)(Value / RoundTo + 0.5 * sign(Value)) * RoundTo;
-}
-
-static void PrintTime(UINT32 SamplePos, UINT32 SmplRate)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	UINT16 TimeHours;
-	
-	TimeSec = (float) RoundSpecial(SamplePos / (double)SmplRate, 0.01);
-	TimeMin = (UINT16) TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	TimeHours = TimeMin / 60;
-	TimeMin %= 60;
-
-	if (TimeHours > 0)
-    printf("%hu:", TimeHours);
-
-	printf("%02hu:%05.2f", TimeMin, TimeSec);
-	return;
-}

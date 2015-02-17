@@ -69,7 +69,8 @@ MAINOBJS = \
 	$(OBJ)/VGMPlay_AddFmts.o \
 	$(OBJ)/VGMPlayUI.o \
 	$(OBJ)/Stream.o \
-	$(OBJ)/ChipMapper.o
+	$(OBJ)/ChipMapper.o \
+	$(OBJ)/utils.o
 ifdef WINDOWS
 MAINOBJS += $(OBJ)/pt_ioctl.o
 endif
