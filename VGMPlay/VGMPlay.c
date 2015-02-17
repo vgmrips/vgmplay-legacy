@@ -45,7 +45,7 @@
 #define MAX_PATH	PATH_MAX
 #define	Sleep(msec)	usleep(msec * 1000)
 
-#undef MIXER_MUTING		// I didn't get the Mixer Control to work under Linux
+#undef MIXER_MUTING		// I didn't get the Mixer Control to work under GNU/Linux
 
 #ifdef MIXER_MUTING
 #include <sys/ioctl.h>
@@ -54,29 +54,19 @@
 #endif
 #endif	// WIN32/UNIX
 
-#include <zlib.h>
-
-#include "chips/mamedef.h"
-
 // integer types for fast integer calculation
 // the bit number is unused (it's an orientation)
 #define FUINT8	unsigned int
 #define FUINT16	unsigned int
 
+#include "chips/mamedef.h"
+#include "chips/ChipIncl.h"
+#include "ChipMapper.h"
 #include "VGMPlay.h"
 #include "VGMPlay_Intf.h"
 #ifdef CONSOLE_MODE
 #include "Stream.h"
 #endif
-
-#include "chips/ChipIncl.h"
-
-unsigned char OpenPortTalk(void);
-void ClosePortTalk(void);
-
-#include "ChipMapper.h"
-
-typedef void (*strm_func)(UINT8 ChipID, stream_sample_t **outputs, int samples);
 
 typedef struct chip_audio_attributes CAUD_ATTR;
 struct chip_audio_attributes
@@ -162,63 +152,8 @@ typedef struct pcmbank_table
 	void* Entries;
 } PCMBANK_TBL;
 
-
-// Function Prototypes
-INLINE UINT16 ReadLE16(const UINT8* Data);
-INLINE UINT16 ReadBE16(const UINT8* Data);
-INLINE UINT32 ReadLE24(const UINT8* Data);
-INLINE UINT32 ReadLE32(const UINT8* Data);
-INLINE int gzgetLE16(gzFile hFile, UINT16* RetValue);
-INLINE int gzgetLE32(gzFile hFile, UINT32* RetValue);
-static UINT32 gcd(UINT32 x, UINT32 y);
-
-static void ReadVGMHeader(gzFile hFile, VGM_HEADER* RetVGMHead);
-static UINT8 ReadGD3Tag(gzFile hFile, UINT32 GD3Offset, GD3_TAG* RetGD3Tag);
-static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra);
-static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra);
-static wchar_t* MakeEmptyWStr(void);
-static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos);
-INLINE UINT32 MulDivRound(UINT64 Number, UINT64 Numerator, UINT64 Denominator);
-static UINT16 GetChipVolume(VGM_HEADER* FileHead, UINT8 ChipID, UINT8 ChipNum, UINT8 ChipCnt);
-
-static void RestartPlaying(void);
-static void Chips_GeneralActions(UINT8 Mode);
-
-INLINE INT32 SampleVGM2Pbk_I(INT32 SampleVal);	// inline functions
-INLINE INT32 SamplePbk2VGM_I(INT32 SampleVal);
-static UINT8 StartThread(void);
-static UINT8 StopThread(void);
-#if defined(WIN32) && defined(MIXER_MUTING)
-static bool GetMixerControl(void);
-#endif
-static bool SetMuteControl(bool mute);
-
-static void InterpretFile(UINT32 SampleCount);
-static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data);
-static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* Data);
-static UINT8 GetDACFromPCMBank(void);
-static UINT8* GetPointerFromPCMBank(UINT8 Type, UINT32 DataPos);
-static void ReadPCMTable(UINT32 DataSize, const UINT8* Data);
-static void InterpretVGM(UINT32 SampleCount);
-#ifdef ADDITIONAL_FORMATS
-extern void InterpretOther(UINT32 SampleCount);
-#endif
-
-static void GeneralChipLists(void);
 static void SetupResampler(CAUD_ATTR* CAA);
-INLINE INT16 Limit2Short(INT32 Value);
-static void null_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
-static void dual_opl2_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples);
 static void ResampleChipStream(CA_LIST* CLst, WAVE_32BS* RetSample, UINT32 Length);
-static INT32 RecalcFadeVolume(void);
-
-#ifdef WIN32
-DWORD WINAPI PlayingThread(void* Arg);
-#else
-UINT64 TimeSpec2Int64(const struct timespec* ts);
-void* PlayingThread(void* Arg);
-#endif
-
 
 // Options Variables
 UINT32 SampleRate;	// Note: also used by some sound cores to determinate the chip sample rate
