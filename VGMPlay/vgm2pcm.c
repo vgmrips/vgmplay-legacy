@@ -7,13 +7,8 @@
 #include "VGMPlay_Intf.h"
 
 #define SAMPLESIZE sizeof(WAVE_16BS)
-
-UINT8 CmdList[0x100]; // used by VGMPlay.c and VGMPlay_AddFmts.c
-bool ErrorHappened;   // used by VGMPlay.c and VGMPlay_AddFmts.c
 extern VGM_HEADER VGMHead;
 extern UINT32 SampleRate;
-extern UINT32 VGMMaxLoopM;
-extern UINT32 FadeTime;
 extern bool EndPlay;
 
 INLINE int fputBE16(UINT16 Value, FILE* hFile)

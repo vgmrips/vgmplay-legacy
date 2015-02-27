@@ -132,7 +132,7 @@ extern UINT32 FadeStart;
 extern UINT32 VGMMaxLoopM;
 extern UINT32 VGMCurLoop;
 extern float VolumeLevelM;
-bool ErrorHappened;	// used by VGMPlay.c and VGMPlay_AddFmts.c
+extern bool ErrorHappened;
 extern float FinalVol;
 extern bool ResetPBTimer;
 
@@ -141,7 +141,7 @@ static struct termios oldterm;
 static bool termmode;
 #endif
 
-UINT8 CmdList[0x100];
+extern UINT8 CmdList[0x100];
 
 //extern UINT8 DISABLE_YMZ_FIX;
 extern UINT8 IsVGMInit;
