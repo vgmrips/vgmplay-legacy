@@ -67,7 +67,6 @@ OBJDIRS = \
 MAINOBJS = \
 	$(OBJ)/VGMPlay.o \
 	$(OBJ)/VGMPlay_AddFmts.o \
-	$(OBJ)/VGMPlayUI.o \
 	$(OBJ)/Stream.o \
 	$(OBJ)/ChipMapper.o
 ifdef WINDOWS
@@ -135,31 +134,42 @@ EMUOBJS = \
 	$(EMUOBJ)/sn76496_opl.o \
 	$(EMUOBJ)/ym2413hd.o \
 	$(EMUOBJ)/ym2413_opl.o
+VGMPLAY_OBJS = \
+	$(OBJ)/VGMPlayUI.o
+VGM2PCM_OBJS = \
+	$(OBJ)/vgm2pcm.o
+EXTRA_OBJS = $(VGMPLAY_OBJS) $(VGM2PCM_OBJS)
 
 
-all:	vgmplay
+all:	vgmplay vgm2pcm
 
-vgmplay:	$(OBJDIRS) $(EMUOBJS) $(MAINOBJS)
-	@echo Linking ...
-	@$(CC) $(MAINOBJS) $(EMUOBJS) $(LDFLAGS) -o vgmplay
+vgmplay:	$(EMUOBJS) $(MAINOBJS) $(VGMPLAY_OBJS)
+	@echo Linking vgmplay ...
+	@$(CC) $(VGMPLAY_OBJS) $(MAINOBJS) $(EMUOBJS) $(LDFLAGS) -o vgmplay
+	@echo Done.
+
+vgm2pcm:	$(EMUOBJS) $(MAINOBJS) $(VGM2PCM_OBJS)
+	@echo Linking vgm2pcm ...
+	@$(CC) $(VGM2PCM_OBJS) $(MAINOBJS) $(EMUOBJS) $(LDFLAGS) -o vgm2pcm
 	@echo Done.
 
 # compile the chip-emulator c-files
 $(EMUOBJ)/%.o:	$(EMUSRC)/%.c
 	@echo Compiling $< ...
+	@mkdir -p $(@D)
 	@$(CC) $(CFLAGS) $(EMUFLAGS) -c $< -o $@
 
 # compile the main c-files
 $(OBJ)/%.o:	$(SRC)/%.c
 	@echo Compiling $< ...
+	@mkdir -p $(@D)
 	@$(CC) $(CFLAGS) $(MAINFLAGS) -c $< -o $@
-
-$(OBJDIRS):
-	mkdir $@
 
 clean:
 	@echo Deleting object files ...
-	@rm -f $(MAINOBJS) $(EMUOBJS)
+	@rm -f $(MAINOBJS) $(EMUOBJS) $(EXTRA_OBJS)
+	@echo Deleting executable files ...
+	@rm -f vgmplay vgm2pcm
 	@echo Done.
 
 # Thanks to ZekeSulastin and nextvolume for the install and uninstall routines.
@@ -181,4 +191,4 @@ uninstall:
 	rm $(DESTDIR)$(MANPREFIX)/man1/vgmplay.1
 	rm -rf $(DESTDIR)$(PREFIX)/share/vgmplay
 
-.PHONY: clean install uninstall
+.PHONY: all clean install uninstall
