@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     FILE *outputFile;
 
     if (argc < 3) {
-        fputs("usage: vgm2pcm vgm_file pcm_file\n", stderr);
+        fprintf(stderr, "usage: %s vgm_file pcm_file\n", argv[0]);
         return 1;
     }
 
@@ -72,9 +72,7 @@ int main(int argc, char *argv[]) {
     }
 
     StopVGM();
-
     CloseVGMFile();
-
     VGMPlay_Deinit();
 
     return 0;
