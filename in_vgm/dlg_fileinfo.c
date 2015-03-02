@@ -22,7 +22,7 @@
 typedef struct fileinfo_data
 {
 	UINT32 FileNameAlloc;
-	char* FileName;
+	wchar_t* FileName;
 	bool ForceReload;
 	
 	UINT32 FileSize;
@@ -44,16 +44,19 @@ void Config(HWND hWndParent);
 
 // Function Prototypes
 void SetInfoDlgFile(const char* FileName);
+void SetInfoDlgFileW(const wchar_t* FileName);
 UINT32 GetVGZFileSize(const char* FileName);
+UINT32 GetVGZFileSizeW(const wchar_t* FileName);
 static void CopyWStr(wchar_t** DstStr, const wchar_t* SrcStr);
 static void CopyTagData(GD3_TAG* DstTag, const GD3_TAG* SrcTag);
-static bool LoadInfo(const char* FileName, FINF_DATA* FileInf);
+static bool LoadInfoA(const char* FileName, FINF_DATA* FileInf);
+static bool LoadInfoW(const wchar_t* FileName, FINF_DATA* FileInf);
 static void FixNewLine(wchar_t** TextData);
 static void FixSeparators(wchar_t** TextData);
 static void TrimWhitespaces(wchar_t* TextData);
 
 static bool CheckFM2413Text(VGM_HEADER* FileHead);
-UINT32 FormatVGMTag(const UINT32 BufLen, char* Buffer, GD3_TAG* FileTag, VGM_HEADER* FileHead);
+UINT32 FormatVGMTag(const UINT32 BufLen, in_char* Buffer, GD3_TAG* FileTag, VGM_HEADER* FileHead);
 
 static void AppendToStr(char* Buffer, const char* AppendStr, UINT8 Seperator);
 static void MakeChipStr(char* Buffer, UINT8 ChipID, UINT8 SubType, UINT32 Clock);
@@ -63,10 +66,11 @@ void FormatVGMLength(char* Buffer, FINF_DATA* FileInf);
 void PrintTime(char* Buffer, UINT32 MSecTime);
 //int GetTrackNumber(const char *filename);
 bool LoadPlayingVGMInfo(const char* FileName);
+bool LoadPlayingVGMInfoW(const wchar_t* FileName);
 void QueueInfoReload(void);
 
-bool GetExtendedFileInfo(const char* FileName, const char* MetaType, wchar_t* RetBuffer,
-						 int RetBufLen);
+bool GetExtendedFileInfoW(const wchar_t* FileName, const char* MetaType, wchar_t* RetBuffer,
+						  int RetBufLen);
 const wchar_t* GetTagStringEngJap(const wchar_t* TextEng, const wchar_t* TextJap,
 									bool LangMode);
 void DisplayTagString(HWND hWndDlg, int DlgItem, const wchar_t* TextEng,
@@ -98,11 +102,21 @@ extern UINT32 FadeTime;
 static FINF_DATA VGMInfo;
 static FINF_DATA PlayVGMInfo;
 static const char* FileNameToLoad;
+static const wchar_t* FileNameToLoadW;
 
 
 void SetInfoDlgFile(const char* FileName)
 {
+	FileNameToLoadW = NULL;
 	FileNameToLoad = FileName;
+	
+	return;
+}
+
+void SetInfoDlgFileW(const wchar_t* FileName)
+{
+	FileNameToLoad = NULL;
+	FileNameToLoadW = FileName;
 	
 	return;
 }
@@ -120,7 +134,35 @@ UINT32 GetVGZFileSize(const char* FileName)
 		return 0x00;
 	
 	fread(&gzHead, 0x02, 0x01, hFile);
+	if (gzHead == 0x8B1F)
+	{
+		// .gz File
+		fseek(hFile, 0x00, SEEK_END);
+		FileSize = ftell(hFile);
+	}
+	else
+	{
+		FileSize = 0x00;
+	}
 	
+	fclose(hFile);
+	
+	return FileSize;
+}
+
+UINT32 GetVGZFileSizeW(const wchar_t* FileName)
+{
+	// returns the size of a compressed VGZ file
+	// or 0 it the file is uncompressed or not found
+	FILE* hFile;
+	UINT32 FileSize;
+	UINT16 gzHead;
+	
+	hFile = _wfopen(FileName, L"rb");
+	if (hFile == NULL)
+		return 0x00;
+	
+	fread(&gzHead, 0x02, 0x01, hFile);
 	if (gzHead == 0x8B1F)
 	{
 		// .gz File
@@ -174,7 +216,27 @@ static void CopyTagData(GD3_TAG* DstTag, const GD3_TAG* SrcTag)
 	return;
 }
 
-static bool LoadInfo(const char* FileName, FINF_DATA* FileInf)
+static bool LoadInfoA(const char* FileName, FINF_DATA* FileInf)
+{
+	size_t FNSize;
+	wchar_t* FileNameW;
+	bool RetVal;
+	
+	FNSize = mbstowcs(NULL, FileName, 0);
+	if (FNSize == -1)
+		return false;
+	FNSize ++;
+	
+	FileNameW = (wchar_t*)malloc(FNSize * sizeof(wchar_t));
+	mbstowcs(FileNameW, FileName, FNSize);
+	
+	RetVal = LoadInfoW(FileNameW, FileInf);
+	
+	free(FileNameW);
+	return RetVal;
+}
+
+static bool LoadInfoW(const wchar_t* FileName, FINF_DATA* FileInf)
 {
 	VGM_HEADER* FH;
 	UINT32 StrSize;
@@ -182,7 +244,7 @@ static bool LoadInfo(const char* FileName, FINF_DATA* FileInf)
 	
 	if (! FileInf->ForceReload)
 	{
-		if (FileInf->FileName != NULL && ! stricmp(FileInf->FileName, FileName))
+		if (FileInf->FileName != NULL && ! _wcsicmp(FileInf->FileName, FileName))
 			return true;	// I just loaded that file.
 	}
 	else
@@ -190,22 +252,22 @@ static bool LoadInfo(const char* FileName, FINF_DATA* FileInf)
 		FileInf->ForceReload = false;
 	}
 	
-	StrSize = strlen(FileName) + 1;
+	StrSize = wcslen(FileName) + 1;
 	if (FileInf->FileNameAlloc < StrSize)
 	{
-		FileInf->FileName = (char*)realloc(FileInf->FileName, StrSize * sizeof(char));
+		FileInf->FileName = (wchar_t*)realloc(FileInf->FileName, StrSize * sizeof(wchar_t));
 		FileInf->FileNameAlloc = StrSize;
 	}
-	strcpy(FileInf->FileName, FileName);
+	wcscpy(FileInf->FileName, FileName);
 	
 	FreeGD3Tag(&FileInf->Tag);
 	
 	if (FileInf != &PlayVGMInfo)
 	{
-		if (PlayVGMInfo.FileName != NULL && ! _stricmp(PlayVGMInfo.FileName, FileName))
+		if (PlayVGMInfo.FileName != NULL && ! _wcsicmp(PlayVGMInfo.FileName, FileName))
 		{
 			if (PlayVGMInfo.ForceReload)
-				LoadInfo(PlayVGMInfo.FileName, &PlayVGMInfo);
+				LoadInfoW(PlayVGMInfo.FileName, &PlayVGMInfo);
 			
 			// copy all info from PlayVGMInfo to current structure
 			// (advanced caching) ;)
@@ -222,7 +284,7 @@ static bool LoadInfo(const char* FileName, FINF_DATA* FileInf)
 			return true;
 		}
 		
-		FileInf->FileSize = GetVGMFileInfo(FileInf->FileName, &FileInf->Head, &FileInf->Tag);
+		FileInf->FileSize = GetVGMFileInfoW(FileInf->FileName, &FileInf->Head, &FileInf->Tag);
 	}
 	else
 	{
@@ -245,7 +307,7 @@ static bool LoadInfo(const char* FileName, FINF_DATA* FileInf)
 		FileInf->VolGain = 0.0f;
 		
 		FileInf->Tag.strNotes = (wchar_t*)malloc(16 * sizeof(wchar_t));
-		if (GetGZFileLength(FileName) == 0xFFFFFFFF)
+		if (GetGZFileLengthW(FileName) == 0xFFFFFFFF)
 			wcscpy(FileInf->Tag.strNotes, L"File not found!");
 		else
 			wcscpy(FileInf->Tag.strNotes, L"File invalid!");
@@ -276,7 +338,7 @@ static bool LoadInfo(const char* FileName, FINF_DATA* FileInf)
 		}
 	}
 	
-	StrSize = GetVGZFileSize(FileInf->FileName);
+	StrSize = GetVGZFileSizeW(FileInf->FileName);
 	if (! StrSize)
 	{
 		if (FH->lngGD3Offset)
@@ -507,10 +569,10 @@ static bool CheckFM2413Text(VGM_HEADER* FileHead)
 	return (! Clocks);
 }
 
-UINT32 FormatVGMTag(const UINT32 BufLen, char* Buffer, GD3_TAG* FileTag, VGM_HEADER* FileHead)
+UINT32 FormatVGMTag(const UINT32 BufLen, in_char* Buffer, GD3_TAG* FileTag, VGM_HEADER* FileHead)
 {
-	const char* BufEnd;
-	char* CurBuf;
+	const in_char* BufEnd;
+	in_char* CurBuf;
 	const char* FormatStr;
 	const wchar_t* TagStr;
 	const wchar_t* TagStrE;
@@ -563,9 +625,14 @@ UINT32 FormatVGMTag(const UINT32 BufLen, char* Buffer, GD3_TAG* FileTag, VGM_HEA
 			}
 			if (TempFlag)
 			{
+#ifndef UNICODE_INPUT_PLUGIN
 				*CurBuf = *FormatStr;
-				FormatStr ++;
-				CurBuf ++;
+				FormatStr ++;	CurBuf ++;
+#else
+				CnvBytes = MultiByteToWideChar(CP_THREAD_ACP, 0x00, FormatStr, 1, CurBuf,
+												BufEnd - CurBuf);
+				FormatStr ++;	CurBuf += CnvBytes;
+#endif
 			}
 			else
 			{
@@ -576,10 +643,11 @@ UINT32 FormatVGMTag(const UINT32 BufLen, char* Buffer, GD3_TAG* FileTag, VGM_HEA
 					FormatStr ++;
 				}
 				TagStr = GetTagStringEngJap(TagStrE, TagStrJ, TempFlag);
+#ifndef UNICODE_INPUT_PLUGIN
 				CnvBytes = WideCharToMultiByte(CP_THREAD_ACP, 0x00, TagStr, -1, CurBuf,
 												BufEnd - CurBuf, NULL, NULL);
 				if (CnvBytes)
-					CurBuf += CnvBytes - 1;
+					CurBuf += CnvBytes - 1;	// It counts the \0 ternimator, too.
 				
 				// The problem with the ANSI C function is, that it simply stops
 				// converting the string, instead of inserting '?', which would be nicer,
@@ -594,21 +662,49 @@ UINT32 FormatVGMTag(const UINT32 BufLen, char* Buffer, GD3_TAG* FileTag, VGM_HEA
 				if (CnvBytes != -1)
 					CurBuf += CnvBytes - 1;*/
 				
-				if (AppendFM)
+				if (AppendFM && (BufEnd - CurBuf) >= 0x05+1)
 				{
 					strcpy(CurBuf, " (FM)");
 					CurBuf += 0x05;
 				}
+#else
+				CnvBytes = wcslen(TagStr);
+				if (CnvBytes < BufEnd - CurBuf)
+				{
+					wcscpy(CurBuf, TagStr);
+					CurBuf += CnvBytes;
+				}
+				else
+				{
+					CnvBytes = (BufEnd - CurBuf) - 1;
+					wcsncpy(CurBuf, TagStr, CnvBytes);
+					CurBuf += CnvBytes;
+				}
+				if (AppendFM && (BufEnd - CurBuf) >= 0x05+1)
+				{
+					wcscpy(CurBuf, L" (FM)");
+					CurBuf += 0x05;
+				}
+#endif
 			}
 		}
 		else
 		{
+#ifndef UNICODE_INPUT_PLUGIN
 			*CurBuf = *FormatStr;
-			FormatStr ++;
-			CurBuf ++;
+			FormatStr ++;	CurBuf ++;
+#else
+			CnvBytes = MultiByteToWideChar(CP_THREAD_ACP, 0x00, FormatStr, 1, CurBuf,
+											BufEnd - CurBuf);
+			FormatStr ++;	CurBuf += CnvBytes;
+#endif
 		}
 	}
+#ifndef UNICODE_INPUT_PLUGIN
 	*CurBuf = '\0';
+#else
+	*CurBuf = L'\0';
+#endif
 	
 	return Buffer - CurBuf;
 }
@@ -828,18 +924,48 @@ void FormatVGMLength(char* Buffer, FINF_DATA* FileInf)
 
 bool LoadPlayingVGMInfo(const char* FileName)
 {
+	size_t FNSize;
+	wchar_t* FileNameW;
+	bool RetVal;
+	
+	if (FileName == NULL)
+	{
+		RetVal = LoadPlayingVGMInfoW(NULL);
+	}
+	else
+	{
+		FNSize = mbstowcs(NULL, FileName, 0);
+		if (FNSize == -1)
+			return LoadPlayingVGMInfoW(NULL);
+		FNSize ++;
+		
+		FileNameW = (wchar_t*)malloc(FNSize * sizeof(wchar_t));
+		mbstowcs(FileNameW, FileName, FNSize);
+		
+		RetVal = LoadPlayingVGMInfoW(FileNameW);
+		
+		free(FileNameW);
+	}
+	
+	return true;
+}
+
+bool LoadPlayingVGMInfoW(const wchar_t* FileName)
+{
+	bool RetVal;
+	
 	if (FileName == NULL && PlayVGMInfo.FileName != NULL)
 	{
-		PlayVGMInfo.FileName[0x00] = '\0';
+		PlayVGMInfo.FileName[0x00] = L'\0';
 		return true;
 	}
 	
 	// load new file only if neccessary
-	if (PlayVGMInfo.FileName == NULL || _stricmp(PlayVGMInfo.FileName, FileName))
-	{
-		if (! LoadInfo(FileName, &PlayVGMInfo))
-			return false;	// Loading failed
-	}
+	if (PlayVGMInfo.FileName == NULL || _wcsicmp(PlayVGMInfo.FileName, FileName))
+		RetVal = LoadInfoW(FileName, &PlayVGMInfo);
+	else
+		RetVal = true;
+	
 	if (! PlayVGMInfo.FileSize)
 		return false;
 	
@@ -856,8 +982,8 @@ void QueueInfoReload(void)
 
 
 // GetExtendedFileInfoW worker function
-bool GetExtendedFileInfo(const char* FileName, const char* MetaType, wchar_t* RetBuffer,
-						 int RetBufLen)
+bool GetExtendedFileInfoW(const wchar_t* FileName, const char* MetaType, wchar_t* RetBuffer,
+						  int RetBufLen)
 {
 	/* Metadata Tag List:
 		"track", "title", "artist", "album", "year", "comment", "genre", "length",
@@ -882,13 +1008,13 @@ bool GetExtendedFileInfo(const char* FileName, const char* MetaType, wchar_t* Re
 	}
 	else if (! stricmp(MetaType, "family"))	// Winamp 5.5+ only
 	{
-		char* FileExt;
+		const wchar_t* FileExt;
 		
-		FileExt = strrchr(FileName, '.');
+		FileExt = wcsrchr(FileName, L'.');
 		if (FileExt != NULL)
 		{
 			FileExt ++;
-			if (! stricmp(FileExt, "vgm") || ! stricmp(FileExt, "vgz"))
+			if (! wcsicmp(FileExt, L"vgm") || ! wcsicmp(FileExt, L"vgz"))
 			{
 				wcsncpy(RetBuffer, L"Video Game Music File", RetBufLen);
 				return true;
@@ -914,16 +1040,16 @@ bool GetExtendedFileInfo(const char* FileName, const char* MetaType, wchar_t* Re
 		}*/
 	}
 	
-	if (PlayVGMInfo.FileName != NULL && ! _stricmp(PlayVGMInfo.FileName, FileName))
+	if (PlayVGMInfo.FileName != NULL && ! _wcsicmp(PlayVGMInfo.FileName, FileName))
 	{
 		UseInfo = &PlayVGMInfo;
 	}
 	else
 	{
 		// load new file only if neccessary
-		if (VGMInfo.FileName == NULL || _stricmp(VGMInfo.FileName, FileName))
+		if (VGMInfo.FileName == NULL || _wcsicmp(VGMInfo.FileName, FileName))
 		{
-			if (! LoadInfo(FileName, &VGMInfo))
+			if (! LoadInfoW(FileName, &VGMInfo))
 				return false;	// Loading failed
 		}
 		UseInfo = &VGMInfo;
@@ -931,7 +1057,7 @@ bool GetExtendedFileInfo(const char* FileName, const char* MetaType, wchar_t* Re
 	if (! UseInfo->FileSize)
 		return false;
 	
-	if (! stricmp(MetaType,"artist"))
+	if (! stricmp(MetaType, "artist"))
 		TagIdx = METATAG_AUTHOR;
 	else if (! stricmp(MetaType, "length"))
 		TagIdx = METATAG_LENGTH;
@@ -1162,9 +1288,12 @@ BOOL CALLBACK FileInfoDialogProc(HWND hWndDlg, UINT wMessage, WPARAM wParam, LPA
 		}*/
 		
 		// Load File Info
-		LoadInfo(FileNameToLoad, &VGMInfo);
+		if (FileNameToLoadW != NULL)
+			LoadInfoW(FileNameToLoadW, &VGMInfo);
+		else
+			LoadInfoA(FileNameToLoad, &VGMInfo);
 		
-		SetDlgItemText(hWndDlg, VGMFileText, VGMInfo.FileName);
+		SetDlgItemTextW(hWndDlg, VGMFileText, VGMInfo.FileName);
 		
 		if (VGMInfo.FileSize)
 		{
@@ -1254,28 +1383,10 @@ DllExport int winampGetExtendedFileInfoW(const wchar_t* wfilename, const char* m
 										 wchar_t* ret, int retlen)
 {
 	// called by Winamp 5.3 and higher
-	char* FileName;
-	size_t FileNameLen;
 	bool RetVal;
 	
-	// hack: convert filename to ASCII
-	// problem: filenames are a bit more accurate than random-insert-?-o-matic will do for us,
-	//          so international filenames might be screwed
-	/*FileNameLen = WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wfilename, -1, NULL, 0,
-						NULL, NULL);
-	FileName = malloc(FileNameLen + 1);
-	WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wfilename, -1, FileName, FileNameLen + 1,
-						NULL, NULL);*/
-	FileNameLen = wcstombs(NULL, wfilename, 0);
-	if (FileNameLen == -1)
-		return 0;
+	RetVal = GetExtendedFileInfoW(wfilename, metadata, ret, retlen);
 	
-	FileName = (char*)malloc(FileNameLen + 1);
-	wcstombs(FileName, wfilename, FileNameLen + 1);
-	
-	RetVal = GetExtendedFileInfo(FileName, metadata, ret, retlen);
-	
-	free(FileName);
 	return RetVal;
 }
 
@@ -1283,17 +1394,29 @@ DllExport int winampGetExtendedFileInfo(const char* filename, const char* metada
 										char* ret, int retlen)
 {
 	// called by Winamp versions until 5.24
+	size_t FNSize;
+	wchar_t* FileNameW;
 	wchar_t* wRetStr;
 	bool RetVal;
 	
+	FNSize = mbstowcs(NULL, filename, 0);
+	if (FNSize == -1)
+		return 0;
+	FNSize ++;
+	
+	FileNameW = (wchar_t*)malloc(FNSize * sizeof(wchar_t));
+	mbstowcs(FileNameW, filename, FNSize);
+	
 	wRetStr = (wchar_t*)malloc(retlen * sizeof(wchar_t));
 	
-	RetVal = GetExtendedFileInfo(filename, metadata, wRetStr, retlen);
+	RetVal = GetExtendedFileInfoW(FileNameW, metadata, wRetStr, retlen);
 	
 	if (RetVal)
 		//WideCharToMultiByte(CP_ACP, WC_COMPOSITECHECK, wret, -1, ret, retlen, NULL, NULL);
 		wcstombs(ret, wRetStr, retlen);
 	
+	free(FileNameW);
 	free(wRetStr);
+	
 	return RetVal;
 }

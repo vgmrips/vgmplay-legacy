@@ -1,6 +1,6 @@
 // Winamp VGM input plug-in
 // ------------------------
-// Programmed by Valley Bell, 2011-2012
+// Programmed by Valley Bell, 2011-2014
 //
 // Made using the Example .RAW plug-in by Justin Frankel and
 // small parts (mainly dialogues) of the old in_vgm 0.35 by Maxim.
@@ -8,13 +8,18 @@
 /*3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
 0000000001111111111222222222233333333334444444444555555555566666666667777777777888888888899999*/
 
+// #defines used by the Visual C++ project file:
+//	ENABLE_ALL_CORES
+//	DISABLE_HW_SUPPORT
+//	UNICODE_INPUT_PLUGIN (Unicode build only)
+
 #include <windows.h>
 #include <stdio.h>
 #include <locale.h>	// for setlocale
 #include "Winamp/in2.h"
 #include "Winamp/wa_ipc.h"
 
-#include "zlib/zlib.h"	// for info in About message
+#include <zlib.h>	// for info in About message
 
 #include "stdbool.h"
 #include "chips/mamedef.h"	// for (U)INTxx types
@@ -43,10 +48,13 @@ void Dialogue_TrackChange(void);
 
 // Function Protorypes from dlg_fileinfo.c
 void SetInfoDlgFile(const char* FileName);
+void SetInfoDlgFileW(const wchar_t* FileName);
 UINT32 GetVGZFileSize(const char* FileName);
+UINT32 GetVGZFileSizeW(const wchar_t* FileName);
 wchar_t* GetTagStringEngJap(wchar_t* TextEng, wchar_t* TextJap, bool LangMode);
-UINT32 FormatVGMTag(const UINT32 BufLen, char* Buffer, GD3_TAG* FileTag, VGM_HEADER* FileHead);
+UINT32 FormatVGMTag(const UINT32 BufLen, in_char* Buffer, GD3_TAG* FileTag, VGM_HEADER* FileHead);
 bool LoadPlayingVGMInfo(const char* FileName);
+bool LoadPlayingVGMInfoW(const wchar_t* FileName);
 BOOL CALLBACK FileInfoDialogProc(HWND hWndDlg, UINT wMessage, WPARAM wParam, LPARAM lParam);
 
 
@@ -63,10 +71,10 @@ void SaveConfigurationFile(void);
 static void WriteFromBitfield(const char* Section, const char* Key, UINT32 Value,
 							  UINT8 BitStart, UINT8 BitCount);
 void Deinit(void);
-int IsOurFile(const char* fn);
+int IsOurFile(const in_char* fn);
 
 INLINE UINT32 MulDivRound(UINT64 Number, UINT64 Numerator, UINT64 Denominator);
-int Play(const char* FileName);
+int Play(const in_char* FileName);
 void Pause(void);
 void Unpause(void);
 int IsPaused(void);
@@ -81,9 +89,9 @@ void SetVolume(int volume);
 void SetPan(int pan);
 void UpdatePlayback(void);
 
-int InfoDialog(const char* FileName, HWND hWnd);
-const char* GetFileNameTitle(const char* FileName);
-void GetFileInfo(const char* filename, char* title, int* length_in_ms);
+int InfoDialog(const in_char* FileName, HWND hWnd);
+const in_char* GetFileNameTitle(const in_char* FileName);
+void GetFileInfo(const in_char* filename, in_char* title, int* length_in_ms);
 void EQ_Set(int on, char data[10], int preamp);
 
 DWORD WINAPI DecodeThread(LPVOID b);
@@ -95,7 +103,7 @@ DWORD WINAPI DecodeThread(LPVOID b);
 static In_Module WmpMod;
 
 // currently playing file (used for getting info on the current file)
-static char CurFileName[PATH_SIZE];
+static in_char CurFileName[PATH_SIZE];
 
 static int decode_pos;				// current decoding position (depends on SampleRate)
 static int decode_pos_ms;			// Used for correcting DSP plug-in pitch changes
@@ -168,12 +176,16 @@ void Config(HWND hWndParent)
 void About(HWND hWndParent)
 {
 	const char* MsgStr =
-		INVGM_TITLE "\n"	//
-		"by Valley Bell 2011-2013\n"
+		INVGM_TITLE
+#ifdef UNICODE_INPUT_PLUGIN
+		" (Unicode build)"
+#endif
+		"\n"
+		"by Valley Bell 2011-2014\n"
 		"\n"
 		"Build date: " __DATE__ " (" INVGM_VERSION ")\n"
 		"\n"
-		"http://vgm.mdscene.net/\n"
+		"http://vgmrips.net/\n"
 		"\n"
 		"Current status:\n"
 		"VGM file support up to version " VGM_VER_STR "\n"
@@ -437,6 +449,9 @@ void LoadConfigurationFile(void)
 	sprintf(TempStr, "%s Internal 10bit", ChipName);
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 0, 1);
 	
+	sprintf(TempStr, "%s Remove DC Ofs", ChipName);
+	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 1, 1);
+	
 	// SCSP
 	ChipName = GetChipName(0x20);	TempCOpt = &ChipOpts[0x00].SCSP;
 	sprintf(TempStr, "%s Bypass DSP", ChipName);
@@ -602,6 +617,9 @@ void SaveConfigurationFile(void)
 	sprintf(TempStr, "%s Internal 10bit", ChipName);
 	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 0, 1);
 	
+	sprintf(TempStr, "%s Remove DC Ofs", ChipName);
+	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 1, 1);
+	
 	// SCSP
 	ChipName = GetChipName(0x20);	TempCOpt = &ChipOpts[0x00].SCSP;
 	sprintf(TempStr, "%s Bypass DSP", ChipName);
@@ -639,7 +657,7 @@ void Deinit(void)
 	return;
 }
 
-int IsOurFile(const char* fn)
+int IsOurFile(const in_char* fn)
 {
 	// used for detecting URL streams - currently unused.
 	// return ! strncmp(fn,"http://",7); to detect HTTP streams, etc
@@ -653,7 +671,7 @@ INLINE UINT32 MulDivRound(UINT64 Number, UINT64 Numerator, UINT64 Denominator)
 }
 
 // called when winamp wants to play a file
-int Play(const char* FileName)
+int Play(const in_char* FileName)
 {
 	UINT32 TempLng;
 	int maxlatency;
@@ -668,6 +686,7 @@ int Play(const char* FileName)
 	
 	// return -1 - jump to next file in playlist
 	// return +1 - stop the playlist
+#ifndef UNICODE_INPUT_PLUGIN
 	if (! OpenVGMFile(FileName))
 	{
 		if (GetGZFileLength(FileName) == 0xFFFFFFFF)
@@ -678,6 +697,18 @@ int Play(const char* FileName)
 	
 	LoadPlayingVGMInfo(FileName);
 	strcpy(CurFileName, FileName);
+#else
+	if (! OpenVGMFileW(FileName))
+	{
+		if (GetGZFileLengthW(FileName) == 0xFFFFFFFF)
+			return -1;	// file not found
+		else
+			return +1;	// file invalid
+	}
+	
+	LoadPlayingVGMInfoW(FileName);
+	wcscpy(CurFileName, FileName);
+#endif
 	
 	// -1 and -1 are to specify buffer and prebuffer lengths.
 	// -1 means to use the default, which all input plug-ins should really do.
@@ -692,7 +723,11 @@ int Play(const char* FileName)
 	
 	PlayVGM();
 	
+#ifndef UNICODE_INPUT_PLUGIN
 	TempLng = GetVGZFileSize(FileName);
+#else
+	TempLng = GetVGZFileSizeW(FileName);
+#endif
 	if (! TempLng)
 	{
 		if (VGMHead.lngGD3Offset)
@@ -890,21 +925,31 @@ void UpdatePlayback(void)
 }
 
 
-int InfoDialog(const char* FileName, HWND hWnd)
+int InfoDialog(const in_char* FileName, HWND hWnd)
 {
 	//MessageBox(hWnd, "No File Info. Yet.", "File Info", MB_OK);
+#ifndef UNICODE_INPUT_PLUGIN
 	SetInfoDlgFile(FileName);
+#else
+	SetInfoDlgFileW(FileName);
+#endif
 	
 	return DialogBox(WmpMod.hDllInstance, (LPTSTR)DlgFileInfo, hWnd, &FileInfoDialogProc);
 }
 
-const char* GetFileNameTitle(const char* FileName)
+const in_char* GetFileNameTitle(const in_char* FileName)
 {
-	const char* TempPnt;
+	const in_char* TempPnt;
 	
+#ifndef UNICODE_INPUT_PLUGIN
 	TempPnt = FileName + strlen(FileName) - 0x01;
 	while(TempPnt >= FileName && *TempPnt != '\\')
 		TempPnt --;
+#else
+	TempPnt = FileName + wcslen(FileName) - 0x01;
+	while(TempPnt >= FileName && *TempPnt != L'\\')
+		TempPnt --;
+#endif
 	
 	return TempPnt + 0x01;
 }
@@ -913,7 +958,7 @@ const char* GetFileNameTitle(const char* FileName)
 // If filename is either NULL or of length 0, it means you should
 // return the info of LastFileName. Otherwise, return the information
 // for the file in filename.
-void GetFileInfo(const char* filename, char* title, int* length_in_ms)
+void GetFileInfo(const in_char* filename, in_char* title, int* length_in_ms)
 {
 	UINT32 FileSize;
 	VGM_HEADER FileHead;
@@ -933,18 +978,30 @@ void GetFileInfo(const char* filename, char* title, int* length_in_ms)
 			else
 				Tag_TrackName = GetTagStringEngJap(VGMTag.strTrackNameE, VGMTag.strTrackNameJ, false);
 			if (Tag_TrackName != NULL)
+			{
 				//_snprintf(title, GETFILEINFO_TITLE_LENGTH, "%ls (%ls)",
 				//			VGMTag.strTrackNameE, VGMTag.strGameNameE);
 				FormatVGMTag(GETFILEINFO_TITLE_LENGTH, title, &VGMTag, &VGMHead);
+			}
 			else
+			{
+#ifndef UNICODE_INPUT_PLUGIN
 				strncpy(title, GetFileNameTitle(CurFileName), GETFILEINFO_TITLE_LENGTH);
+#else
+				wcsncpy(title, GetFileNameTitle(CurFileName), GETFILEINFO_TITLE_LENGTH);
+#endif
+			}
 		}
 	}
 	else // some other file
 	{
+#ifndef UNICODE_INPUT_PLUGIN
 		//FileSize = GetVGMFileInfo(filename, (length_in_ms != NULL) ? &FileHead : NULL,
 		//							(title != NULL) ? &FileTag : NULL);
 		FileSize = GetVGMFileInfo(filename, &FileHead, (title != NULL) ? &FileTag : NULL);
+#else
+		FileSize = GetVGMFileInfoW(filename, &FileHead, (title != NULL) ? &FileTag : NULL);
+#endif
 		if (length_in_ms != NULL)
 		{
 			if (FileSize)
@@ -967,7 +1024,11 @@ void GetFileInfo(const char* filename, char* title, int* length_in_ms)
 			}
 			else
 			{
+#ifndef UNICODE_INPUT_PLUGIN
 				strncpy(title, GetFileNameTitle(filename), GETFILEINFO_TITLE_LENGTH);
+#else
+				wcsncpy(title, GetFileNameTitle(filename), GETFILEINFO_TITLE_LENGTH);
+#endif
 			}
 		}
 	}

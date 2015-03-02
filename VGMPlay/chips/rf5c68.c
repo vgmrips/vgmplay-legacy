@@ -409,16 +409,17 @@ void rf5c68_write_ram(UINT8 ChipID, offs_t DataStart, offs_t DataLength, const U
 	mem_stream* ms = &chip->memstrm;
 	UINT16 BytCnt;
 	
+	DataStart |= chip->wbank * 0x1000;
 	if (DataStart >= chip->datasize)
 		return;
 	if (DataStart + DataLength > chip->datasize)
 		DataLength = chip->datasize - DataStart;
 	
-	//memcpy(chip->data + (chip->wbank * 0x1000 | DataStart), RAMData, DataLength);
+	//memcpy(chip->data + DataStart, RAMData, DataLength);
 	
 	rf5c68_mem_stream_flush(chip);
 	
-	ms->BaseAddr = chip->wbank * 0x1000 | DataStart;
+	ms->BaseAddr = DataStart;
 	ms->CurAddr = ms->BaseAddr;
 	ms->EndAddr = ms->BaseAddr + DataLength;
 	ms->CurStep = 0x0000;

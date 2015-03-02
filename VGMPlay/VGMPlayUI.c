@@ -1479,6 +1479,12 @@ static void ReadOptions(const char* AppName)
 							TempCOpt->SpecialFlags &= ~(0x01 << 0);
 							TempCOpt->SpecialFlags |= TempFlag << 0;
 						}
+						else if (! stricmp_u(LStr, "RemoveDCOfs"))
+						{
+							TempFlag = GetBoolFromStr(RStr);
+							TempCOpt->SpecialFlags &= ~(0x01 << 1);
+							TempCOpt->SpecialFlags |= TempFlag << 1;
+						}
 						break;
 					case 0x20:	// SCSP
 						if (! stricmp_u(LStr, "BypassDSP"))
@@ -1868,15 +1874,16 @@ static void wprintc(const wchar_t* format, ...)
 	// This is the only way to print Unicode stuff to the Windows console.
 	// No, wprintf doesn't work.
 	RetVal = WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), printbuf, StrLen, &CPMode, NULL);
-	if (! RetVal)	// call failed (maybe not as ERROR_CALL_NOT_IMPLEMENTED on Win95?)
+	if (! RetVal)	// call failed (e.g. with ERROR_CALL_NOT_IMPLEMENTED on Win95)
 	{
 		// fallback to printf with OEM codepage
 		oembuf = (char*)malloc(BufSize);
-		if (GetConsoleOutputCP() == GetOEMCP())
+		/*if (GetConsoleOutputCP() == GetOEMCP())
 			CPMode = CP_OEMCP;
 		else
-			CPMode = CP_ACP;
-		WideCharToMultiByte(CP_OEMCP, 0x00, printbuf, StrLen, oembuf, BufSize, NULL, NULL);
+			CPMode = CP_ACP;*/
+		CPMode = GetConsoleOutputCP();
+		WideCharToMultiByte(CPMode, 0x00, printbuf, StrLen + 1, oembuf, BufSize, NULL, NULL);
 		
 		printf("%s", oembuf);
 		free(oembuf);
@@ -2049,7 +2056,6 @@ static void ShowVGMTag(void)
 
 
 #define LOG_SAMPLES	(SampleRate / 5)
-UINT8 multipcm_get_channels(UINT8 ChipID, UINT32* ChannelMask);
 static void PlayVGM_UI(void)
 {
 	INT32 VGMPbSmplCount;

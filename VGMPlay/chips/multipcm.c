@@ -809,6 +809,7 @@ void multipcm_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 	return;
 }
 
+#if 0	// for debugging only
 UINT8 multipcm_get_channels(UINT8 ChipID, UINT32* ChannelMask)
 {
 	MultiPCM* ptChip = &MultiPCMData[ChipID];
@@ -831,6 +832,7 @@ UINT8 multipcm_get_channels(UINT8 ChipID, UINT32* ChannelMask)
 	
 	return UsedChns;
 }
+#endif
 
 
 

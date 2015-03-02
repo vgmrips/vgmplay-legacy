@@ -1,6 +1,8 @@
 // VGMPlay_Intf.h: VGMPlay Interface Header File
 //
 
+//#define NO_WCHAR_FILENAMES
+
 typedef struct waveform_16bit_stereo
 {
 	INT16 Left;
@@ -22,6 +24,7 @@ char* FindFile(const char* FileName);
 UINT32 GetGZFileLength(const char* FileName);
 bool OpenVGMFile(const char* FileName);
 void CloseVGMFile(void);
+
 void FreeGD3Tag(GD3_TAG* TagData);
 UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag);
 UINT32 CalcSampleMSec(UINT64 Value, UINT8 Mode);
@@ -29,6 +32,12 @@ UINT32 CalcSampleMSecExt(UINT64 Value, UINT8 Mode, VGM_HEADER* FileHead);
 const char* GetChipName(UINT8 ChipID);
 const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType);
 UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType);
+
+#ifndef NO_WCHAR_FILENAMES
+UINT32 GetGZFileLengthW(const wchar_t* FileName);
+bool OpenVGMFileW(const wchar_t* FileName);
+UINT32 GetVGMFileInfoW(const wchar_t* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag);
+#endif
 
 INT32 SampleVGM2Playback(INT32 SampleVal);
 INT32 SamplePlayback2VGM(INT32 SampleVal);

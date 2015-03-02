@@ -32,6 +32,10 @@
 #include "stdbool.h"
 #include <math.h>	// for pow()
 
+// includes for manual wide-character ZLib open
+#include <fcntl.h>	// for _O_RDONLY and _O_BINARY
+#include <io.h>		// for _wopen and _close
+
 #ifdef WIN32
 #include <conio.h>	// for _inp()
 #include <windows.h>
@@ -185,7 +189,10 @@ static UINT32 gcd(UINT32 x, UINT32 y);
 //void RefreshPlaybackOptions(void);
 
 //UINT32 GetGZFileLength(const char* FileName);
+//UINT32 GetGZFileLengthW(const wchar_t* FileName);
+static UINT32 GetGZFileLength_Internal(FILE* hFile);
 //bool OpenVGMFile(const char* FileName);
+static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize);
 static void ReadVGMHeader(gzFile hFile, VGM_HEADER* RetVGMHead);
 static UINT8 ReadGD3Tag(gzFile hFile, UINT32 GD3Offset, GD3_TAG* RetGD3Tag);
 static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra);
@@ -195,6 +202,8 @@ static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra);
 static wchar_t* MakeEmptyWStr(void);
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos);
 //UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag);
+static UINT32 GetVGMFileInfo_Internal(gzFile hFile, UINT32 FileSize,
+									  VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag);
 INLINE UINT32 MulDivRound(UINT64 Number, UINT64 Numerator, UINT64 Denominator);
 //UINT32 CalcSampleMSec(UINT64 Value, UINT8 Mode);
 //UINT32 CalcSampleMSecExt(UINT64 Value, UINT8 Mode, VGM_HEADER* FileHead);
@@ -1123,12 +1132,39 @@ UINT32 GetGZFileLength(const char* FileName)
 {
 	FILE* hFile;
 	UINT32 FileSize;
-	UINT16 gzHead;
-	size_t RetVal;
 	
 	hFile = fopen(FileName, "rb");
 	if (hFile == NULL)
 		return 0xFFFFFFFF;
+	
+	FileSize = GetGZFileLength_Internal(hFile);
+	
+	fclose(hFile);
+	return FileSize;
+}
+
+#ifndef NO_WCHAR_FILENAMES
+UINT32 GetGZFileLengthW(const wchar_t* FileName)
+{
+	FILE* hFile;
+	UINT32 FileSize;
+	
+	hFile = _wfopen(FileName, L"rb");
+	if (hFile == NULL)
+		return 0xFFFFFFFF;
+	
+	FileSize = GetGZFileLength_Internal(hFile);
+	
+	fclose(hFile);
+	return FileSize;
+}
+#endif
+
+static UINT32 GetGZFileLength_Internal(FILE* hFile)
+{
+	UINT32 FileSize;
+	UINT16 gzHead;
+	size_t RetVal;
 	
 	RetVal = fread(&gzHead, 0x02, 0x01, hFile);
 	if (RetVal >= 1)
@@ -1156,8 +1192,6 @@ UINT32 GetGZFileLength(const char* FileName)
 		FileSize = ftell(hFile);
 	}
 	
-	fclose(hFile);
-	
 	return FileSize;
 }
 
@@ -1165,9 +1199,7 @@ bool OpenVGMFile(const char* FileName)
 {
 	gzFile hFile;
 	UINT32 FileSize;
-	UINT32 fccHeader;
-	UINT32 CurPos;
-	UINT32 HdrLimit;
+	bool RetVal;
 	
 	FileSize = GetGZFileLength(FileName);
 	
@@ -1175,10 +1207,55 @@ bool OpenVGMFile(const char* FileName)
 	if (hFile == NULL)
 		return false;
 	
+	RetVal = OpenVGMFile_Internal(hFile, FileSize);
+	
+	gzclose(hFile);
+	return RetVal;
+}
+
+#ifndef NO_WCHAR_FILENAMES
+bool OpenVGMFileW(const wchar_t* FileName)
+{
+	gzFile hFile;
+	UINT32 FileSize;
+	bool RetVal;
+#if ZLIB_VERNUM < 0x1270
+	int fDesc;
+	
+	FileSize = GetGZFileLengthW(FileName);
+	
+	fDesc = _wopen(FileName, _O_RDONLY | _O_BINARY);
+	hFile = gzdopen(fDesc, "rb");
+	if (hFile == NULL)
+	{
+		_close(fDesc);
+		return false;
+	}
+#else
+	FileSize = GetGZFileLengthW(FileName);
+	
+	hFile = gzopen_w(FileName, "rb");
+	if (hFile == NULL)
+		return false;
+#endif
+	
+	RetVal = OpenVGMFile_Internal(hFile, FileSize);
+	
+	gzclose(hFile);
+	return RetVal;
+}
+#endif
+
+static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize)
+{
+	UINT32 fccHeader;
+	UINT32 CurPos;
+	UINT32 HdrLimit;
+	
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzgetLE32(hFile, &fccHeader);
 	if (fccHeader != FCC_VGM)
-		goto OpenErr;
+		return false;
 	
 	if (FileMode != 0xFF)
 		CloseVGMFile();
@@ -1217,7 +1294,7 @@ bool OpenVGMFile(const char* FileName)
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	if (VGMData == NULL)
-		goto OpenErr;
+		return false;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
 	
@@ -1253,7 +1330,7 @@ bool OpenVGMFile(const char* FileName)
 	if (HdrLimit == 0x10)
 	{
 		VGMHead.lngGD3Offset = 0x00000000;
-		//goto OpenErr;
+		//return false;
 	}
 	if (! VGMHead.lngGD3Offset)
 	{
@@ -1271,13 +1348,7 @@ bool OpenVGMFile(const char* FileName)
 		VGMTag.strNotes = MakeEmptyWStr();
 	}
 	
-	gzclose(hFile);
 	return true;
-
-OpenErr:
-
-	gzclose(hFile);
-	return false;
 }
 
 static void ReadVGMHeader(gzFile hFile, VGM_HEADER* RetVGMHead)
@@ -1628,12 +1699,9 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 
 UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag)
 {
-	// this is a copy-and-paste from OpenVGM, just a little stripped
 	gzFile hFile;
 	UINT32 FileSize;
-	UINT32 fccHeader;
-	UINT32 TempLng;
-	VGM_HEADER TempHead;
+	UINT32 RetVal;
 	
 	FileSize = GetGZFileLength(FileName);
 	
@@ -1641,16 +1709,58 @@ UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* Ret
 	if (hFile == NULL)
 		return 0x00;
 	
+	RetVal = GetVGMFileInfo_Internal(hFile, FileSize, RetVGMHead, RetGD3Tag);
+	
+	gzclose(hFile);
+	return RetVal;
+}
+
+UINT32 GetVGMFileInfoW(const wchar_t* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag)
+{
+	gzFile hFile;
+	UINT32 FileSize;
+	UINT32 RetVal;
+#if ZLIB_VERNUM < 0x1270
+	int fDesc;
+	
+	FileSize = GetGZFileLengthW(FileName);
+	
+	fDesc = _wopen(FileName, _O_RDONLY | _O_BINARY);
+	hFile = gzdopen(fDesc, "rb");
+	if (hFile == NULL)
+	{
+		_close(fDesc);
+		return 0x00;
+	}
+#else
+	FileSize = GetGZFileLengthW(FileName);
+	
+	hFile = gzopen_w(FileName, "rb");
+	if (hFile == NULL)
+		return 0x00;
+#endif
+	
+	RetVal = GetVGMFileInfo_Internal(hFile, FileSize, RetVGMHead, RetGD3Tag);
+	
+	gzclose(hFile);
+	return RetVal;
+}
+
+static UINT32 GetVGMFileInfo_Internal(gzFile hFile, UINT32 FileSize,
+									  VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag)
+{
+	// this is a copy-and-paste from OpenVGM, just a little stripped
+	UINT32 fccHeader;
+	UINT32 TempLng;
+	VGM_HEADER TempHead;
+	
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzgetLE32(hFile, &fccHeader);
 	if (fccHeader != FCC_VGM)
-		goto OpenErr;
+		return 0x00;
 	
 	if (RetVGMHead == NULL && RetGD3Tag == NULL)
-	{
-		gzclose(hFile);
 		return FileSize;
-	}
 	
 	gzseek(hFile, 0x00, SEEK_SET);
 	ReadVGMHeader(hFile, &TempHead);
@@ -1666,7 +1776,7 @@ UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* Ret
 		gzgetLE32(hFile, &fccHeader);
 		if (fccHeader != FCC_GD3)
 			TempHead.lngGD3Offset = 0x00000000;
-			//goto OpenErr;
+			//return 0x00;
 	}*/
 	
 	if (RetVGMHead != NULL)
@@ -1676,13 +1786,7 @@ UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* Ret
 	if (RetGD3Tag != NULL)
 		TempLng = ReadGD3Tag(hFile, TempHead.lngGD3Offset, RetGD3Tag);
 	
-	gzclose(hFile);
 	return FileSize;
-
-OpenErr:
-
-	gzclose(hFile);
-	return 0x00;
 }
 
 INLINE UINT32 MulDivRound(UINT64 Number, UINT64 Numerator, UINT64 Denominator)

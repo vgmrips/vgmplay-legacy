@@ -1753,6 +1753,8 @@ INLINE void chan_calc(unsigned int chan)
 	env = volume_calc(op+3);	/* C2 */
 	if (env < ENV_QUIET)
 		chanout[chan]    += op_calc(op+3, env, c2);
+	if (chanout[chan] > +8192)		chanout[chan] = +8192;
+	else if (chanout[chan] < -8192)	chanout[chan] = -8192;
 
 	/* M1 */
 	op->mem_value = mem;
@@ -1817,6 +1819,8 @@ INLINE void chan7_calc(void)
 		if (env < ENV_QUIET)
 			chanout[7] += op_calc(op+3, env, c2);
 	}
+	if (chanout[7] > +8192)			chanout[7] = +8192;
+	else if (chanout[7] < -8192)	chanout[7] = -8192;
 	/* M1 */
 	op->mem_value = mem;
 }
@@ -2475,10 +2479,10 @@ void ym2151_update_one(void *chip, SAMP **buffers, int length)
 
 		outl >>= FINAL_SH;
 		outr >>= FINAL_SH;
-		if (outl > MAXOUT) outl = MAXOUT;
-			else if (outl < MINOUT) outl = MINOUT;
-		if (outr > MAXOUT) outr = MAXOUT;
-			else if (outr < MINOUT) outr = MINOUT;
+		//if (outl > MAXOUT) outl = MAXOUT;
+		//	else if (outl < MINOUT) outl = MINOUT;
+		//if (outr > MAXOUT) outr = MAXOUT;
+		//	else if (outr < MINOUT) outr = MINOUT;
 		((SAMP*)bufL)[i] = (SAMP)outl;
 		((SAMP*)bufR)[i] = (SAMP)outr;
 

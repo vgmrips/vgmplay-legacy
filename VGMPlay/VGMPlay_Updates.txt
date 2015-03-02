@@ -104,3 +104,8 @@ Updates since 0.4.0u5 (13.04.2014)
   -> replaces OKIM6258 hack
   -> fixes OPN SSG with MAME AY emulation
   -> makes OKIM6295 clock changes work
+- added routines for wide-character file names (only used by in_vgm for now)
+- fixed RAM write range check for RF5C68 and RF5C164
+- made OKIM6258 FIFO queue larger, added RemoveDCOfs option
+- [VGMPlay] fixed tag display under Windows 95
+- fixed YM2151 internal sample clipping (works like YM2612 now, can reduce distortion)

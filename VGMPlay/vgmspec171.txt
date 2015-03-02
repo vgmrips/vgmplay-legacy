@@ -436,6 +436,7 @@ types are:
     ss ss ss ss (32 bits) = size of uncompressed data
     (attr) = attribute bytes used by the decompression-algorithm
     n-Bit-Compression:
+        Note: The data is treated as a bitstream. The top bits of a byte are read first.
         bd (8 bits) = Bits decompressed
         bc (8 bits) = Bits compressed
         st (8 bits) = compression sub-type
@@ -443,13 +444,14 @@ types are:
                         01 - shift left (low bits aren't used)
                         02 - use table (uses a decompression table)
         aa aa (16 bits) = value that is added (ignored if table is used)
-    DPCM-Compression:
+    DPCM-Compression: (uses a decompression table)
+        Note: The data is treated as a bitstream. The top bits of a byte are read first.
         bd (8 bits) = Bits decompressed
         bc (8 bits) = Bits compressed
         st (8 bits) = [reserved for future use]
         aa aa (16 bits) = start value
     (data) = compressed data, of size (block size - 0x0A - attr size)
-7F     : Compression Table
+7F     : Decompression Table
     tt (8 bits) = compression type (see above)
     st (8 bits) = compression sub-type (see above)
     bd (8 bits) = Bits decompressed

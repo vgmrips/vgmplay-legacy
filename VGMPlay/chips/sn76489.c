@@ -220,7 +220,7 @@ void SN76489_Update(SN76489_Context* chip, INT32 **buffer, int length)
 	{
 		/* Tone channels */
 		for ( i = 0; i <= 2; ++i )
-			if ( chip_t->Mute >> i & 1 )
+			if ( (chip_t->Mute >> i) & 1 )
 			{
 				if ( chip_t->IntermediatePos[i] != FLT_MIN )
 					/* Intermediate position (antialiasing) */
@@ -234,7 +234,7 @@ void SN76489_Update(SN76489_Context* chip, INT32 **buffer, int length)
 				chip->Channels[i] = 0;
 
 		/* Noise channel */
-		if ( chip_n->Mute >> 3 & 1 )
+		if ( (chip_t->Mute >> 3) & 1 )
 		{
 			//chip->Channels[3] = PSGVolumeValues[chip->Registers[7]] * ( chip_n->NoiseShiftRegister & 0x1 ) * 2; /* double noise volume */
 			// Now the noise is bipolar, too. -Valley Bell

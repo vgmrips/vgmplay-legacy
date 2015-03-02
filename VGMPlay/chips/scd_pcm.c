@@ -493,12 +493,13 @@ void rf5c164_write_ram(UINT8 ChipID, offs_t DataStart, offs_t DataLength, const 
 {
 	struct pcm_chip_ *chip = &PCM_Chip[ChipID];
 	
+	DataStart |= chip->Bank;
 	if (DataStart >= chip->RAMSize)
 		return;
 	if (DataStart + DataLength > chip->RAMSize)
 		DataLength = chip->RAMSize - DataStart;
 	
-	memcpy(chip->RAM + (chip->Bank | DataStart), RAMData, DataLength);
+	memcpy(chip->RAM + DataStart, RAMData, DataLength);
 	
 	return;
 }

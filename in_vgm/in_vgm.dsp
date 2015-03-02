@@ -19,6 +19,7 @@ CFG=in_vgm - Win32 Debug
 !MESSAGE 
 !MESSAGE "in_vgm - Win32 Release" (basierend auf  "Win32 (x86) Dynamic-Link Library")
 !MESSAGE "in_vgm - Win32 Debug" (basierend auf  "Win32 (x86) Dynamic-Link Library")
+!MESSAGE "in_vgm - Win32 Unicode Release" (basierend auf  "Win32 (x86) Dynamic-Link Library")
 !MESSAGE 
 
 # Begin Project
@@ -70,7 +71,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "../VGMPlay" /I "../VGMPlay/zlib" /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /FD /GZ /c
+# ADD CPP /nologo /MD /W3 /Gm /GX /ZI /Od /I "../VGMPlay" /I "../VGMPlay/zlib" /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /D "UNICODE_INPUT_PLUGIN" /FD /GZ /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
@@ -84,8 +85,37 @@ LINK32=link.exe
 # ADD LINK32 zlib.lib kernel32.lib user32.lib comctl32.lib advapi32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept /libpath:"../VGMPlay/zlib"
 # Begin Special Build Tool
 SOURCE="$(InputPath)"
-PostBuild_Cmds=copy  Debug\in_vgm.dll  D:\Programme\Winamp5_03a\Plugins\     	copy  Debug\in_vgm.dll  xmplay36\ 
+PostBuild_Cmds=copy                                   Debug\in_vgm.dll                                   D:\Programme\Winamp5_03a\Plugins\      	copy                                   Debug\in_vgm.dll                                   xmplay36\ 
 # End Special Build Tool
+
+!ELSEIF  "$(CFG)" == "in_vgm - Win32 Unicode Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "in_vgm___Win32_Unicode_Release"
+# PROP BASE Intermediate_Dir "in_vgm___Win32_Unicode_Release"
+# PROP BASE Ignore_Export_Lib 0
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "ReleaseW"
+# PROP Intermediate_Dir "ReleaseW"
+# PROP Ignore_Export_Lib 0
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /FD /c
+# SUBTRACT BASE CPP /YX
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /D "UNICODE_INPUT_PLUGIN" /FD /c
+# SUBTRACT CPP /YX
+# ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
+# ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
+# ADD BASE RSC /l 0x409 /d "NDEBUG"
+# ADD RSC /l 0x409 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LINK32=link.exe
+# ADD BASE LINK32 zlib.lib kernel32.lib user32.lib comctl32.lib advapi32.lib /nologo /dll /machine:I386 /libpath:"../VGMPlay/zlib"
+# ADD LINK32 zlib.lib kernel32.lib user32.lib comctl32.lib advapi32.lib /nologo /dll /machine:I386 /out:"ReleaseW/in_vgm_w.dll" /libpath:"../VGMPlay/zlib"
 
 !ENDIF 
 
@@ -93,6 +123,7 @@ PostBuild_Cmds=copy  Debug\in_vgm.dll  D:\Programme\Winamp5_03a\Plugins\     	co
 
 # Name "in_vgm - Win32 Release"
 # Name "in_vgm - Win32 Debug"
+# Name "in_vgm - Win32 Unicode Release"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "c;def"
@@ -141,6 +172,10 @@ SOURCE=..\VGMPlay\PortTalk_IOCTL.h
 # Begin Source File
 
 SOURCE=..\VGMPlay\stdbool.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\VGMFile.h
 # End Source File
 # Begin Source File
 
