@@ -57,7 +57,6 @@ struct _k051649_state
 	INT16 *mixer_lookup;
 	short *mixer_buffer;
 
-	int f[10];
 	int cur_reg;
 	UINT8 test;
 };
@@ -109,7 +108,7 @@ void k051649_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	short *mix;
 	int i,j;
 
-	/* zap the contents of the mixer buffer */
+	// zap the contents of the mixer buffer
 	memset(info->mixer_buffer, 0, samples * sizeof(short));
 
 	for (j=0; j<5; j++) {
@@ -140,7 +139,7 @@ void k051649_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		}
 	}
 
-	/* mix it down */
+	// mix it down
 	mix = info->mixer_buffer;
 	for (i = 0; i < samples; i++)
 		*buffer++ = *buffer2++ = info->mixer_lookup[*mix++];
@@ -196,13 +195,20 @@ void device_reset_k051649(UINT8 ChipID)
 	k051649_sound_channel *voice = info->channel_list;
 	int i;
 
-	/* reset all the voices */
-	for (i = 0; i < 5; i++) {
+	// reset all the voices
+	for (i = 0; i < 5; i++)
+	{
 		voice[i].frequency = 0;
 		voice[i].volume = 0;
 		voice[i].counter = 0;
 		voice[i].key = 0;
 	}
+	
+	// other parameters
+	info->test = 0x00;
+	info->cur_reg = 0x00;
+	
+	return;
 }
 
 /********************************************************************************/
@@ -292,19 +298,22 @@ void k051649_frequency_w(UINT8 ChipID, offs_t offset, UINT8 data)
 {
 	//k051649_state *info = get_safe_token(device);
 	k051649_state *info = &SCC1Data[ChipID];
-	info->f[offset]=data;
+	k051649_sound_channel* chn = &info->channel_list[offset >> 1];
 
 	//stream_update(info->stream);
 	
 	// test-register bit 5 resets the internal counter
 	if (info->test & 0x20)
-		info->channel_list[offset].counter = ~0;
-	else if (info->channel_list[offset].frequency < 9)
-		info->channel_list[offset].counter |= ((1 << FREQ_BITS) - 1);
+		chn->counter = ~0;
+	else if (chn->frequency < 9)
+		chn->counter |= ((1 << FREQ_BITS) - 1);
 
 	// update frequency
-	info->channel_list[offset>>1].frequency=(info->f[offset&0xe] + (info->f[offset|1]<<8))&0xfff;
-	info->channel_list[offset>>1].counter &= 0xFFFF0000;	// Valley Bell: Behaviour according to openMSX
+	if (offset & 1)
+		chn->frequency = (chn->frequency & 0x0FF) | ((data << 8) & 0xF00);
+	else
+		chn->frequency = (chn->frequency & 0xF00) |  (data << 0);
+	chn->counter &= 0xFFFF0000;	// Valley Bell: Behaviour according to openMSX
 }
 
 //WRITE8_DEVICE_HANDLER( k051649_keyonoff_w )

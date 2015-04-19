@@ -100,8 +100,8 @@ void SEGAPCM_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 			UINT16 loop = (base[0x85] << 8) | base[0x84];
 			UINT8 end = base[6] + 1;
 			UINT8 delta = base[7];
-			UINT8 voll = base[2];
-			UINT8 volr = base[3];
+			UINT8 voll = base[2] & 0x7F;
+			UINT8 volr = base[3] & 0x7F;
 			int i;
 
 			/* loop over samples on this channel */
@@ -186,8 +186,9 @@ void SEGAPCM_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 #endif
 
 				/* apply panning and advance */
-				outputs[0][i] += v * regs[2];
-				outputs[1][i] += v * regs[3];
+				// fixed Bitmask for volume multiplication, thanks to ctr -Valley Bell
+				outputs[0][i] += v * (regs[2] & 0x7F);
+				outputs[1][i] += v * (regs[3] & 0x7F);
 				addr = (addr + regs[7]) & 0xffffff;
 			}
 

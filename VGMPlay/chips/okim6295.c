@@ -551,7 +551,7 @@ static void okim6295_clock_changed(okim6295_state *info)
 }
 
 //void okim6295_set_pin7(running_device *device, int pin7)
-static void okim6295_set_pin7(okim6295_state *info, int pin7)
+INLINE void okim6295_set_pin7(okim6295_state *info, int pin7)
 {
 	//okim6295_state *info = get_safe_token(device);
 
@@ -720,14 +720,15 @@ void okim6295_w(UINT8 ChipID, offs_t offset, UINT8 data)
 		chip->master_clock |= data << 16;
 		break;
 	case 0x0B:
+		if ((data >> 7) != chip->pin7_state)
+			printf("Pin 7 changed!\n");
+		data &= 0x7F;	// fix a bug in MAME VGM logs
 		chip->master_clock &= ~0xFF000000;
 		chip->master_clock |= data << 24;
 		okim6295_clock_changed(chip);
 		break;
 	case 0x0C:
-		//okim6295_set_pin7(chip, data);
-		chip->pin7_state = data;
-		okim6295_clock_changed(chip);
+		okim6295_set_pin7(chip, data);
 		break;
 	case 0x0E:	// NMK112 bank switch enable
 		chip->nmk_mode = data;

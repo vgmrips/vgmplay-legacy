@@ -109,3 +109,6 @@ Updates since 0.4.0u5 (13.04.2014)
 - made OKIM6258 FIFO queue larger, added RemoveDCOfs option
 - [VGMPlay] fixed tag display under Windows 95
 - fixed YM2151 internal sample clipping (works like YM2612 now, can reduce distortion)
+- fixed SegaPCM volume register bitmask [thanks ctr for finding the bug]
+- fix potential crash in MultiPCM chip when playing invalid instruments
+- fixed buggy frequency writes in K051649 by backporting some MAME changes

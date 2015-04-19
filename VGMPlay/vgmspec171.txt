@@ -433,32 +433,46 @@ types are:
     tt (8 bits) = compression type
                     00 - n-Bit-Compression
                     01 - DPCM-Compression
-    ss ss ss ss (32 bits) = size of uncompressed data
+    ss ss ss ss (32 bits) = size of uncompressed data (for memory allocation)
+                            It is assumed that each decompressed value uses
+                            ceil(bd/8) bytes.
     (attr) = attribute bytes used by the decompression-algorithm
     n-Bit-Compression:
-        Note: The data is treated as a bitstream. The top bits of a byte are read first.
         bd (8 bits) = Bits decompressed
         bc (8 bits) = Bits compressed
         st (8 bits) = compression sub-type
                         00 - copy (high bits aren't used)
                         01 - shift left (low bits aren't used)
-                        02 - use table (uses a decompression table)
+                        02 - use table (data = index into decompression table,
+                                        see data block 7F)
         aa aa (16 bits) = value that is added (ignored if table is used)
+        The data block is treated as a bitstream with bc bits per value. The
+        top bits in each byte are read first. The extracted bits of each value
+        are transformed into a value with at least bd bits using method st.
+        Finally, aaaa is added to get the resulting value.
     DPCM-Compression: (uses a decompression table)
-        Note: The data is treated as a bitstream. The top bits of a byte are read first.
         bd (8 bits) = Bits decompressed
         bc (8 bits) = Bits compressed
-        st (8 bits) = [reserved for future use]
+        st (8 bits) = [reserved for future use, must be 00]
         aa aa (16 bits) = start value
+        The data is read as a bitstream (see n-Bit). The read value is used as
+        index into a delta-table (defined by data block 7F). The delta value
+        is added to the "state" value, which is also the result value.
+        The "state" value is initialized with aaaa at the beginning.
     (data) = compressed data, of size (block size - 0x0A - attr size)
 7F     : Decompression Table
-    tt (8 bits) = compression type (see above)
-    st (8 bits) = compression sub-type (see above)
+    tt (8 bits) = compression type (see data block 40..7E)
+    st (8 bits) = compression sub-type (see data block 40..7E)
     bd (8 bits) = Bits decompressed
-    bc (8 bits) = Bits compressed
+    bc (8 bits) = Bits compressed (only used for verifying against
+                  block 40..7E)
     cc cc (16 bits) = number of following values (with each of size
-                       ceil(bd / 8))
-    (data) = table data, of size (block size - 0x06)
+                      ceil(bd / 8))
+    (data) = table data, cccc values with a total size of (block size - 0x06)
+    Note: Multiple decompression tables are valid. The player should keep a
+          list of one table per tt and st combination. If there are multiple
+          tables of the same tt/st type, the new one overrides the old one and
+          all following compressed data blocks will use the new table.
 80..BF : ROM/RAM Image dumps (contain usually samples)
   data block format for ROM dumps:
     rr rr rr rr (32 bits) = size of the entire ROM

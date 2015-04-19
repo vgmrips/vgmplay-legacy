@@ -1,8 +1,8 @@
 MAME - mame_license.txt
-DosBox - GPL.txt
-openMSX - GPL.txt
-Gens/GS - GPL.txt
-NSFPlay - [Google Code lists Apache License 2.0]
+DosBox (AdLibEmu OPL 2/3) - LGPL 2.1 (see opl.c)
+openMSX (YMF278) - GPL.txt
+Gens/GS (RF5C164, PWM) - GPL.txt
+NSFPlay (EMU2149, NES APU, NES FDS) - [Google Code lists Apache License 2.0]
 Ootake - ?
 in_vgm - ?
 MEKA - ?
