@@ -38,6 +38,10 @@
 #ifdef XMAS_EXTRA
 #include "XMasFiles/XMasBonus.h"
 #endif
+#define WS_DEMO
+#ifdef WS_DEMO
+#include "XMasFiles/SWJ-SQRC01_1C.h"
+#endif
 
 #ifndef WIN32
 void WaveOutLinuxCallBack(void);
@@ -83,7 +87,7 @@ static INT8 stricmp_u(const char *string1, const char *string2);
 static INT8 strnicmp_u(const char *string1, const char *string2, size_t count);
 static void ReadOptions(const char* AppName);
 static bool GetBoolFromStr(const char* TextStr);
-#if defined(XMAS_EXTRA)
+#if defined(XMAS_EXTRA) || defined(WS_DEMO)
 static bool XMas_Extra(char* FileName, bool Mode);
 #endif
 #ifndef WIN32
@@ -230,7 +234,7 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrRet;
 	char* AppName;
-#if defined(XMAS_EXTRA)
+#if defined(XMAS_EXTRA) || defined(WS_DEMO)
 	bool XMasEnable;
 #endif
 	char* AppPathPtr;
@@ -421,7 +425,7 @@ int main(int argc, char* argv[])
 		goto ExitProgram;
 	StandardizeDirSeparators(VgmFileName);
 	
-#if defined(XMAS_EXTRA)
+#if defined(XMAS_EXTRA) || defined(WS_DEMO)
 	XMasEnable = XMas_Extra(VgmFileName, 0x00);
 #endif
 	
@@ -575,7 +579,7 @@ int main(int argc, char* argv[])
 #endif
 	
 ExitProgram:
-#if defined(XMAS_EXTRA)
+#if defined(XMAS_EXTRA) || defined(WS_DEMO)
 	if (XMasEnable)
 		XMas_Extra(VgmFileName, 0x01);
 #endif
@@ -907,14 +911,14 @@ static void ReadOptions(const char* AppName)
 		0x00, 0x09, 0x09, 0x09, 0x12, 0x00, 0x0C, 0x08,
 		0x08, 0x00, 0x03, 0x04, 0x05, 0x1C, 0x00, 0x00,
 		0x04, 0x05, 0x08, 0x08, 0x18, 0x04, 0x04, 0x10,
-		0x20
+		0x20, 0x04
 	};
 	const UINT8 CHN_MASK_CNT[CHIP_COUNT] =
 	{	0x04, 0x0E, 0x06, 0x08, 0x10, 0x08, 0x03, 0x06,
 		0x06, 0x0E, 0x0E, 0x0E, 0x17, 0x18, 0x0C, 0x08,
 		0x08, 0x00, 0x03, 0x04, 0x05, 0x1C, 0x00, 0x00,
 		0x04, 0x05, 0x08, 0x08, 0x18, 0x04, 0x04, 0x10,
-		0x20
+		0x20, 0x04
 	};
 	char* FileName;
 	FILE* hFile;
@@ -1205,6 +1209,7 @@ static void ReadOptions(const char* AppName)
 			case 0x9E:	// Pokey
 			case 0x9F:	// QSound
 			case 0xA0:	// SCSP
+			case 0xA1:	// WonderSwan
 				CurChip = IniSection & 0x7F;
 				TempCOpt = (CHIP_OPTS*)&ChipOpts[0x00] + CurChip;
 				
@@ -1536,7 +1541,7 @@ static bool GetBoolFromStr(const char* TextStr)
 		return strtol(TextStr, NULL, 0) ? true : false;
 }
 
-#if defined(XMAS_EXTRA)
+#if defined(XMAS_EXTRA) || defined(WS_DEMO)
 static bool XMas_Extra(char* FileName, bool Mode)
 {
 	char* FileTitle;
@@ -1578,6 +1583,13 @@ static bool XMas_Extra(char* FileName, bool Mode)
 			FileTitle = "clyde1_1.dro";
 			XMasSize = sizeof(clyde1_1_dro);
 			XMasData = clyde1_1_dro;
+		}
+#elif defined(WS_DEMO)
+		if (! stricmp_u(FileName, "wswan"))
+		{
+			FileTitle = "SWJ-SQRC01_1C.vgz";
+			XMasSize = sizeof(FF1ws_1C);
+			XMasData = FF1ws_1C;
 		}
 #endif
 		

@@ -650,6 +650,9 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 		case 0x20:	// YMF292/SCSP
 			scsp_w(ChipID, (Port << 8) | (Offset << 0), Data);
 			break;
+		case 0x21:	// WonderSwan
+			ws_audio_port_write(ChipID, 0x80 | Offset, Data);
+			break;
 //		case 0x##:	// OKIM6376
 //			break;
 		}

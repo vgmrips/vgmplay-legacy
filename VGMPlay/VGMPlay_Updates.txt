@@ -40,6 +40,7 @@ Update list since 0.4.0u3 (03.12.2012)
 - [VGMPlay Linux] added support for libao
 
 09.09.2013 and later:
+- added WonderSwan support
 - added better SN-PSG name display
 - made it work on Big Endian machines (Thanks to nextvolume for sending me a patch that helped to find the critical spots)
 - cleaned code that loads VGMs a bit

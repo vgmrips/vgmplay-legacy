@@ -122,6 +122,7 @@ EMUOBJS = \
 	$(EMUOBJ)/sn76496.o \
 	$(EMUOBJ)/sn764intf.o \
 	$(EMUOBJ)/upd7759.o \
+	$(EMUOBJ)/ws_audio.o \
 	$(EMUOBJ)/ym2151.o \
 	$(EMUOBJ)/ym2413.o \
 	$(EMUOBJ)/ym2612.o \

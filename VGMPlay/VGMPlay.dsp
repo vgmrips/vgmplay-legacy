@@ -911,6 +911,18 @@ SOURCE=.\chips\sn764intf.c
 
 SOURCE=.\chips\sn764intf.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\chips\ws_audio.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\ws_audio.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\ws_initialIo.h
+# End Source File
 # End Group
 # Begin Group "NES Chips"
 

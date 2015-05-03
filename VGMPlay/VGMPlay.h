@@ -8,7 +8,7 @@
 #define VGM_VER_STR		"1.71b"
 #define VGM_VER_NUM		0x170
 
-#define CHIP_COUNT	0x21
+#define CHIP_COUNT	0x22
 typedef struct chip_options
 {
 	bool Disabled;
@@ -63,5 +63,6 @@ typedef struct chips_options
 	CHIP_OPTS Pokey;
 	CHIP_OPTS QSound;
 	CHIP_OPTS SCSP;
+	CHIP_OPTS WSwan;
 //	CHIP_OPTS OKIM6376;
 } CHIPS_OPTION;

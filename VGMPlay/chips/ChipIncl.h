@@ -34,3 +34,4 @@
 #include "pokey.h"
 #include "qsound.h"
 #include "scsp.h"
+#include "ws_audio.h"

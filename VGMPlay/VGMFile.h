@@ -63,6 +63,7 @@ typedef struct _vgm_file_header
 //	UINT32 lngHzOKIM6376;
 	//UINT8 bytReserved[0x04];
 	UINT32 lngExtraOffset;
+	UINT32 lngHzWSwan;
 } VGM_HEADER;
 typedef struct _vgm_header_extra
 {
