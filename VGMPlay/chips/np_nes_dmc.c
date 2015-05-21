@@ -318,7 +318,7 @@ UINT32 calc_tri(NES_DMC* dmc, UINT32 clocks)
 		{
 			// Finish the Triangle wave to prevent clicks.
 			dmc->counter[0] += clocks;
-			while (dmc->counter[0] > dmc->tri_freq)
+			while(dmc->counter[0] > dmc->tri_freq && dmc->tphase)
 			{
 				dmc->tphase = (dmc->tphase + 1) & 31;
 				dmc->counter[0] -= (dmc->tri_freq + 1);

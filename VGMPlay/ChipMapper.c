@@ -653,6 +653,13 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 		case 0x21:	// WonderSwan
 			ws_audio_port_write(ChipID, 0x80 | Offset, Data);
 			break;
+		case 0x22:	// VSU
+			VSU_Write(ChipID, (Port << 8) | (Offset << 0), Data);
+			break;
+		case 0x23:	// SAA1099
+			saa1099_control_w(ChipID, 0, Offset);
+			saa1099_data_w(ChipID, 0, Data);
+			break;
 //		case 0x##:	// OKIM6376
 //			break;
 		}

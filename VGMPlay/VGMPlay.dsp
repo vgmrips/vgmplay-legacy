@@ -862,6 +862,14 @@ SOURCE=.\chips\pokey.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\chips\saa1099.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\saa1099.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\chips\sn76489.c
 
 !IF  "$(CFG)" == "VGMPlay - Win32 Release"
@@ -910,6 +918,14 @@ SOURCE=.\chips\sn764intf.c
 # Begin Source File
 
 SOURCE=.\chips\sn764intf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\vsu.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\vsu.h
 # End Source File
 # Begin Source File
 

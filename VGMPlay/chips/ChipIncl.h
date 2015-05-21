@@ -35,3 +35,5 @@
 #include "qsound.h"
 #include "scsp.h"
 #include "ws_audio.h"
+#include "vsu.h"
+#include "saa1099.h"

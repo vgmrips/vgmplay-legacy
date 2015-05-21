@@ -139,6 +139,8 @@ typedef struct chip_audio_struct
 	CAUD_ATTR QSound;
 	CAUD_ATTR SCSP;
 	CAUD_ATTR WSwan;
+	CAUD_ATTR VSU;
+	CAUD_ATTR SAA1099;
 //	CAUD_ATTR OKIM6376;
 } CHIP_AUDIO;
 
@@ -1922,9 +1924,9 @@ const char* GetChipName(UINT8 ChipID)
 		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B", "YMF271", "YMZ280B",
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
-		"SCSP", "C64"};
+		"SCSP", "WSwan", "VSU", "SAA1099"};
 	
-	if (ChipID == 0x21)
+	/*if (ChipID == 0x21)
 	{
 		static char TempStr[0x08];
 		UINT32 TempData[2];
@@ -1934,7 +1936,7 @@ const char* GetChipName(UINT8 ChipID)
 		TempData[1] = 0x001F1C07;
 		EncryptChipName(TempStr, TempData, 0x08);
 		return TempStr;	// "WSwan"
-	}
+	}*/
 	
 	if (ChipID < CHIP_COUNT)
 		return CHIP_STRS[ChipID];
@@ -1991,22 +1993,7 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 		break;
 	case 0x01:
 		if (ChipID & 0x80)
-		{
 			RetStr = "VRC7";
-			if (SubType == 0xFF)
-				RetStr = "VRC6";
-			/*if (SubType == 0x00)
-			{
-				UINT32 TempData[2];
-				
-				//RetStr = "VRC7";
-				//EncryptChipName(TempData, RetStr, 0x08);
-				TempData[0] = 0x00090F0C;
-				TempData[1] = 0x0007080B;
-				EncryptChipName(TempStr, TempData, 0x08);
-				return TempStr;	// "VRC7"
-			}*/
-		}
 		break;
 	case 0x04:
 		RetStr = "Sega PCM";
@@ -2071,21 +2058,10 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 		}
 		break;
 	case 0x21:
-		RetStr = "MSM5205";
-		if (SubType == 0x00)
-		{
-			UINT32 TempData[4];
-			
-			//RetStr = "WonderSwan";
-			//EncryptChipName(TempData, RetStr, 0x10);
-			TempData[0] = 0x069FE7D3;
-			TempData[1] = 0x00FFBEE1;
-			TempData[2] = 0x02020201;
-			TempData[3] = 0x00030300;
-			EncryptChipName(TempStr, TempData, 0x10);
-			return TempStr;	// "WonderSwan"
-		}
-		
+		RetStr = "WonderSwan";
+		break;
+	case 0x22:
+		RetStr = "VSU-VUE";
 		break;
 	}
 	// catch all default-cases
@@ -2264,6 +2240,12 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 	case 0x21:
 		Clock = FileHead->lngHzWSwan;
 		break;
+	case 0x22:
+		Clock = FileHead->lngHzVSU;
+		break;
+	case 0x23:
+		Clock = FileHead->lngHzSAA1099;
+		break;
 	default:
 		return 0;
 	}
@@ -2306,7 +2288,7 @@ static UINT16 GetChipVolume(VGM_HEADER* FileHead, UINT8 ChipID, UINT8 ChipNum, U
 		0x80, 0x100, 0x100, 0x100, 0x100, 0x100, 0x100, 0x98,			// 08-0F
 		0x80, 0xE0/*0xCD*/, 0x100, 0xC0, 0x100, 0x40, 0x11E, 0x1C0,		// 10-17
 		0x100/*110*/, 0xA0, 0x100, 0x100, 0x100, 0xB3, 0x100, 0x100,	// 18-1F
-		0x100, 0x100};
+		0x100, 0x100, 0x100, 0x100};
 	UINT16 Volume;
 	UINT8 CurChp;
 	VGMX_CHP_EXTRA16* TempCX;
@@ -3231,6 +3213,40 @@ static void Chips_GeneralActions(UINT8 Mode)
 				AbsVol += CAA->Volume;
 			}
 		}
+		if (VGMHead.lngHzVSU)
+		{
+			//ChipVol = 0x100;
+			ChipCnt = (VGMHead.lngHzVSU & 0x40000000) ? 0x02 : 0x01;
+			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
+			{
+				CAA = &ChipAudio[CurChip].VSU;
+				CAA->ChipType = 0x22;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				CAA->SmpRate = device_start_vsu(CurChip, ChipClk);
+				CAA->StreamUpdate = &vsu_stream_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
+			}
+		}
+		if (VGMHead.lngHzSAA1099)
+		{
+			//ChipVol = 0x100;
+			ChipCnt = (VGMHead.lngHzSAA1099 & 0x40000000) ? 0x02 : 0x01;
+			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
+			{
+				CAA = &ChipAudio[CurChip].SAA1099;
+				CAA->ChipType = 0x23;
+				
+				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
+				CAA->SmpRate = device_start_saa1099(CurChip, ChipClk);
+				CAA->StreamUpdate = &saa1099_update;
+				
+				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
+				AbsVol += CAA->Volume;
+			}
+		}
 		
 		// Initialize DAC Control and PCM Bank
 		DacCtrlUsed = 0x00;
@@ -3386,6 +3402,10 @@ static void Chips_GeneralActions(UINT8 Mode)
 				device_reset_scsp(CurCSet);
 			else if (CAA->ChipType == 0x21)
 				ws_audio_reset(CurCSet);
+			else if (CAA->ChipType == 0x22)
+				device_reset_vsu(CurCSet);
+			else if (CAA->ChipType == 0x23)
+				device_reset_saa1099(CurCSet);
 		}	// end for CurChip
 		
 		}	// end for CurCSet
@@ -3488,6 +3508,10 @@ static void Chips_GeneralActions(UINT8 Mode)
 				device_stop_scsp(CurCSet);
 			else if (CAA->ChipType == 0x21)
 				ws_audio_done(CurCSet);
+			else if (CAA->ChipType == 0x22)
+				device_stop_vsu(CurCSet);
+			else if (CAA->ChipType == 0x23)
+				device_stop_saa1099(CurCSet);
 			
 			CAA->ChipType = 0xFF;	// mark as "unused"
 		}	// end for CurChip
@@ -3598,6 +3622,10 @@ static void Chips_GeneralActions(UINT8 Mode)
 				scsp_set_mute_mask(CurCSet, ChipOpts[CurCSet].SCSP.ChnMute1);
 			else if (CAA->ChipType == 0x21)
 				ws_set_mute_mask(CurCSet, ChipOpts[CurCSet].WSwan.ChnMute1);
+			else if (CAA->ChipType == 0x22)
+				vsu_set_mute_mask(CurCSet, ChipOpts[CurCSet].VSU.ChnMute1);
+			else if (CAA->ChipType == 0x23)
+				saa1099_set_mute_mask(CurCSet, ChipOpts[CurCSet].SAA1099.ChnMute1);
 		}	// end for CurChip
 		
 		}	// end for CurCSet
@@ -5095,6 +5123,23 @@ static void InterpretVGM(UINT32 SampleCount)
 				}
 				VGMPos += 0x04;
 				break;
+			case 0xC7:	// VSU write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				if (CHIP_CHECK(VSU))
+				{
+					chip_reg_write(0x22, CurChip, VGMPnt[0x01] & 0x7F, VGMPnt[0x02],
+									VGMPnt[0x03]);
+				}
+				VGMPos += 0x04;
+				break;
+			case 0xBD:	// SAA1099 write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				if (CHIP_CHECK(SAA1099))
+				{
+					chip_reg_write(0x23, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				VGMPos += 0x03;
+				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				CurChip = VGMPnt[0x01];
 				if (CurChip == 0xFF)
@@ -5757,6 +5802,8 @@ UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
 		//	1F - QSound
 		//	20 - YMF292/SCSP
 		//	21 - WonderSwan
+		//	22 - VSU
+		//	23 - SAA1099
 		TempBuf.Left = 0x00;
 		TempBuf.Right = 0x00;
 		CurCLst = CurChipList;

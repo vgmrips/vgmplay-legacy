@@ -278,6 +278,15 @@ void okim6258_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 
 ***********************************************************************************************/
 
+static int get_vclk(okim6258_state* info)
+{
+	int clk_rnd;
+	
+	clk_rnd = info->master_clock;
+	clk_rnd += info->divider / 2;	 // for better rounding - should help some of the streams
+	return clk_rnd / info->divider;
+}
+
 //static DEVICE_START( okim6258 )
 int device_start_okim6258(UINT8 ChipID, int clock, int divider, int adpcm_type, int output_12bits)
 {
@@ -318,7 +327,7 @@ int device_start_okim6258(UINT8 ChipID, int clock, int divider, int adpcm_type, 
 
 	//okim6258_state_save_register(info, device);
 	
-	return info->master_clock / info->divider;
+	return get_vclk(info);
 }
 
 
@@ -350,7 +359,7 @@ void device_reset_okim6258(UINT8 ChipID)
 	info->clock_buffer[0x03] = (info->initial_clock & 0xFF000000) >> 24;
 	info->divider = dividers[info->initial_div];
 	if (info->SmpRateFunc != NULL)
-		info->SmpRateFunc(info->SmpRateData, info->master_clock / info->divider);
+		info->SmpRateFunc(info->SmpRateData, get_vclk(info));
 	
 	
 	info->signal = -2;
@@ -382,7 +391,7 @@ void okim6258_set_divider(UINT8 ChipID, int val)
 	info->divider = dividers[val];
 	//stream_set_sample_rate(info->stream, info->master_clock / divider);
 	if (info->SmpRateFunc != NULL)
-		info->SmpRateFunc(info->SmpRateData, info->master_clock / info->divider);
+		info->SmpRateFunc(info->SmpRateData, get_vclk(info));
 }
 
 
@@ -411,7 +420,7 @@ void okim6258_set_clock(UINT8 ChipID, int val)
 	}
 	//stream_set_sample_rate(info->stream, info->master_clock / info->divider);
 	if (info->SmpRateFunc != NULL)
-		info->SmpRateFunc(info->SmpRateData, info->master_clock / info->divider);
+		info->SmpRateFunc(info->SmpRateData, get_vclk(info));
 }
 
 
@@ -427,7 +436,7 @@ int okim6258_get_vclk(UINT8 ChipID)
 	//okim6258_state *info = get_safe_token(device);
 	okim6258_state *info = &OKIM6258Data[ChipID];
 
-	return (info->master_clock / info->divider);
+	return get_vclk(info);
 }
 
 
@@ -472,6 +481,11 @@ static void okim6258_data_w(UINT8 ChipID, /*offs_t offset, */UINT8 data)
 	info->data_buf[info->data_buf_pos & 0x0F] = data;
 	info->data_buf_pos += 0x01;
 	info->data_buf_pos &= 0xF3;
+	if ((info->data_buf_pos >> 4) == (info->data_buf_pos & 0x0F))
+	{
+		logerror("Warning: FIFO full!\n");
+		info->data_buf_pos = (info->data_buf_pos & 0xF0) | ((info->data_buf_pos-1) & 0x03);
+	}
 	info->data_empty = 0x00;
 }
 
