@@ -660,6 +660,24 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 			saa1099_control_w(ChipID, 0, Offset);
 			saa1099_data_w(ChipID, 0, Data);
 			break;
+		case 0x24:	// ES5503
+			es5503_w(ChipID, Offset, Data);
+			break;
+		case 0x25:	// ES5506
+			if (Port & 0x80)
+				es550x_w16(ChipID, Port & 0x7F, (Offset << 8) | (Data << 0));
+			else
+				es550x_w(ChipID, Port, Data);
+			break;
+		case 0x26:	// X1-010
+			seta_sound_w(ChipID, (Port << 8) | (Offset << 0), Data);
+			break;
+		case 0x27:	// C352
+			c352_w(ChipID, Port, (Offset << 8) | (Data << 0));
+			break;
+		case 0x28:	// GA20
+			irem_ga20_w(ChipID, Offset, Data);
+			break;
 //		case 0x##:	// OKIM6376
 //			break;
 		}

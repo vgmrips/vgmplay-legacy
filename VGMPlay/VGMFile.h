@@ -66,6 +66,15 @@ typedef struct _vgm_file_header
 	UINT32 lngHzWSwan;
 	UINT32 lngHzVSU;
 	UINT32 lngHzSAA1099;
+	UINT32 lngHzES5503;
+	UINT32 lngHzES5506;
+	UINT8 bytES5503Chns;
+	UINT8 bytES5506Chns;
+	UINT8 bytC352ClkDiv;
+	UINT8 bytESReserved;
+	UINT32 lngHzX1_010;
+	UINT32 lngHzC352;
+	UINT32 lngHzGA20;
 } VGM_HEADER;
 typedef struct _vgm_header_extra
 {

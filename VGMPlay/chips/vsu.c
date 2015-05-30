@@ -135,6 +135,7 @@ void VSU_Write(UINT8 ChipID, UINT32 A, UINT8 V)
 {
 	vsu_state* chip = &VSUData[ChipID];
 	
+	A <<= 2;
 	A &= 0x7FF;
 
 	//Update(timestamp);

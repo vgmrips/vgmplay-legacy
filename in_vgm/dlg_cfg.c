@@ -938,7 +938,7 @@ static void ShowMutingCheckBoxes(UINT8 ChipID, UINT8 ChipSet)
 		ChnCount = 8;
 		break;
 	case 0x1B:	// HuC6280
-		ChnCount = 8;
+		ChnCount = 6;
 		break;
 	case 0x1C:	// C140
 		ChnCount = 24;
@@ -955,6 +955,30 @@ static void ShowMutingCheckBoxes(UINT8 ChipID, UINT8 ChipSet)
 		break;
 	case 0x20:	// SCSP
 		ChnCount = 32;
+		break;
+	case 0x21:	// WonderSwan
+		ChnCount = 4;
+		break;
+	case 0x22:	// VSU
+		ChnCount = 6;
+		break;
+	case 0x23:	// SAA1099
+		ChnCount = 6;
+		break;
+	case 0x24:	// ES5503
+		ChnCount = 32;
+		break;
+	case 0x25:	// ES5506
+		ChnCount = 32;
+		break;
+	case 0x26:	// X1-010
+		ChnCount = 16;
+		break;
+	case 0x27:	// C352
+		ChnCount = 32;
+		break;
+	case 0x28:	// GA20
+		ChnCount = 4;
 		break;
 	default:
 		ChnCount = 0;
@@ -1046,7 +1070,7 @@ static void ShowMutingCheckBoxes(UINT8 ChipID, UINT8 ChipSet)
 	{
 		// I thought that disabling a window should prevent it from catching other
 		// windows' keyboard shortcuts.
-		// But NO, it seems that you can to make its text EMPTY to make it work!
+		// But NO, it seems that you have to make its text EMPTY to make it work!
 		CTRL_HIDE(CfgMuting, MuteChn1Check + CurChn);
 		CTRL_DISABLE(CfgMuting, MuteChn1Check + CurChn);
 		SetDlgItemText(CfgMuting, MuteChn1Check + CurChn, "");

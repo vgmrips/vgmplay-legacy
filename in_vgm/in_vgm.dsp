@@ -85,7 +85,7 @@ LINK32=link.exe
 # ADD LINK32 zlib.lib kernel32.lib user32.lib comctl32.lib advapi32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept /libpath:"../VGMPlay/zlib"
 # Begin Special Build Tool
 SOURCE="$(InputPath)"
-PostBuild_Cmds=copy                                   Debug\in_vgm.dll                                   D:\Programme\Winamp5_03a\Plugins\      	copy                                   Debug\in_vgm.dll                                   xmplay36\ 
+PostBuild_Cmds=copy  Debug\in_vgm.dll  D:\Programme\Winamp5_03a\Plugins\ 	copy  Debug\in_vgm.dll  xmplay36\ 
 # End Special Build Tool
 
 !ELSEIF  "$(CFG)" == "in_vgm - Win32 Unicode Release"
@@ -339,6 +339,14 @@ SOURCE=..\VGMPlay\chips\c140.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\VGMPlay\chips\c352.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\c352.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\VGMPlay\chips\c6280.c
 # End Source File
 # Begin Source File
@@ -395,6 +403,22 @@ SOURCE=..\VGMPlay\chips\emutypes.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\VGMPlay\chips\es5503.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\es5503.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\es5506.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\es5506.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\VGMPlay\chips\fm.c
 # End Source File
 # Begin Source File
@@ -420,6 +444,14 @@ SOURCE=..\VGMPlay\chips\gb.c
 # Begin Source File
 
 SOURCE=..\VGMPlay\chips\gb.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\iremga20.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\iremga20.h
 # End Source File
 # Begin Source File
 
@@ -576,6 +608,14 @@ SOURCE=..\VGMPlay\chips\rf5c68.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\VGMPlay\chips\saa1099.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\saa1099.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\VGMPlay\chips\scd_pcm.c
 # End Source File
 # Begin Source File
@@ -646,6 +686,34 @@ SOURCE=..\VGMPlay\chips\upd7759.h
 # Begin Source File
 
 SOURCE=..\VGMPlay\chips\vrc7tone.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\vsu.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\vsu.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\ws_audio.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\ws_audio.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\ws_initialIo.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\x1_010.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\x1_010.h
 # End Source File
 # Begin Source File
 

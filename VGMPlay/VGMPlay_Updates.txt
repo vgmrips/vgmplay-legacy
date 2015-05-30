@@ -113,7 +113,8 @@ Updates since 0.4.0u5 (13.04.2014)
 - fixed SegaPCM volume register bitmask [thanks ctr for finding the bug]
 - fix potential crash in MultiPCM chip when playing invalid instruments
 - fixed buggy frequency writes in K051649 by backporting some MAME changes
-- added VSU support
-- added SAA1099 support
+- added VSU, SAA1099 support
 - fixed high beep in NSFPlay NES core with triangle at frequency 0 and OPT_TRI_NULL option
 - [VGMPlay] fixed YM2612 DAC not being muteable via MuteMask
+- added ES5503, ES5506, Seta X1-010, Namco C352, Irem GA20 support
+- [VGMPlay] fixed Loop Length (is now adjusted for changed playback rates)

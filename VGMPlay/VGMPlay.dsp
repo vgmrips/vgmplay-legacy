@@ -530,6 +530,38 @@ SOURCE=.\chips\c140.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\chips\c352.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\c352.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\es5503.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\es5503.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\es5506.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\es5506.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\iremga20.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\iremga20.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\chips\k053260.c
 # End Source File
 # Begin Source File
@@ -678,6 +710,14 @@ SOURCE=.\chips\upd7759.c
 # Begin Source File
 
 SOURCE=.\chips\upd7759.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\x1_010.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\x1_010.h
 # End Source File
 # Begin Source File
 

@@ -88,15 +88,19 @@ EMUOBJS = \
 	$(EMUOBJ)/ay8910.o \
 	$(EMUOBJ)/ay_intf.o \
 	$(EMUOBJ)/c140.o \
+	$(EMUOBJ)/c352.o \
 	$(EMUOBJ)/c6280.o \
 	$(EMUOBJ)/c6280intf.o \
 	$(EMUOBJ)/dac_control.o \
+	$(EMUOBJ)/es5503.o \
+	$(EMUOBJ)/es5506.o \
 	$(EMUOBJ)/emu2149.o \
 	$(EMUOBJ)/emu2413.o \
 	$(EMUOBJ)/fm2612.o \
 	$(EMUOBJ)/fm.o \
 	$(EMUOBJ)/fmopl.o \
 	$(EMUOBJ)/gb.o \
+	$(EMUOBJ)/iremga20.o \
 	$(EMUOBJ)/k051649.o \
 	$(EMUOBJ)/k053260.o \
 	$(EMUOBJ)/k054539.o \
@@ -122,7 +126,9 @@ EMUOBJS = \
 	$(EMUOBJ)/sn76496.o \
 	$(EMUOBJ)/sn764intf.o \
 	$(EMUOBJ)/upd7759.o \
+	$(EMUOBJ)/vsu.o \
 	$(EMUOBJ)/ws_audio.o \
+	$(EMUOBJ)/x1_010.o \
 	$(EMUOBJ)/ym2151.o \
 	$(EMUOBJ)/ym2413.o \
 	$(EMUOBJ)/ym2612.o \

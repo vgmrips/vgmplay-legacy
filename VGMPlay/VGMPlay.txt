@@ -41,11 +41,19 @@ Supported chips
 - K051649
 - K054539
 - HuC6280 (PC Engine)
-- C140
+- Namco C140
 - K053260
 - Pokey (Atari)
 - QSound
 - SCSP (Saturn Custom Sound Processor, YMF292-F)
+- WonderSwan
+- Virtual Boy VSU
+- SAA1099
+- ESS5503
+- ESS5505/6
+- Seta X1-010
+- Namco C352
+- Irem GA20
 
 
 * This chip can be emulated via OPL Hardware (like Soundblaster sound cards).
@@ -147,3 +155,5 @@ This program was written by Valley Bell.
 - AdLibEmu (OPL2 and OPL3 core) was ported from DOSBox
 - The default HuC6280 core is from Ootake.
 - EMU2149, the alternative NES APU core and the NES FDS core were ported from rainwarrior's NSFPlay.
+- the WonderSwan core was ported from in_wsr
+- Virtual Boy VSU core was ported from vbjin and originates from mednafen

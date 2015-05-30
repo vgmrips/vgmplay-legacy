@@ -110,18 +110,18 @@ struct _saa1099_state
 	int env_mode[2];				/* envelope generators mode */
 	int env_bits[2];				/* non zero = 3 bits resolution */
 	int env_clock[2];				/* envelope clock mode (non-zero external) */
-	int env_step[2];                /* current envelope step */
+	int env_step[2];				/* current envelope step */
 	int all_ch_enable;				/* all channels enable */
 	int sync_state;					/* sync all channels */
 	int selected_reg;				/* selected register */
-	struct saa1099_channel channels[6];    /* channels */
+	struct saa1099_channel channels[6];	/* channels */
 	struct saa1099_noise noise[2];	/* noise generators */
 	double sample_rate;
 };
 
 static const int amplitude_lookup[16] = {
-	 0*32767/16,  1*32767/16,  2*32767/16,	3*32767/16,
-	 4*32767/16,  5*32767/16,  6*32767/16,	7*32767/16,
+	 0*32767/16,  1*32767/16,  2*32767/16,  3*32767/16,
+	 4*32767/16,  5*32767/16,  6*32767/16,  7*32767/16,
 	 8*32767/16,  9*32767/16, 10*32767/16, 11*32767/16,
 	12*32767/16, 13*32767/16, 14*32767/16, 15*32767/16
 };
@@ -131,16 +131,16 @@ static const UINT8 envelope[8][64] = {
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	/* maximum amplitude */
-    {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+	{15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
 	 15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
 	 15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
-     15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15, },
+	 15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15, },
 	/* single decay */
 	{15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	/* repetitive decay */
 	{15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
@@ -151,21 +151,21 @@ static const UINT8 envelope[8][64] = {
 	{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
 	 15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	/* repetitive triangular */
 	{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
 	 15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 	  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
 	 15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 },
 	/* single attack */
-    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+	{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
 	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	/* repetitive attack */
-    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+	{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
 	  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+	  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
 	  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15 }
 };
 
@@ -186,16 +186,16 @@ static void saa1099_envelope(saa1099_state *saa, int ch)
 	if (saa->env_enable[ch])
 	{
 		int step, mode, mask;
-        mode = saa->env_mode[ch];
+		mode = saa->env_mode[ch];
 		/* step from 0..63 and then loop in steps 32..63 */
 		step = saa->env_step[ch] =
 			((saa->env_step[ch] + 1) & 0x3f) | (saa->env_step[ch] & 0x20);
 
 		mask = 15;
-        if (saa->env_bits[ch])
+		if (saa->env_bits[ch])
 			mask &= ~1; 	/* 3 bit resolution, mask LSB */
 
-        saa->channels[ch*3+0].envelope[ LEFT] =
+		saa->channels[ch*3+0].envelope[ LEFT] =
 		saa->channels[ch*3+1].envelope[ LEFT] =
 		saa->channels[ch*3+2].envelope[ LEFT] = envelope[mode][step] & mask;
 		if (saa->env_reverse_right[ch] & 0x01)
@@ -209,7 +209,7 @@ static void saa1099_envelope(saa1099_state *saa, int ch)
 			saa->channels[ch*3+0].envelope[RIGHT] =
 			saa->channels[ch*3+1].envelope[RIGHT] =
 			saa->channels[ch*3+2].envelope[RIGHT] = envelope[mode][step] & mask;
-        }
+		}
 	}
 	else
 	{
@@ -229,7 +229,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 {
 	//saa1099_state *saa = (saa1099_state *)param;
 	saa1099_state *saa = &SAA1099Data[ChipID];
-    int j, ch;
+	int j, ch;
 
 	/* if the channels are disabled we're done */
 	if (!saa->all_ch_enable)
@@ -237,11 +237,11 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		/* init output data */
 		memset(outputs[LEFT],0,samples*sizeof(*outputs[LEFT]));
 		memset(outputs[RIGHT],0,samples*sizeof(*outputs[RIGHT]));
-        return;
+		return;
 	}
 
-    for (ch = 0; ch < 2; ch++)
-    {
+	for (ch = 0; ch < 2; ch++)
+	{
 		switch (saa->noise_params[ch])
 		{
 		case 0: saa->noise[ch].freq = 31250.0 * 2; break;
@@ -251,7 +251,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		}
 	}
 
-    /* fill all data needed */
+	/* fill all data needed */
 	for( j = 0; j < samples; j++ )
 	{
 		int output_l = 0, output_r = 0;
@@ -259,12 +259,15 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		/* for each channel */
 		for (ch = 0; ch < 6; ch++)
 		{
-            if (saa->channels[ch].freq == 0.0)
-                saa->channels[ch].freq = (double)((2 * 15625) << saa->channels[ch].octave) /
-                    (511.0 - (double)saa->channels[ch].frequency);
+			if (saa->channels[ch].Muted)
+				continue;
+			
+			if (saa->channels[ch].freq == 0.0)
+				saa->channels[ch].freq = (double)((2 * 15625) << saa->channels[ch].octave) /
+					(511.0 - (double)saa->channels[ch].frequency);
 
-            /* check the actual position in the square wave */
-            saa->channels[ch].counter -= saa->channels[ch].freq;
+			/* check the actual position in the square wave */
+			saa->channels[ch].counter -= saa->channels[ch].freq;
 			while (saa->channels[ch].counter < 0)
 			{
 				/* calculate new frequency now after the half wave is updated */
@@ -318,7 +321,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 					saa->noise[ch].level <<= 1;
 			}
 		}
-        /* write sound data to the buffer */
+		/* write sound data to the buffer */
 		outputs[LEFT][j] = output_l / 6;
 		outputs[RIGHT][j] = output_r / 6;
 	}
@@ -419,7 +422,7 @@ void saa1099_control_w(UINT8 ChipID, offs_t offset, UINT8 data)
 	if (saa->selected_reg == 0x18 || saa->selected_reg == 0x19)
 	{
 		/* clock the envelope channels */
-        if (saa->env_clock[0])
+		if (saa->env_clock[0])
 			saa1099_envelope(saa,0);
 		if (saa->env_clock[1])
 			saa1099_envelope(saa,1);
@@ -504,7 +507,7 @@ void saa1099_data_w(UINT8 ChipID, offs_t offset, UINT8 data)
 			logerror("SAA1099: -reg 0x1c- Chip reset\n");
 			for (i = 0; i < 6; i++)
 			{
-                saa->channels[i].level = 0;
+				saa->channels[i].level = 0;
 				saa->channels[i].counter = 0.0;
 			}
 		}
