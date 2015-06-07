@@ -4,7 +4,7 @@
 //#define NO_WCHAR_FILENAMES
 #ifndef WIN32
 // Linux uses UTF-8 Unicode and has no special wide-character file routines.
-#undef NO_WCHAR_FILENAMES
+#define NO_WCHAR_FILENAMES
 #endif
 
 typedef struct waveform_16bit_stereo
