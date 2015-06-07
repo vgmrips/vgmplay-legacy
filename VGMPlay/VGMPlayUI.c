@@ -109,9 +109,9 @@ static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag);
 static void ShowVGMTag(void);
 
 static void PlayVGM_UI(void);
-static INT8 sign(double Value);
-static long int Round(double Value);
-static double RoundSpecial(double Value, double RoundTo);
+INLINE INT8 sign(double Value);
+INLINE long int Round(double Value);
+INLINE double RoundSpecial(double Value, double RoundTo);
 static void PrintMinSec(UINT32 SamplePos, UINT32 SmplRate);
 
 
@@ -2627,7 +2627,7 @@ static void PlayVGM_UI(void)
 	return;
 }
 
-static INT8 sign(double Value)
+INLINE INT8 sign(double Value)
 {
 	if (Value > 0.0)
 		return 1;
@@ -2637,13 +2637,13 @@ static INT8 sign(double Value)
 		return 0;
 }
 
-static long int Round(double Value)
+INLINE long int Round(double Value)
 {
 	// Alternative:	(fabs(Value) + 0.5) * sign(Value);
 	return (long int)(Value + 0.5 * sign(Value));
 }
 
-static double RoundSpecial(double Value, double RoundTo)
+INLINE double RoundSpecial(double Value, double RoundTo)
 {
 	return (long int)(Value / RoundTo + 0.5 * sign(Value)) * RoundTo;
 }

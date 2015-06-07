@@ -32,11 +32,13 @@
 #include "stdbool.h"
 #include <math.h>	// for pow()
 
+#ifdef WIN32
+#ifndef NO_WCHAR_FILENAMES
 // includes for manual wide-character ZLib open
 #include <fcntl.h>	// for _O_RDONLY and _O_BINARY
 #include <io.h>		// for _wopen and _close
+#endif
 
-#ifdef WIN32
 #include <conio.h>	// for _inp()
 #include <windows.h>
 #else	//ifdef UNIX
@@ -1723,6 +1725,7 @@ UINT32 GetVGMFileInfo(const char* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* Ret
 	return RetVal;
 }
 
+#ifndef NO_WCHAR_FILENAMES
 UINT32 GetVGMFileInfoW(const wchar_t* FileName, VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag)
 {
 	gzFile hFile;
@@ -1753,6 +1756,7 @@ UINT32 GetVGMFileInfoW(const wchar_t* FileName, VGM_HEADER* RetVGMHead, GD3_TAG*
 	gzclose(hFile);
 	return RetVal;
 }
+#endif
 
 static UINT32 GetVGMFileInfo_Internal(gzFile hFile, UINT32 FileSize,
 									  VGM_HEADER* RetVGMHead, GD3_TAG* RetGD3Tag)

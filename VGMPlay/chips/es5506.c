@@ -2234,9 +2234,9 @@ static UINT8 es5505_r(es5506_state *chip, offs_t offset)
 
 	/* return the high byte */
 	if (offset & 0x01)
-		return (result & 0x00FF);
+		return (result & 0x00FF) >> 0;
 	else
-		return (result & 0xFF00);
+		return (result & 0xFF00) >> 8;
 }
 
 UINT8 es550x_r(UINT8 ChipID, offs_t offset)

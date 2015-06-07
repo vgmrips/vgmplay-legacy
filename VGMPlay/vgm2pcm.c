@@ -1,8 +1,10 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+
+#include "chips/mamedef.h"
 #include "stdbool.h"
-#include "utils.h"
 #include "VGMPlay.h"
 #include "VGMPlay_Intf.h"
 

@@ -118,6 +118,7 @@ EMUOBJS = \
 	$(EMUOBJ)/pwm.o \
 	$(EMUOBJ)/qsound.o \
 	$(EMUOBJ)/rf5c68.o \
+	$(EMUOBJ)/saa1099.o \
 	$(EMUOBJ)/segapcm.o \
 	$(EMUOBJ)/scd_pcm.o \
 	$(EMUOBJ)/scsp.o \

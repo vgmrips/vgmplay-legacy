@@ -120,6 +120,7 @@ static void es5503_halt_osc(ES5503Chip *chip, int onum, int type, UINT32 *accumu
 	ES5503Osc *pOsc = &chip->oscillators[onum];
 	ES5503Osc *pPartner = &chip->oscillators[onum^1];
 	int mode = (pOsc->control>>1) & 3;
+	int omode = (pPartner->control>>1) & 3;
 
 	// if 0 found in sample data or mode is not free-run, halt this oscillator
 	if ((mode != MODE_FREE) || (type != 0))
@@ -144,7 +145,7 @@ static void es5503_halt_osc(ES5503Chip *chip, int onum, int type, UINT32 *accumu
 	}
 
 	// if swap mode, start the partner
-	if (mode == MODE_SWAP)
+	if ((mode == MODE_SWAP) || (omode == MODE_SWAP))
 	{
 		pPartner->control &= ~1;	// clear the halt bit
 		pPartner->accumulator = 0;  // and make sure it starts from the top (does this also need phase preservation?)
@@ -170,7 +171,6 @@ void es5503_pcm_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	//       as 'static' and thus re-allocated for every single call.
 	//INT32 mix[48000*2];
 	//INT32 *mixp;
-	int oscCnt;
 	int osc, snum;
 	UINT32 ramptr;
 	//ES5503Chip *chip = (ES5503Chip *)param;
@@ -182,8 +182,7 @@ void es5503_pcm_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	//memset(mix, 0, sizeof(mix));
 
 	chnsStereo = chip->output_channels & ~1;
-	oscCnt = chip->oscsenabled + 1;
-	for (osc = 0; osc < oscCnt; osc++)
+	for (osc = 0; osc < chip->oscsenabled; osc++)
 	{
 		ES5503Osc *pOsc = &chip->oscillators[osc];
 
@@ -359,7 +358,7 @@ void device_reset_es5503(UINT8 ChipID)
 	chip->channel_strobe = 0;
 	memset(chip->docram, 0x00, chip->dramsize);
 	
-	chip->output_rate = (chip->clock/8)/34;	// (input clock / 8) / # of oscs. enabled + 2
+	chip->output_rate = (chip->clock/8)/(2+chip->oscsenabled);	// (input clock / 8) / # of oscs. enabled + 2
 	if (chip->SmpRateFunc != NULL)
 		chip->SmpRateFunc(chip->SmpRateData, chip->output_rate);
 	
@@ -423,7 +422,7 @@ UINT8 es5503_r(UINT8 ChipID, offs_t offset)
 				//m_irq_func(0);
 
 				// scan all oscillators
-				for (i = 0; i < chip->oscsenabled+1; i++)
+				for (i = 0; i < chip->oscsenabled; i++)
 				{
 					if (chip->oscillators[i].irqpend)
 					{
@@ -444,7 +443,7 @@ UINT8 es5503_r(UINT8 ChipID, offs_t offset)
 				}
 
 				// if any oscillators still need to be serviced, assert IRQ again immediately
-				/*for (i = 0; i < chip->oscsenabled+1; i++)
+				/*for (i = 0; i < chip->oscsenabled; i++)
 				{
 					if (chip->oscillators[i].irqpend)
 					{
@@ -459,7 +458,7 @@ UINT8 es5503_r(UINT8 ChipID, offs_t offset)
 				return retval;
 
 			case 0xe1:	// oscillator enable
-				return chip->oscsenabled<<1;
+				return (chip->oscsenabled-1)<<1;
 
 			case 0xe2:	// A/D converter
 				/*if (chip->adc_read)
@@ -542,7 +541,7 @@ void es5503_w(UINT8 ChipID, offs_t offset, UINT8 data)
 				break;
 
 			case 0xe1:	// oscillator enable
-				chip->oscsenabled = (data>>1);
+				chip->oscsenabled = 1 + ((data>>1) & 0x1f);
 
 				chip->output_rate = (chip->clock/8)/(2+chip->oscsenabled);
 				//stream_set_sample_rate(chip->stream, chip->output_rate);

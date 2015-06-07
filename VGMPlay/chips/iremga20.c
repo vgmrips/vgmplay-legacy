@@ -38,14 +38,14 @@ Revisions:
 struct IremGA20_channel_def
 {
 	UINT32 rate;
-	UINT32 size;
+	//UINT32 size;
 	UINT32 start;
 	UINT32 pos;
 	UINT32 frac;
 	UINT32 end;
 	UINT32 volume;
 	UINT32 pan;
-	UINT32 effect;
+	//UINT32 effect;
 	UINT32 play;
 	UINT8 Muted;
 };
@@ -229,14 +229,14 @@ static void iremga20_reset(ga20_state *chip)
 
 	for( i = 0; i < 4; i++ ) {
 		chip->channel[i].rate = 0;
-		chip->channel[i].size = 0;
+		//chip->channel[i].size = 0;
 		chip->channel[i].start = 0;
 		chip->channel[i].pos = 0;
 		chip->channel[i].frac = 0;
 		chip->channel[i].end = 0;
 		chip->channel[i].volume = 0;
 		chip->channel[i].pan = 0;
-		chip->channel[i].effect = 0;
+		//chip->channel[i].effect = 0;
 		chip->channel[i].play = 0;
 	}
 }

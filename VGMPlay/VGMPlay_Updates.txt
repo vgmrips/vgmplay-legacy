@@ -118,3 +118,10 @@ Updates since 0.4.0u5 (13.04.2014)
 - [VGMPlay] fixed YM2612 DAC not being muteable via MuteMask
 - added ES5503, ES5506, Seta X1-010, Namco C352, Irem GA20 support
 - [VGMPlay] fixed Loop Length (is now adjusted for changed playback rates)
+
+Updates since 0.4.0u6 (30.05.2015)
+- fixed SAA1099 muting (muting channel 1 or 4 prevented the envelope generator from running, thus muting 0-2 or 3-5 respectively)
+- made SAA1099 output bipolar
+- [VGMPlay] fix compiling under Linux (broken since Wide-Charcter file name support)
+- fixed ES5503 sample rate (divider was off by one)
+- applied fix from VOGONS that makes the SAA1099 core actually use the chip clock

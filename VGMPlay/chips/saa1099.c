@@ -117,6 +117,7 @@ struct _saa1099_state
 	struct saa1099_channel channels[6];	/* channels */
 	struct saa1099_noise noise[2];	/* noise generators */
 	double sample_rate;
+	int master_clock;
 };
 
 static const int amplitude_lookup[16] = {
@@ -230,6 +231,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	//saa1099_state *saa = (saa1099_state *)param;
 	saa1099_state *saa = &SAA1099Data[ChipID];
 	int j, ch;
+	int clkdiv512;
 
 	/* if the channels are disabled we're done */
 	if (!saa->all_ch_enable)
@@ -244,13 +246,16 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	{
 		switch (saa->noise_params[ch])
 		{
-		case 0: saa->noise[ch].freq = 31250.0 * 2; break;
-		case 1: saa->noise[ch].freq = 15625.0 * 2; break;
-		case 2: saa->noise[ch].freq =  7812.5 * 2; break;
-		case 3: saa->noise[ch].freq = saa->channels[ch * 3].freq; break;
+		case 0: saa->noise[ch].freq = saa->master_clock/ 256.0 * 2; break;
+		case 1: saa->noise[ch].freq = saa->master_clock/ 512.0 * 2; break;
+		case 2: saa->noise[ch].freq = saa->master_clock/1024.0 * 2; break;
+		case 3: saa->noise[ch].freq = saa->channels[ch * 3].freq;   break;
 		}
 	}
 
+	// clock fix thanks to http://www.vogons.org/viewtopic.php?p=344227#p344227
+	clkdiv512 = saa->master_clock / 512;
+	
 	/* fill all data needed */
 	for( j = 0; j < samples; j++ )
 	{
@@ -259,11 +264,8 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		/* for each channel */
 		for (ch = 0; ch < 6; ch++)
 		{
-			if (saa->channels[ch].Muted)
-				continue;
-			
 			if (saa->channels[ch].freq == 0.0)
-				saa->channels[ch].freq = (double)((2 * 15625) << saa->channels[ch].octave) /
+				saa->channels[ch].freq = (double)((2 * clkdiv512) << saa->channels[ch].octave) /
 					(511.0 - (double)saa->channels[ch].frequency);
 
 			/* check the actual position in the square wave */
@@ -271,7 +273,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 			while (saa->channels[ch].counter < 0)
 			{
 				/* calculate new frequency now after the half wave is updated */
-				saa->channels[ch].freq = (double)((2 * 15625) << saa->channels[ch].octave) /
+				saa->channels[ch].freq = (double)((2 * clkdiv512) << saa->channels[ch].octave) /
 					(511.0 - (double)saa->channels[ch].frequency);
 
 				saa->channels[ch].counter += saa->sample_rate;
@@ -284,28 +286,62 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 					saa1099_envelope(saa, 1);
 			}
 
-			/* if the noise is enabled */
+			if (saa->channels[ch].Muted)
+				continue;	// placed here to ensure that envelopes are updated
+			
+#if 0
+			// if the noise is enabled
 			if (saa->channels[ch].noise_enable)
 			{
-				/* if the noise level is high (noise 0: chan 0-2, noise 1: chan 3-5) */
+				// if the noise level is high (noise 0: chan 0-2, noise 1: chan 3-5)
 				if (saa->noise[ch/3].level & 1)
 				{
-					/* subtract to avoid overflows, also use only half amplitude */
+					// subtract to avoid overflows, also use only half amplitude
 					output_l -= saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 16 / 2;
 					output_r -= saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 16 / 2;
 				}
 			}
 
-			/* if the square wave is enabled */
+			// if the square wave is enabled
 			if (saa->channels[ch].freq_enable)
 			{
-				/* if the channel level is high */
+				// if the channel level is high
 				if (saa->channels[ch].level & 1)
 				{
 					output_l += saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 16;
 					output_r += saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 16;
 				}
 			}
+#else
+			// Now with bipolar output. -Valley Bell
+			if (saa->channels[ch].noise_enable)
+			{
+				if (saa->noise[ch/3].level & 1)
+				{
+					output_l += saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32 / 2;
+					output_r += saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32 / 2;
+				}
+				else
+				{
+					output_l -= saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32 / 2;
+					output_r -= saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32 / 2;
+				}
+			}
+
+			if (saa->channels[ch].freq_enable)
+			{
+				if (saa->channels[ch].level & 1)
+				{
+					output_l += saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32;
+					output_r += saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32;
+				}
+				else
+				{
+					output_l -= saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32;
+					output_r -= saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32;
+				}
+			}
+#endif
 		}
 
 		for (ch = 0; ch < 2; ch++)
@@ -344,6 +380,7 @@ int device_start_saa1099(UINT8 ChipID, int clock)
 	/* copy global parameters */
 	//saa->device = device;
 	//saa->sample_rate = device->clock() / 256;
+	saa->master_clock = clock;
 	saa->sample_rate = clock / 256.0;
 
 	/* for each chip allocate one stream */
