@@ -2274,6 +2274,7 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		break;
 	case 0x26:
 		Clock = FileHead->lngHzX1_010;
+		AllowBit31 = 0x01;	// Frequency divider
 		break;
 	case 0x27:
 		Clock = FileHead->lngHzC352;
@@ -3329,7 +3330,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 				CAA->ChipType = 0x26;
 				
 				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
-				CAA->SmpRate = device_start_x1_010(CurChip, ChipClk, VGMHead.bytChipFlags);
+				CAA->SmpRate = device_start_x1_010(CurChip, ChipClk);
 				CAA->StreamUpdate = &seta_update;
 				
 				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);

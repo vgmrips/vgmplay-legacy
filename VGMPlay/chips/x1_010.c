@@ -215,7 +215,7 @@ void seta_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 
 
 //static DEVICE_START( x1_010 )
-int device_start_x1_010(UINT8 ChipID, int clock, UINT8 chipflags)
+int device_start_x1_010(UINT8 ChipID, int clock)
 {
 	int i;
 	//const x1_010_interface *intf = (const x1_010_interface *)device->static_config();
@@ -227,7 +227,9 @@ int device_start_x1_010(UINT8 ChipID, int clock, UINT8 chipflags)
 	
 	info = &X1010Data[ChipID];
 	
-	info->divider = (chipflags&0x80) ? 1 : 0;
+	// set frequency divider
+	info->divider = (clock&0x80000000) ? 1 : 0;
+	clock &= 0x7FFFFFFF;
 	
 	//info->region		= *device->region();
 	//info->base_clock	= device->clock();
