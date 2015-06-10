@@ -14,7 +14,7 @@ struct _x1_010_interface
 
 
 void seta_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
-int device_start_x1_010(UINT8 ChipID, int clock);
+int device_start_x1_010(UINT8 ChipID, int clock, UINT8 chipflags);
 void device_stop_x1_010(UINT8 ChipID);
 void device_reset_x1_010(UINT8 ChipID);
 
