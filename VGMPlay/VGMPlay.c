@@ -3329,7 +3329,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 				CAA->ChipType = 0x26;
 				
 				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
-				CAA->SmpRate = device_start_x1_010(CurChip, ChipClk);
+				CAA->SmpRate = device_start_x1_010(CurChip, ChipClk, VGMHead.bytChipFlags);
 				CAA->StreamUpdate = &seta_update;
 				
 				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);

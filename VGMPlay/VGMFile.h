@@ -71,7 +71,7 @@ typedef struct _vgm_file_header
 	UINT8 bytES5503Chns;
 	UINT8 bytES5506Chns;
 	UINT8 bytC352ClkDiv;
-	UINT8 bytESReserved;
+	UINT8 bytChipFlags;
 	UINT32 lngHzX1_010;
 	UINT32 lngHzC352;
 	UINT32 lngHzGA20;
