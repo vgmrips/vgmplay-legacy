@@ -231,7 +231,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	//saa1099_state *saa = (saa1099_state *)param;
 	saa1099_state *saa = &SAA1099Data[ChipID];
 	int j, ch;
-	int clkdiv512;
+	int clk2div512;
 
 	/* if the channels are disabled we're done */
 	if (!saa->all_ch_enable)
@@ -254,7 +254,8 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	}
 
 	// clock fix thanks to http://www.vogons.org/viewtopic.php?p=344227#p344227
-	clkdiv512 = saa->master_clock / 512;
+	//clk2div512 = 2 * saa->master_clock / 512;
+	clk2div512 = (saa->master_clock + 128) / 256;
 	
 	/* fill all data needed */
 	for( j = 0; j < samples; j++ )
@@ -265,7 +266,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		for (ch = 0; ch < 6; ch++)
 		{
 			if (saa->channels[ch].freq == 0.0)
-				saa->channels[ch].freq = (double)((2 * clkdiv512) << saa->channels[ch].octave) /
+				saa->channels[ch].freq = (double)(clk2div512 << saa->channels[ch].octave) /
 					(511.0 - (double)saa->channels[ch].frequency);
 
 			/* check the actual position in the square wave */
@@ -273,7 +274,7 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 			while (saa->channels[ch].counter < 0)
 			{
 				/* calculate new frequency now after the half wave is updated */
-				saa->channels[ch].freq = (double)((2 * clkdiv512) << saa->channels[ch].octave) /
+				saa->channels[ch].freq = (double)(clk2div512 << saa->channels[ch].octave) /
 					(511.0 - (double)saa->channels[ch].frequency);
 
 				saa->channels[ch].counter += saa->sample_rate;

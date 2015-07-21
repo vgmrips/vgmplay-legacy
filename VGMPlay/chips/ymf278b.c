@@ -1138,14 +1138,14 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 	return;
 }
 
-static void ymf278b_init(YMF278BChip *chip, int clock, void (*cb)(int))
+static int ymf278b_init(YMF278BChip *chip, int clock, void (*cb)(int))
 {
 	int rate;
 	
 	rate = clock / 768;
-	if (((CHIP_SAMPLING_MODE & 0x01) && rate < CHIP_SAMPLE_RATE) ||
-		CHIP_SAMPLING_MODE == 0x02)
-		rate = CHIP_SAMPLE_RATE;
+	//if (((CHIP_SAMPLING_MODE & 0x01) && rate < CHIP_SAMPLE_RATE) ||
+	//	CHIP_SAMPLING_MODE == 0x02)
+	//	rate = CHIP_SAMPLE_RATE;
 	chip->fmchip = ymf262_init(clock * 8 / 19, rate);
 	chip->FMEnabled = 0x00;
 	
@@ -1159,6 +1159,8 @@ static void ymf278b_init(YMF278BChip *chip, int clock, void (*cb)(int))
 	chip->RAMSize = 0x00080000;
 	chip->ram = (UINT8*)malloc(chip->RAMSize);
 	ymf278b_clearRam(chip);
+
+	return rate;
 }
 
 //static DEVICE_START( ymf278b )
@@ -1168,6 +1170,7 @@ int device_start_ymf278b(UINT8 ChipID, int clock)
 	const ymf278b_interface *intf;
 	int i;
 	YMF278BChip *chip;
+	int rate;
 
 	if (ChipID >= MAX_CHIPS)
 		return 0;
@@ -1178,7 +1181,7 @@ int device_start_ymf278b(UINT8 ChipID, int clock)
 	//intf = (device->static_config != NULL) ? (const ymf278b_interface *)device->static_config : &defintrf;
 	intf = &defintrf;
 
-	ymf278b_init(chip, clock, intf->irq_callback);
+	rate = ymf278b_init(chip, clock, intf->irq_callback);
 	//chip->stream = stream_create(device, 0, 2, device->clock/768, chip, ymf278b_pcm_update);
 
 	chip->memadr = 0; // avoid UMR
@@ -1191,7 +1194,7 @@ int device_start_ymf278b(UINT8 ChipID, int clock)
 	for (i = 0; i < 24; i ++)
 		chip->slots[i].Muted = 0x00;;
 
-	return clock/768;
+	return rate;
 }
 
 //static DEVICE_STOP( ymf278 )

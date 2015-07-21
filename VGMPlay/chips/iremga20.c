@@ -46,7 +46,7 @@ struct IremGA20_channel_def
 	UINT32 volume;
 	UINT32 pan;
 	//UINT32 effect;
-	UINT32 play;
+	UINT8 play;
 	UINT8 Muted;
 };
 
@@ -90,7 +90,7 @@ void IremGA20_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		frac[i] = chip->channel[i].frac;
 		end[i] = chip->channel[i].end - 0x20;
 		vol[i] = chip->channel[i].volume;
-		play[i] = chip->channel[i].play;
+		play[i] = (! chip->channel[i].Muted) ? chip->channel[i].play : 0;
 	}
 
 	i = samples;
@@ -146,7 +146,8 @@ void IremGA20_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 	{
 		chip->channel[i].pos = pos[i];
 		chip->channel[i].frac = frac[i];
-		chip->channel[i].play = play[i];
+		if (! chip->channel[i].Muted)
+			chip->channel[i].play = play[i];
 	}
 }
 

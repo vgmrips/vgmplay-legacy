@@ -125,3 +125,5 @@ Updates since 0.4.0u6 (30.05.2015)
 - [VGMPlay] fix compiling under Linux (broken since Wide-Charcter file name support)
 - fixed ES5503 sample rate (divider was off by one)
 - applied fix from VOGONS that makes the SAA1099 core actually use the chip clock
+- fixed YMF278B's FM part being emulated at wrong sample rate
+- fixed Irem GA20 channel muting

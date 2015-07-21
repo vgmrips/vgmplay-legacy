@@ -38,7 +38,6 @@
 #ifdef XMAS_EXTRA
 #include "XMasFiles/XMasBonus.h"
 #endif
-#define WS_DEMO
 #ifdef WS_DEMO
 #include "XMasFiles/SWJ-SQRC01_1C.h"
 #endif

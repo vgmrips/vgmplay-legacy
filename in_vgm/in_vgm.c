@@ -181,7 +181,7 @@ void About(HWND hWndParent)
 		" (Unicode build)"
 #endif
 		"\n"
-		"by Valley Bell 2011-2014\n"
+		"by Valley Bell 2011-2015\n"
 		"\n"
 		"Build date: " __DATE__ " (" INVGM_VERSION ")\n"
 		"\n"
