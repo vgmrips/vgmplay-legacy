@@ -142,7 +142,8 @@ INLINE void set_ksl_tl(YM2413 *chip,int chan,int v)
 	OPLL_SLOT_OPL *SLOT = &CH->SLOT[SLOT1];
 	
 /* modulator */
-	SLOT->ksl = v & 0xC0;
+	// OPLL KSL (0/1.5/3/6) -> OPL KSL (0/3/1.5/6)
+	SLOT->ksl = ((v & 0x40) << 1) | ((v & 0x80) >> 1);	// swap bits 6<->7
 	SLOT->TL = v & 0x3F;
 	
 	OPL_RegMapper(0x40 | SLOT2OPL[chan * 2 + SLOT1], SLOT->ksl | SLOT->TL);

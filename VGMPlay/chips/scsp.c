@@ -114,7 +114,6 @@ static const double DRTimes[64]={100000/*infinity*/,100000/*infinity*/,118200.0,
 					14800.0,12700.0,11100.0,8900.0,7400.0,6300.0,5500.0,4400.0,3700.0,3200.0,2800.0,2200.0,1800.0,1600.0,1400.0,1100.0,
 					920.0,790.0,690.0,550.0,460.0,390.0,340.0,270.0,230.0,200.0,170.0,140.0,110.0,98.0,85.0,68.0,57.0,49.0,43.0,34.0,
 					28.0,25.0,22.0,18.0,14.0,12.0,11.0,8.5,7.1,6.1,5.4,4.3,3.6,3.1};
-static INT32 EG_TABLE[0x400];
 
 typedef enum {ATTACK,DECAY1,DECAY2,RELEASE} _STATE;
 struct _EG
@@ -214,6 +213,8 @@ struct _scsp_state
 	UINT8 MidiStack[32];
 	UINT8 MidiW,MidiR;
 
+	INT32 EG_TABLE[0x400];
+
 	int LPANTABLE[0x10000];
 	int RPANTABLE[0x10000];
 
@@ -224,12 +225,14 @@ struct _scsp_state
 	//emu_timer *timerA, *timerB, *timerC;
 
 	// DMA stuff
-	UINT32 scsp_dmea;
-	UINT16 scsp_drga;
-	UINT16 scsp_dtlg;
-	UINT16 scsp_dmactrl;
-
-	UINT16 dma_regs[3];
+	struct
+	{
+		UINT32 dmea;
+		UINT16 drga;
+		UINT16 dtlg;
+		UINT8 dgate;
+		UINT8 ddir;
+	} dma;
 
 	UINT16 mcieb;
 	UINT16 mcipd;
@@ -242,10 +245,7 @@ struct _scsp_state
 	//device_t *device;
 };
 
-//static void dma_scsp(address_space *space, scsp_state *scsp);		/*state DMA transfer function*/
-/*#define	scsp_dgate		scsp->scsp_dmactrl & 0x4000
-#define	scsp_ddir		scsp->scsp_dmactrl & 0x2000
-#define scsp_dexe		scsp->scsp_dmactrl & 0x1000*/
+//static void SCSP_exec_dma(address_space *space, scsp_state *scsp);		/*state DMA transfer function*/
 /* TODO */
 //#define dma_transfer_end  ((scsp_regs[0x24/2] & 0x10)>>4)|(((scsp_regs[0x26/2] & 0x10)>>4)<<1)|(((scsp_regs[0x28/2] & 0x10)>>4)<<2)
 
@@ -584,7 +584,7 @@ static void SCSP_Init(scsp_state *scsp, int clock)
 	{
 		float envDB=((float)(3*(i-0x3ff)))/32.0f;
 		float scale=(float)(1<<SHIFT);
-		EG_TABLE[i]=(INT32)(pow(10.0,envDB/20.0)*scale);
+		scsp->EG_TABLE[i]=(INT32)(pow(10.0,envDB/20.0)*scale);
 	}
 
 	for(i=0;i<0x10000;++i)
@@ -758,10 +758,20 @@ INLINE void SCSP_UpdateReg(scsp_state *scsp, /*address_space &space,*/ int reg)
 			break;
 		case 0x12:
 		case 0x13:
+			//scsp->dma.dmea = (scsp->udata.data[0x12/2] & 0xfffe) | (scsp->dma.dmea & 0xf0000);
+			break;
 		case 0x14:
 		case 0x15:
+			//scsp->dma.dmea = ((scsp->udata.data[0x14/2] & 0xf000) << 4) | (scsp->dma.dmea & 0xfffe);
+			//scsp->dma.drga = (scsp->udata.data[0x14/2] & 0x0ffe);
+			break;
 		case 0x16:
 		case 0x17:
+			//scsp->dma.dtlg = (scsp->udata.data[0x16/2] & 0x0ffe);
+			//scsp->dma.ddir = (scsp->udata.data[0x16/2] & 0x2000) >> 13;
+			//scsp->dma.dgate = (scsp->udata.data[0x16/2] & 0x4000) >> 14;
+			//if(scsp->udata.data[0x16/2] & 0x1000) // dexe
+			//	SCSP_exec_dma(space, scsp);
 			break;
 		case 0x18:
 		case 0x19:
@@ -997,7 +1007,7 @@ INLINE void SCSP_w16(scsp_state *scsp,unsigned int addr,unsigned short val)
 			if(addr==0xBF0)
 			{
 				SCSPDSP_Start(&scsp->DSP);
-	    	}
+			}
 		}
 	}
 }
@@ -1013,8 +1023,6 @@ INLINE unsigned short SCSP_r16(scsp_state *scsp, unsigned int addr)
 		SCSP_UpdateSlotRegR(scsp, slot,addr&0x1f);
 		v=*((unsigned short *) (scsp->Slots[slot].udata.datab+(addr)));
 	}
-	else if(addr>=0x412 && addr <= 0x416)
-		v = scsp->dma_regs[((addr-0x412)/2) & 3];
 	else if(addr<0x600)
 	{
 		if (addr < 0x430)
@@ -1063,11 +1071,16 @@ INLINE unsigned short SCSP_r16(scsp_state *scsp, unsigned int addr)
 			v= *((unsigned short *) (scsp->DSP.EFREG+(addr-0xec0)/2));
 		else
 		{
-			//logerror("SCSP: Reading from unmapped register %08x\n",addr);
-			if(addr == 0xee0)
-				v= scsp->DSP.TEMP[0] >> 16;
-			if(addr == 0xee2)
-				v= scsp->DSP.TEMP[0] & 0xffff;
+			/*
+			Kyuutenkai reads from 0xee0/0xee2, it's tied with EXTS register(s) also used for CD-Rom Player equalizer.
+			This port is actually an external parallel port, directly connected from the CD Block device, hence code is a bit of an hack.
+			*/
+			logerror("SCSP: Reading from EXTS register %08x\n",addr);
+			//if(addr == 0xee0)
+			//	v = space.machine().device<cdda_device>("cdda")->get_channel_volume(0);
+			//if(addr == 0xee2)
+			//	v = space.machine().device<cdda_device>("cdda")->get_channel_volume(1);
+			v = 0xFFFF;
 		}
 	}
 #endif
@@ -1192,8 +1205,8 @@ INLINE INT32 SCSP_UpdateSlot(scsp_state *scsp, struct _SLOT *slot)
 		case 0:	//no loop
 			if(*addr[addr_select]>=LSA(slot) && *addr[addr_select]>=LEA(slot))
 			{
-			//slot->active=0;
-			SCSP_StopSlot(slot,0);
+				//slot->active=0;
+				SCSP_StopSlot(slot,0);
 			}
 			break;
 		case 1: //normal loop
@@ -1244,7 +1257,7 @@ INLINE INT32 SCSP_UpdateSlot(scsp_state *scsp, struct _SLOT *slot)
 		if(slot->EG.state==ATTACK)
 			sample=(sample*EG_Update(slot))>>SHIFT;
 		else
-			sample=(sample*EG_TABLE[EG_Update(slot)>>(SHIFT-10)])>>SHIFT;
+			sample=(sample*scsp->EG_TABLE[EG_Update(slot)>>(SHIFT-10)])>>SHIFT;
 	}
 
 	if(!STWINH(slot))
@@ -1282,17 +1295,17 @@ INLINE void SCSP_DoMasterSamples(scsp_state *scsp, stream_sample_t **outputs, in
 
 		for(sl=0;sl<32;++sl)
 		{
+#if FM_DELAY
+			RBUFDST=scsp->DELAYBUF+scsp->DELAYPTR;
+#else
+			RBUFDST=scsp->RINGBUF+scsp->BUFPTR;
+#endif
 			if(scsp->Slots[sl].active && ! scsp->Slots[sl].Muted)
 			{
 				struct _SLOT *slot=scsp->Slots+sl;
 				unsigned short Enc;
 				signed int sample;
 
-#if FM_DELAY
-			RBUFDST=scsp->DELAYBUF+scsp->DELAYPTR;
-#else
-			RBUFDST=scsp->RINGBUF+scsp->BUFPTR;
-#endif
 				sample=SCSP_UpdateSlot(scsp, slot);
 
 				if (! BypassDSP)
@@ -1342,94 +1355,84 @@ INLINE void SCSP_DoMasterSamples(scsp_state *scsp, stream_sample_t **outputs, in
 }
 
 /* TODO: this needs to be timer-ized */
-/*static void dma_scsp(address_space *space, scsp_state *scsp)
+/*static void SCSP_exec_dma(address_space *space, scsp_state *scsp)
 {
 	static UINT16 tmp_dma[3];
 	int i;
 
-	scsp->scsp_dmactrl = scsp->dma_regs[2] & 0x7000;
-
-	if(!(scsp_dexe)) //don't bother if DMA is off
-		return;
-
-	// calc the registers
-	scsp->scsp_dmea = ((scsp->dma_regs[1] & 0xf000) << 4) | (scsp->dma_regs[0] & 0xfffe); // RAM address
-	scsp->scsp_drga = (scsp->dma_regs[1] & 0x0ffe);
-	scsp->scsp_dtlg = (scsp->dma_regs[2] & 0x0ffe);
-
 	logerror("SCSP: DMA transfer START\n"
 			 "DMEA: %04x DRGA: %04x DTLG: %04x\n"
-			 "DGATE: %d  DDIR: %d\n",scsp->scsp_dmea,scsp->scsp_drga,scsp->scsp_dtlg,scsp_dgate ? 1 : 0,scsp_ddir ? 1 : 0);
+			 "DGATE: %d  DDIR: %d\n",scsp->dma.dmea,scsp->dma.drga,scsp->dma.dtlg,scsp->dma.dgate ? 1 : 0,scsp->dma.ddir ? 1 : 0);
 
 	// Copy the dma values in a temp storage for resuming later
     	// (DMA *can't* overwrite its parameters)
-	if(!(scsp_ddir))
+	if(!(dma.ddir))
 	{
 		for(i=0;i<3;i++)
-			tmp_dma[i] = scsp->dma_regs[i];
+			tmp_dma[i] = scsp->udata.data[(0x12+(i*2))/2];
 	}
 
 	// note: we don't use space.read_word / write_word because it can happen that SH-2 enables the DMA instead of m68k.
 	// TODO: don't know if params auto-updates, I guess not ...
-	if(scsp_ddir)
+	if(dma.ddir)
 	{
-		if(scsp_dgate)
+		if(dma.dgate)
 		{
 			popmessage("Check: SCSP DMA DGATE enabled, contact MAME/MESSdev");
-			for(i=0;i < scsp->scsp_dtlg;i+=2)
+			for(i=0;i < scsp->dma.dtlg;i+=2)
 			{
-				scsp->SCSPRAM[scsp->scsp_dmea] = 0;
-				scsp->SCSPRAM[scsp->scsp_dmea+1] = 0;
-				scsp->scsp_dmea+=2;
+				scsp->SCSPRAM[scsp->dma.dmea] = 0;
+				scsp->SCSPRAM[scsp->dma.dmea+1] = 0;
+				scsp->dma.dmea+=2;
 			}
 		}
 		else
 		{
-			for(i=0;i < scsp->scsp_dtlg;i+=2)
+			for(i=0;i < scsp->dma.dtlg;i+=2)
 			{
 				UINT16 tmp;
-				tmp = SCSP_r16(scsp, space, scsp->scsp_drga);
-				scsp->SCSPRAM[scsp->scsp_dmea] = tmp & 0xff;
-				scsp->SCSPRAM[scsp->scsp_dmea+1] = tmp>>8;
-				scsp->scsp_dmea+=2;
-				scsp->scsp_drga+=2;
+				tmp = SCSP_r16(scsp, space, scsp->dma.drga);
+				scsp->SCSPRAM[scsp->dma.dmea] = tmp & 0xff;
+				scsp->SCSPRAM[scsp->dma.dmea+1] = tmp>>8;
+				scsp->dma.dmea+=2;
+				scsp->dma.drga+=2;
 			}
 		}
 	}
 	else
 	{
-		if(scsp_dgate)
+		if(dma.dgate)
 		{
 			popmessage("Check: SCSP DMA DGATE enabled, contact MAME/MESSdev");
-			for(i=0;i < scsp->scsp_dtlg;i+=2)
+			for(i=0;i < scsp->dma.dtlg;i+=2)
 			{
-				SCSP_w16(scsp, space, scsp->scsp_drga, 0);
-				scsp->scsp_drga+=2;
+				SCSP_w16(scsp, space, scsp->dma.drga, 0);
+				scsp->dma.drga+=2;
 			}
 		}
 		else
 		{
-			for(i=0;i < scsp->scsp_dtlg;i+=2)
+			for(i=0;i < scsp->dma.dtlg;i+=2)
 			{
 				UINT16 tmp;
-				tmp = scsp->SCSPRAM[scsp->scsp_dmea];
-				tmp|= scsp->SCSPRAM[scsp->scsp_dmea+1]<<8;
-				SCSP_w16(scsp, space, scsp->scsp_drga, tmp);
-				scsp->scsp_dmea+=2;
-				scsp->scsp_drga+=2;
+				tmp = scsp->SCSPRAM[scsp->dma.dmea];
+				tmp|= scsp->SCSPRAM[scsp->dma.dmea+1]<<8;
+				SCSP_w16(scsp, space, scsp->dma.drga, tmp);
+				scsp->dma.dmea+=2;
+				scsp->dma.drga+=2;
 			}
 		}
 	}
 
 	//Resume the values
-	if(!(scsp_ddir))
+	if(!(dma.ddir))
 	{
 		for(i=0;i<3;i++)
-			scsp->dma_regs[i] = tmp_dma[i];
+			scsp->udata.data[(0x12+(i*2))/2] = tmp_dma[i];
 	}
 
 	// Job done
-	scsp->dma_regs[2] &= ~0x1000;
+	scsp->udata.data[0x16/2] &= ~0x1000;
 	// request a dma end irq (TODO: make it inside the interface)
 	if(scsp->udata.data[0x1e/2] & 0x10)
 	{
@@ -1561,19 +1564,6 @@ void scsp_w(UINT8 ChipID, offs_t offset, UINT8 data)
 	else
 		tmp = (tmp & 0x00FF) | (data << 8);
 	SCSP_w16(scsp,offset & 0xFFFE, tmp);
-
-	/* TODO: move in UpdateSlot structure */
-	/*switch(offset*2)
-	{
-		// check DMA
-		case 0x412:
-		case 0x414:
-		case 0x416:
-			COMBINE_DATA(&scsp->dma_regs[((offset-0x412)/2) & 3]);
-			if(ACCESSING_BITS_8_15 && offset*2 == 0x416)
-				dma_scsp(device->machine().firstcpu->memory().space(AS_PROGRAM), scsp);
-			break;
-	}*/
 }
 
 /*WRITE16_DEVICE_HANDLER( scsp_midi_in )

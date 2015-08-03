@@ -200,7 +200,8 @@ The format starts with a 256 byte header:
         bit 1   Single Output
         bit 2   Discrete Output
         bit 3   RAW Output
-        bit 4-7 reserved (must be zero)
+        bit 4   YM2149 Pin 26 (additional /2 clock divider)
+        bit 5-7 reserved (must be zero)
         If the AY8910 is not used then this may be omitted (left at zero).
 0x7A: YM2203/AY8910 Flags (8 bits)
         Misc flags for the AY8910. This one is specific for the AY8910 that's
