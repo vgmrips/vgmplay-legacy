@@ -127,3 +127,4 @@ Updates since 0.4.0u6 (30.05.2015)
 - applied fix from VOGONS that makes the SAA1099 core actually use the chip clock
 - fixed YMF278B's FM part being emulated at wrong sample rate
 - fixed Irem GA20 channel muting
+- fixed playing non-NMK banked OKIM6295 VGMs after NMK-banked ones

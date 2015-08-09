@@ -435,6 +435,8 @@ int device_start_okim6295(UINT8 ChipID, int clock)
 	info->command = -1;
 	//info->bank_installed = FALSE;
 	info->bank_offs = 0;
+	info->nmk_mode = 0x00;
+	memset(info->nmk_bank, 0x00, 4 * sizeof(UINT8));
 	//info->device = device;
 
 	//info->master_clock = device->clock;
@@ -490,6 +492,8 @@ void device_reset_okim6295(UINT8 ChipID)
 	
 	info->command = -1;
 	info->bank_offs = 0;
+	info->nmk_mode = 0x00;
+	memset(info->nmk_bank, 0x00, 4 * sizeof(UINT8));
 	info->master_clock = info->initial_clock & 0x7FFFFFFF;
 	info->pin7_state = (info->initial_clock & 0x80000000) >> 31;
 	
