@@ -418,7 +418,7 @@ void SN76496Update(void *chip, stream_sample_t **outputs, int samples)
 					out += vol[i] * R->Volume[i] * ggst[0];
 					out2 += vol[i] * R->Volume[i] * ggst[1];
 				}
-				else
+				else if (R->MuteMsk[i])
 				{
 					// Make Bipolar Output with PCM possible
 					//out += (2 * R->Volume[i] - R->VolTable[5]) * ggst[0];
@@ -458,7 +458,7 @@ void SN76496Update(void *chip, stream_sample_t **outputs, int samples)
 						out += vol[i] * R->Volume[i] * ggst[0];
 						out2 += vol[i] * R2->Volume[i] * ggst[1];
 					}
-					else
+					else if (R->MuteMsk[i])
 					{
 						// Make Bipolar Output with PCM possible
 						out += R->Volume[i] * ggst[0];

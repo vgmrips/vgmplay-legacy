@@ -128,3 +128,4 @@ Updates since 0.4.0u6 (30.05.2015)
 - fixed YMF278B's FM part being emulated at wrong sample rate
 - fixed Irem GA20 channel muting
 - fixed playing non-NMK banked OKIM6295 VGMs after NMK-banked ones
+- fixed SN76489 PSG muting (muting didn't work if the frequency was set to 0 to play PCM)
