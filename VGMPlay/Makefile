@@ -6,10 +6,11 @@
 ########################
 
 # TODO: Make this look less horrible.
-# TODO: Make it not include pt_ioctl.c when DISABLE_HW_SUPPORT is active.
 
 # Uncomment if you build on Windows using MinGW.
 #WINDOWS = 1
+# disable Hardware OPL Support
+#DISABLE_HWOPL_SUPPORT = 1
 
 # Uncomment if you want to use libao instead of OSS for sound streaming under Linux
 USE_LIBAO = 1
@@ -33,7 +34,9 @@ EMUFLAGS := -DENABLE_ALL_CORES
 #MAINFLAGS := -DVGM_BIG_ENDIAN
 #EMUFLAGS := -DVGM_BIG_ENDIAN
 
-#MAINFLAGS := -DDISABLE_HW_SUPPORT
+ifdef DISABLE_HWOPL_SUPPORT
+MAINFLAGS := -DDISABLE_HW_SUPPORT
+endif
 
 
 # -- General Compile Flags --
@@ -70,7 +73,9 @@ MAINOBJS = \
 	$(OBJ)/Stream.o \
 	$(OBJ)/ChipMapper.o
 ifdef WINDOWS
+ifndef DISABLE_HWOPL_SUPPORT
 MAINOBJS += $(OBJ)/pt_ioctl.o
+endif
 endif
 EMUOBJS = \
 	$(EMUOBJ)/262intf.o \
