@@ -1,4 +1,3 @@
-// TODO: Check codepage stuff (SetConsoleCP) - it looks like I don't need printc anymore
 // VGMPlayUI.c: C Source File for the Console User Interface
 
 // Note: In order to make MS VC6 NOT crash when using fprintf with stdout, stderr, etc.
@@ -97,11 +96,6 @@ static bool OpenMusicFile(const char* FileName);
 extern bool OpenVGMFile(const char* FileName);
 extern bool OpenOtherFile(const char* FileName);
 
-//#ifdef WIN32
-//static void printc(const char* format, ...);
-//#else
-#define	printc	printf
-//#endif
 static void wprintc(const wchar_t* format, ...);
 static void PrintChipStr(UINT8 ChipID, UINT8 SubType, UINT32 Clock);
 static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag);
@@ -241,7 +235,6 @@ int main(int argc, char* argv[])
 	const char* FileExt;
 	UINT8 CurPath;
 	UINT32 ChrPos;
-	INT32 OldCP;
 	
 	// set locale to "current system locale"
 	// (makes Unicode characters (like umlauts) work under Linux and fixes some
@@ -367,6 +360,8 @@ int main(int argc, char* argv[])
 	if (argc <= argbase)
 	{
 #ifdef WIN32
+		INT32 OldCP;
+		
 		OldCP = GetConsoleCP();
 		
 		// Set the Console Input Codepage to ANSI.
@@ -418,7 +413,7 @@ int main(int argc, char* argv[])
 	{
 		// The argument should already use the ANSI codepage.
 		strcpy(VgmFileName, argv[argbase]);
-		printc("%s\n", VgmFileName);
+		printf("%s\n", VgmFileName);
 	}
 	if (! strlen(VgmFileName))
 		goto ExitProgram;
@@ -513,9 +508,9 @@ int main(int argc, char* argv[])
 				cls();
 				printf(APP_NAME);
 				printf("\n----------\n");
-				printc("\nPlaylist File:\t%s\n", PLFileName);
+				printf("\nPlaylist File:\t%s\n", PLFileName);
 				printf("Playlist Entry:\t%u / %u\n", CurPLFile + 1, PLFileCount);
-				printc("File Name:\t%s\n", PlayListFile[CurPLFile]);
+				printf("File Name:\t%s\n", PlayListFile[CurPLFile]);
 			}
 			
 			if (IsAbsolutePath(PlayListFile[CurPLFile]))
@@ -1833,36 +1828,6 @@ static bool OpenMusicFile(const char* FileName)
 	return false;
 }
 
-/*#ifdef WIN32
-// "printc" initially meant "print correct, though "print console" would also make sense ;)
-static void printc(const char* format, ...)
-{
-	int RetVal;
-	UINT32 BufSize;
-	char* printbuf;
-	va_list arg_list;
-	
-	BufSize = 0x00;
-	printbuf = NULL;
-	do
-	{
-		BufSize += 0x100;
-		printbuf = (char*)realloc(printbuf, BufSize);
-		va_start(arg_list, format);
-		RetVal = _vsnprintf(printbuf, BufSize - 0x01, format, arg_list);
-		va_end(arg_list);
-	} while(RetVal == -1 && BufSize < 0x1000);
-	
-	CharToOem(printbuf, printbuf);
-	
-	printf("%s", printbuf);
-	
-	free(printbuf);
-	
-	return;
-}
-#endif*/
-
 static void wprintc(const wchar_t* format, ...)
 {
 	va_list arg_list;
@@ -1909,6 +1874,7 @@ static void wprintc(const wchar_t* format, ...)
 		free(oembuf);
 	}
 #else
+	// on Linux, it's easy
 	printf("%ls", printbuf);
 #endif
 	
