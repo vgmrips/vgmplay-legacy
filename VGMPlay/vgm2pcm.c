@@ -3,6 +3,12 @@
 #include <string.h>
 #include <wchar.h>
 
+#ifndef _MSC_VER
+// This turns command line options on (using getopt.h) unless you are using MSVC / Visual Studio, which doesn't have it.
+#define VGM2PCM_HAS_GETOPT
+#include <getopt.h>
+#endif
+
 #include "chips/mamedef.h"
 #include "stdbool.h"
 #include "VGMPlay.h"
@@ -14,9 +20,10 @@ UINT8 CmdList[0x100]; // used by VGMPlay.c and VGMPlay_AddFmts.c
 bool ErrorHappened;   // used by VGMPlay.c and VGMPlay_AddFmts.c
 extern VGM_HEADER VGMHead;
 extern UINT32 SampleRate;
-extern UINT32 VGMMaxLoopM;
-extern UINT32 FadeTime;
 extern bool EndPlay;
+
+extern UINT32 VGMMaxLoop;
+extern UINT32 FadeTime;
 
 INLINE int fputBE16(UINT16 Value, FILE* hFile)
 {
@@ -29,19 +36,77 @@ INLINE int fputBE16(UINT16 Value, FILE* hFile)
     return ResVal;
 }
 
+void usage(const char *name) {
+    fprintf(stderr, "usage: %s [options] vgm_file pcm_file\n"
+                    //"pcm_file can be - for standard output.\n"
+                    "\n"
+                    "Default options:\n"
+                    "--loop-count=%d\n"
+                    "--fade-ms=%d\n"
+                    "--format=l16\n"
+                    "\n", name, VGMMaxLoop, FadeTime);
+}
+
 int main(int argc, char *argv[]) {
     UINT8 result;
     WAVE_16BS *sampleBuffer;
     UINT32 bufferedLength;
     FILE *outputFile;
 
+	// Initialize VGMPlay before parsing arguments, so we can set VGMMaxLoop and FadeTime
+    VGMPlay_Init();
+    VGMPlay_Init2();
+    
+    int c;
+    
+    // Parse command line arguments
+#ifdef VGM2PCM_HAS_GETOPT
+    static struct option long_options[] = {
+        {"loop-count", required_argument, NULL, 'l'},
+        {"fade-ms", required_argument, NULL, 'f'},
+        {"format", required_argument, NULL, 't'},
+        {"help", no_argument, NULL, '?'},
+        {NULL, 0, NULL, 0}
+    };
+    while ((c = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
+        switch (c) {
+            case 'l':
+                VGMMaxLoop = atoi(optarg);
+                if (VGMMaxLoop <= 0) {
+                    fputs("Error: loop count must be at least 1.\n", stderr);
+                    usage(argv[0]);
+                    return 1;
+                }
+                //fprintf(stderr, "Setting max loops to %u\n", VGMMaxLoop);
+                break;
+            case 'f':
+                FadeTime = atoi(optarg);
+                //fprintf(stderr, "Setting fade-out time in milliseconds to %u\n", FadeTime);
+                break;
+            case 't':
+                fprintf(stderr, "Would use format %s if this was implemented\n", optarg);
+                break;
+            case -1:
+                break;
+            case '?':
+                usage(argv[0]);
+                return 0;
+            default:
+                usage(argv[0]);
+                return 1;
+        }
+    }
+    
+    // Pretend for the rest of the program that those options don't exist
+    argv[optind-1] = argv[0];
+    argc -= optind-1;
+    argv += optind-1;
+#else
     if (argc < 3) {
         fputs("usage: vgm2pcm vgm_file pcm_file\n", stderr);
         return 1;
     }
-
-    VGMPlay_Init();
-    VGMPlay_Init2();
+#endif
 
     if (!OpenVGMFile(argv[1])) {
         fprintf(stderr, "vgm2pcm: error: failed to open vgm_file (%s)\n", argv[1]);
