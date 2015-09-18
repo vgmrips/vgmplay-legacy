@@ -3,6 +3,8 @@
 #include <string.h>
 #include <wchar.h>
 
+#include <fcntl.h>
+
 #ifndef _MSC_VER
 // This turns command line options on (using getopt.h) unless you are using MSVC / Visual Studio, which doesn't have it.
 #define VGM2PCM_HAS_GETOPT
@@ -37,14 +39,16 @@ INLINE int fputBE16(UINT16 Value, FILE* hFile)
 }
 
 void usage(const char *name) {
-    fprintf(stderr, "usage: %s [options] vgm_file pcm_file\n"
-                    //"pcm_file can be - for standard output.\n"
-                    "\n"
+	fprintf(stderr, "usage: %s [options] vgm_file pcm_file\n"
+					"pcm_file can be - for standard output.\n", name);
+#ifdef VGM2PCM_HAS_GETOPT
+	fprintf(stderr, "\n"
                     "Default options:\n"
                     "--loop-count=%d\n"
                     "--fade-ms=%d\n"
                     "--format=l16\n"
                     "\n", name, VGMMaxLoop, FadeTime);
+#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -103,7 +107,7 @@ int main(int argc, char *argv[]) {
     argv += optind-1;
 #else
     if (argc < 3) {
-        fputs("usage: vgm2pcm vgm_file pcm_file\n", stderr);
+		usage(argv[0]);
         return 1;
     }
 #endif
@@ -113,11 +117,16 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    outputFile = fopen(argv[2], "wb");
-    if (outputFile == NULL) {
-        fprintf(stderr, "vgm2pcm: error: failed to open pcm_file (%s)\n", argv[2]);
-        return 1;
-    }
+	if (argv[2][0] == '-' && argv[2][1] == '\0') {
+		setmode(fileno(stdout), O_BINARY);
+		outputFile = stdout;
+	} else {
+		outputFile = fopen(argv[2], "wb");
+		if (outputFile == NULL) {
+			fprintf(stderr, "vgm2pcm: error: failed to open pcm_file (%s)\n", argv[2]);
+			return 1;
+		}
+	}
 
     PlayVGM();
 
