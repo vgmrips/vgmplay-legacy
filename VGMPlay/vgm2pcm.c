@@ -70,10 +70,10 @@ void usage(const char *name) {
 #ifdef VGM2PCM_HAS_GETOPT
     fprintf(stderr, "\n"
                     "Default options:\n"
-                    "--loop-count %d\n"
-                    "--fade-ms %d\n"
-                    "--format l16\n"
-                    "\n", VGMMaxLoop, FadeTime);
+                    "--loop-count 2\n"
+                    "--fade-ms 5000\n"
+                    "--format L16\n"
+                    "\n");
 #endif
 }
 
@@ -120,11 +120,11 @@ int main(int argc, char *argv[]) {
                 //fprintf(stderr, "Setting fade-out time in milliseconds to %u\n", FadeTime);
                 break;
             case 't':
-                if (stricmp(optarg, "l16") == 0) {
+                if (strcasecmp(optarg, "l16") == 0) {
                     outputFormat = L16;
-                } else if (stricmp(optarg, "wav") == 0) {
+                } else if (strcasecmp(optarg, "wav") == 0) {
                     outputFormat = WAV;
-                } else if (stricmp(optarg, "lwav") == 0) {
+                } else if (strcasecmp(optarg, "lwav") == 0) {
                     outputFormat = LWAV;
                 } else {
                     fprintf(stderr, "Invalid output format: %s\n", optarg);
