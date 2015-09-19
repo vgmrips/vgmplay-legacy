@@ -158,7 +158,9 @@ int main(int argc, char *argv[]) {
     }
 
     if (argv[2][0] == '-' && argv[2][1] == '\0') {
+#ifdef O_BINARY
         setmode(fileno(stdout), O_BINARY);
+#endif
         outputFile = stdout;
     } else {
         outputFile = fopen(argv[2], "wb");
