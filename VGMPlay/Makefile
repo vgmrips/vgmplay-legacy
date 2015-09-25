@@ -151,10 +151,12 @@ VGMPLAY_OBJS = \
 	$(OBJ)/VGMPlayUI.o
 VGM2PCM_OBJS = \
 	$(OBJ)/vgm2pcm.o
-EXTRA_OBJS = $(VGMPLAY_OBJS) $(VGM2PCM_OBJS)
+VGM2WAV_OBJS = \
+	$(OBJ)/vgm2wav.o
+EXTRA_OBJS = $(VGMPLAY_OBJS) $(VGM2PCM_OBJS) $(VGM2WAV_OBJS)
 
 
-all:	vgmplay vgm2pcm
+all:	vgmplay vgm2pcm vgm2wav
 
 vgmplay:	$(EMUOBJS) $(MAINOBJS) $(VGMPLAY_OBJS)
 	@echo Linking vgmplay ...
@@ -164,6 +166,11 @@ vgmplay:	$(EMUOBJS) $(MAINOBJS) $(VGMPLAY_OBJS)
 vgm2pcm:	$(EMUOBJS) $(MAINOBJS) $(VGM2PCM_OBJS)
 	@echo Linking vgm2pcm ...
 	@$(CC) $(VGM2PCM_OBJS) $(MAINOBJS) $(EMUOBJS) $(LDFLAGS) -o vgm2pcm
+	@echo Done.
+
+vgm2wav:	$(EMUOBJS) $(MAINOBJS) $(VGM2WAV_OBJS)
+	@echo Linking vgm2wav ...
+	@$(CC) $(VGM2WAV_OBJS) $(MAINOBJS) $(EMUOBJS) $(LDFLAGS) -o vgm2wav
 	@echo Done.
 
 # compile the chip-emulator c-files
@@ -182,7 +189,7 @@ clean:
 	@echo Deleting object files ...
 	@rm -f $(MAINOBJS) $(EMUOBJS) $(EXTRA_OBJS)
 	@echo Deleting executable files ...
-	@rm -f vgmplay vgm2pcm
+	@rm -f vgmplay vgm2pcm vgm2wav
 	@echo Done.
 
 # Thanks to ZekeSulastin and nextvolume for the install and uninstall routines.
