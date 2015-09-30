@@ -12,14 +12,28 @@
 #endif
 
 #ifdef WIN32
+
 #include <conio.h>
 #include <windows.h>	// for QueryPerformance###
+
 #else
+
 #ifndef DISABLE_HW_SUPPORT
 #include <unistd.h>
+#ifdef __APPLE__
+#include <architecture/i386/io.h>
+#else
 #include <sys/io.h>
 #endif
+#endif	// DISABLE_HW_SUPPORT
+
 #include <time.h>
+#endif
+
+#ifdef __APPLE__
+#define ioperm(x,y,z)
+#define outb(x,y)
+#define inb(x)
 #endif
 
 #include "chips/mamedef.h"

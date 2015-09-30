@@ -157,3 +157,4 @@ This program was written by Valley Bell.
 - EMU2149, the alternative NES APU core and the NES FDS core were ported from rainwarrior's NSFPlay.
 - the WonderSwan core was ported from in_wsr
 - Virtual Boy VSU core was ported from vbjin and originates from mednafen
+- Thanks to grauw for patches that make it work properly on Mac OS X.

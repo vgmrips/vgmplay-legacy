@@ -20,6 +20,9 @@
 *.aps
 *.ncb
 *.opt
+*.sdf
+*.suo
+*.user
 
 Thumbs.db
 ehthumbs.db

@@ -9,11 +9,23 @@
 
 # Uncomment if you build on Windows using MinGW.
 #WINDOWS = 1
+
+# Uncomment if you build on Mac OSX
+#MACOSX = 1
+
 # disable Hardware OPL Support
 #DISABLE_HWOPL_SUPPORT = 1
 
 # Uncomment if you want to use libao instead of OSS for sound streaming under Linux
 USE_LIBAO = 1
+
+ifdef MACOSX
+ifndef USE_LIBAO
+# Mac OSX requires libAO
+USE_LIBAO = 1
+endif
+endif
+
 
 CC = gcc
 PREFIX = /usr/local
@@ -43,17 +55,26 @@ endif
 CFLAGS := -O3 -g0 $(CFLAGS)
 # libm (math library) and libz (zlib)
 LDFLAGS := -lm -lz $(LDFLAGS)
+
 ifdef WINDOWS
 # for Windows, add kernel32 and winmm (Multimedia APIs)
 LDFLAGS += -lkernel32 -lwinmm
 else
+
+ifdef MACOSX
+# malloc.h fix (required as long as I haven't fixed the include lines)
+CFLAGS += -I/usr/include/malloc
+else
 # for Linux, add librt (clock stuff) and libpthread (threads)
 LDFLAGS += -lrt -lpthread -pthread
+endif
 MAINFLAGS += -pthread -DSHARE_PREFIX=\"$(PREFIX)\"
+
 ifdef USE_LIBAO
 LDFLAGS += -lao
 endif
 endif
+
 # add Library Path, if defined
 ifdef LD_LIBRARY_PATH
 LDFLAGS += -L $(LD_LIBRARY_PATH)

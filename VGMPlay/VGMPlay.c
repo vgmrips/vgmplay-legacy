@@ -44,7 +44,28 @@
 #else	//ifdef UNIX
 #include <limits.h>		// for PATH_MAX
 #include <pthread.h>	// for pthread functions
+
+// (suitable?) Apple substitute for clock_gettime()
+#ifdef __MACH__
+#include <mach/mach_time.h>
+#define CLOCK_REALTIME	0
+#define CLOCK_MONOTONIC	0
+int clock_gettime(int clk_id, struct timespec *t)
+{
+	mach_timebase_info_data_t timebase;
+	mach_timebase_info(&timebase);
+	uint64_t time;
+	time = mach_absolute_time();
+	double nseconds = ((double)time * (double)timebase.numer)/((double)timebase.denom);
+	double seconds = ((double)time * (double)timebase.numer)/((double)timebase.denom * 1e9);
+	t->tv_sec = seconds;
+	t->tv_nsec = nseconds;
+	return 0;
+}
+#else
 #include <time.h>		// for clock_gettime()
+#endif
+
 #include <unistd.h>		// for usleep()
 
 #define MAX_PATH	PATH_MAX
@@ -1262,7 +1283,8 @@ static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize)
 	UINT32 CurPos;
 	UINT32 HdrLimit;
 	
-	gzseek(hFile, 0x00, SEEK_SET);
+	//gzseek(hFile, 0x00, SEEK_SET);
+	gzrewind(hFile);
 	gzgetLE32(hFile, &fccHeader);
 	if (fccHeader != FCC_VGM)
 		return false;
@@ -1273,7 +1295,8 @@ static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize)
 	FileMode = 0x00;
 	VGMDataLen = FileSize;
 	
-	gzseek(hFile, 0x00, SEEK_SET);
+	//gzseek(hFile, 0x00, SEEK_SET);
+	gzrewind(hFile);
 	ReadVGMHeader(hFile, &VGMHead);
 	
 	VGMSampleRate = 44100;
@@ -1305,7 +1328,8 @@ static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize)
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	if (VGMData == NULL)
 		return false;
-	gzseek(hFile, 0x00, SEEK_SET);
+	//gzseek(hFile, 0x00, SEEK_SET);
+	gzrewind(hFile);
 	gzread(hFile, VGMData, VGMDataLen);
 	
 	// Read Extra Header Data
@@ -1766,7 +1790,8 @@ static UINT32 GetVGMFileInfo_Internal(gzFile hFile, UINT32 FileSize,
 	UINT32 TempLng;
 	VGM_HEADER TempHead;
 	
-	gzseek(hFile, 0x00, SEEK_SET);
+	//gzseek(hFile, 0x00, SEEK_SET);
+	gzrewind(hFile);
 	gzgetLE32(hFile, &fccHeader);
 	if (fccHeader != FCC_VGM)
 		return 0x00;
@@ -1774,7 +1799,8 @@ static UINT32 GetVGMFileInfo_Internal(gzFile hFile, UINT32 FileSize,
 	if (RetVGMHead == NULL && RetGD3Tag == NULL)
 		return FileSize;
 	
-	gzseek(hFile, 0x00, SEEK_SET);
+	//gzseek(hFile, 0x00, SEEK_SET);
+	gzrewind(hFile);
 	ReadVGMHeader(hFile, &TempHead);
 	
 	if (! TempHead.lngEOFOffset || TempHead.lngEOFOffset > FileSize)

@@ -234,7 +234,7 @@ int device_start_x1_010(UINT8 ChipID, int clock)
 	info->ROMSize		= 0x00;
 	info->rom			= NULL;
 	info->base_clock	= clock;
-	info->rate			= clock / 1024;
+	info->rate			= clock / 512;
 	if (((CHIP_SAMPLING_MODE & 0x01) && info->rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
 		info->rate = CHIP_SAMPLE_RATE;
