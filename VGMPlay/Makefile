@@ -71,6 +71,7 @@ endif
 MAINFLAGS += -pthread -DSHARE_PREFIX=\"$(PREFIX)\"
 
 ifdef USE_LIBAO
+MAINFLAGS += -DUSE_LIBAO
 LDFLAGS += -lao
 endif
 endif
