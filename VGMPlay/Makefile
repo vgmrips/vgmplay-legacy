@@ -7,6 +7,8 @@
 
 # TODO: Make this look less horrible.
 
+# (notice that you can just pass these as arguments when running make)
+
 # Uncomment if you build on Windows using MinGW.
 #WINDOWS = 1
 
@@ -19,13 +21,19 @@
 # Uncomment if you want to use libao instead of OSS for sound streaming under Linux
 USE_LIBAO = 1
 
+# Uncomment for debug builds
+#DEBUG = 1
+
+# Uncomment for swprintf fix on older MinGW versions
+#OLD_SWPRINTF = 1
+
+
 ifdef MACOSX
 ifndef USE_LIBAO
 # Mac OSX requires libAO
 USE_LIBAO = 1
 endif
 endif
-
 
 CC = gcc
 PREFIX = /usr/local
@@ -36,6 +44,9 @@ MAINFLAGS := -DCONSOLE_MODE -DADDITIONAL_FORMATS -DSET_CONSOLE_TITLE
 ifdef WINDOWS
 # MinGW defines __WINDOWS__, Visual Studio defines WIN32
 MAINFLAGS += -DWIN32
+ifdef OLD_SWPRINTF
+MAINFLAGS += -DOLD_SWPRINTF
+endif
 else
 ifdef USE_LIBAO
 MAINFLAGS += -DUSE_LIBAO
@@ -52,7 +63,12 @@ endif
 
 
 # -- General Compile Flags --
+ifdef DEBUG
+CFLAGS := -g $(CFLAGS)
+else
 CFLAGS := -O3 -g0 $(CFLAGS)
+endif
+CFLAGS := -g $(CFLAGS)
 # libm (math library) and libz (zlib)
 LDFLAGS := -lm -lz $(LDFLAGS)
 
