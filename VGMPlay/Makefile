@@ -68,7 +68,6 @@ CFLAGS := -g $(CFLAGS)
 else
 CFLAGS := -O3 -g0 $(CFLAGS)
 endif
-CFLAGS := -g $(CFLAGS)
 # libm (math library) and libz (zlib)
 LDFLAGS := -lm -lz $(LDFLAGS)
 
