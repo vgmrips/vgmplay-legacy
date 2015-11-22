@@ -1295,9 +1295,15 @@ static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize)
 	FileMode = 0x00;
 	VGMDataLen = FileSize;
 	
-	//gzseek(hFile, 0x00, SEEK_SET);
-	gzrewind(hFile);
+	gzseek(hFile, 0x00, SEEK_SET);
+	//gzrewind(hFile);
 	ReadVGMHeader(hFile, &VGMHead);
+	if (VGMHead.fccVGM != FCC_VGM)
+	{
+		printf("VGM signature matched on the first read, but not on the second one!\n");
+		printf("This is a known zlib bug where gzseek fails. Please install a fixed zlib.\n");
+		return false;
+	}
 	
 	VGMSampleRate = 44100;
 	if (! VGMDataLen)
@@ -1708,7 +1714,8 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	if (TextStr == NULL)
 		return NULL;
 	
-	gzseek(hFile, CurPos, SEEK_SET);
+	if (gztell(hFile) != CurPos)
+		gzseek(hFile, CurPos, SEEK_SET);
 	TempStr = TextStr - 1;
 	StrLen = 0x00;
 	do
