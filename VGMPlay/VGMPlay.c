@@ -477,6 +477,7 @@ void VGMPlay_Init(void)
 		}
 		ChipOpts[CurCSet].GameBoy.SpecialFlags = 0x0003;
 		// default options, 0x8000 skips the option write and keeps NSFPlay's default values
+		// TODO: Is this really necessary??
 		ChipOpts[CurCSet].NES.SpecialFlags = 0x8000 |
 										(0x00 << 12) | (0x3B << 4) | (0x01 << 2) | (0x03 << 0);
 		

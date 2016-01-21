@@ -36,9 +36,8 @@ Compile VGMPlay under Mac OS X
 ------------------------------
 1. install libao by executing the line
    brew install libao
-2. edit the Makefile and enable the line "MACOSX = 1" (remove the #)
-3. uncomment the line "DISABLE_HWOPL_SUPPORT = 1"
-4. run "make" in VGMPlay's folder
-5. Done.
+2. run "make install MACOSX=1 DISABLE_HWOPL_SUPPORT=1 in VGMPlay's folder
+   (Alternatively edit the Makefile to set those constants and just run "make".)
+3. Done.
 
 Thanks to grauw for Mac OS X compilation instructions.

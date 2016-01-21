@@ -432,6 +432,7 @@ void LoadConfigurationFile(void)
 	
 	// NES
 	ChipName = GetChipName(0x14);	TempCOpt = &ChipOpts[0x00].NES;
+	TempCOpt->SpecialFlags &= 0x7FFF;
 	sprintf(TempStr, "%s Shared Opts", ChipName);
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 0, 2);
 	
@@ -445,7 +446,7 @@ void LoadConfigurationFile(void)
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 12, 1);
 	
 	// OKIM6258
-	ChipName = GetChipName(0x20);	TempCOpt = &ChipOpts[0x00].OKIM6258;
+	ChipName = GetChipName(0x17);	TempCOpt = &ChipOpts[0x00].OKIM6258;
 	sprintf(TempStr, "%s Internal 10bit", ChipName);
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 0, 1);
 	
@@ -472,7 +473,7 @@ static void ReadIntoBitfield2(const char* Section, const char* Key, UINT16* Valu
 	
 	BitMask = (1 << BitCount) - 1;
 	
-	NewBits = *Value >> BitStart;	// read old bits, making them the default data
+	NewBits = (*Value >> BitStart) & BitMask;	// read old bits, making them the default data
 	ReadIni_SIntSht(Section, Key, &NewBits);	// read .ini
 	
 	*Value &= ~(BitMask << BitStart);			// clear bit range
@@ -613,7 +614,7 @@ void SaveConfigurationFile(void)
 	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 12, 1);
 	
 	// OKIM6258
-	ChipName = GetChipName(0x20);	TempCOpt = &ChipOpts[0x00].OKIM6258;
+	ChipName = GetChipName(0x17);	TempCOpt = &ChipOpts[0x00].OKIM6258;
 	sprintf(TempStr, "%s Internal 10bit", ChipName);
 	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 0, 1);
 	
