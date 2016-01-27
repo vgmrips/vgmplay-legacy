@@ -631,39 +631,125 @@ char* FindFile(const char* FileName)
 	char** CurPath;
 	UINT32 NameLen;
 	UINT32 PathLen;
+	UINT32 FullLen;
 	FILE* hFile;
 	
 	NameLen = strlen(FileName);
 	//printf("Find File: %s\n", FileName);
 	
-	// go to end of the list
+	// go to end of the list + get size of largest path
 	// (The first entry has the lowest priority.)
+	PathLen = 0;
 	CurPath = AppPaths;
 	while(*CurPath != NULL)
+	{
+		FullLen = strlen(*CurPath);
+		if (FullLen > PathLen)
+			PathLen = FullLen;
 		CurPath ++;
+	}
 	CurPath --;
+	FullLen = PathLen + NameLen;
+	FullName = (char*)malloc(FullLen + 1);
 	
 	while(CurPath >= AppPaths)
 	{
-		PathLen = strlen(*CurPath);
-		FullName = (char*)malloc(PathLen + NameLen + 0x01);
 		strcpy(FullName, *CurPath);
 		strcat(FullName, FileName);
 		
 		//printf("Trying path: %s\n", FullName);
 		hFile = fopen(FullName, "r");
 		if (hFile != NULL)
-		{
-			fclose(hFile);
-			//printf("Success!\n");
-			return FullName;
-		}
+			break;
 		
 		CurPath --;
 	}
 	
-	//printf("Fail!\n");
-	return NULL;
+	if (hFile != NULL)
+	{
+		fclose(hFile);
+		//printf("Success!\n");
+		return FullName;	// The caller has to free the string.
+	}
+	else
+	{
+		free(FullName);
+		//printf("Fail!\n");
+		return NULL;
+	}
+}
+
+char* FindFile_List(const char** FileNameList)
+{
+	char* FullName;
+	const char** CurFile;
+	char** CurPath;
+	char* PathPtr;
+	UINT32 NameLen;
+	UINT32 PathLen;
+	UINT32 FullLen;
+	FILE* hFile;
+	
+	NameLen = 0;
+	CurFile = FileNameList;
+	while(*CurFile != NULL)
+	{
+		FullLen = strlen(*CurFile);
+		if (FullLen > NameLen)
+			NameLen = FullLen;
+		CurFile ++;
+	}
+	
+	// go to end of the list + get size of largest path
+	// (The first entry has the lowest priority.)
+	PathLen = 0;
+	CurPath = AppPaths;
+	while(*CurPath != NULL)
+	{
+		FullLen = strlen(*CurPath);
+		if (FullLen > PathLen)
+			PathLen = FullLen;
+		CurPath ++;
+	}
+	CurPath --;
+	FullLen = PathLen + NameLen;
+	FullName = (char*)malloc(FullLen + 1);
+	
+	hFile = NULL;
+	while(CurPath >= AppPaths)
+	{
+		strcpy(FullName, *CurPath);
+		PathPtr = FullName + strlen(FullName);
+		CurFile = FileNameList;
+		while(*CurFile != NULL)
+		{
+			strcpy(PathPtr, *CurFile);
+			
+			//printf("Trying path: %s\n", FullName);
+			hFile = fopen(FullName, "r");
+			if (hFile != NULL)
+				break;
+			
+			CurFile ++;
+		}
+		if (hFile != NULL)
+			break;
+		
+		CurPath --;
+	}
+	
+	if (hFile != NULL)
+	{
+		fclose(hFile);
+		//printf("Success!\n");
+		return FullName;	// The caller has to free the string.
+	}
+	else
+	{
+		free(FullName);
+		//printf("Fail!\n");
+		return NULL;
+	}
 }
 
 

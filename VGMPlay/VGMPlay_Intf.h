@@ -24,6 +24,7 @@ void VGMPlay_Init(void);
 void VGMPlay_Init2(void);
 void VGMPlay_Deinit(void);
 char* FindFile(const char* FileName);
+char* FindFile_List(const char** FileNameList);
 
 UINT32 GetGZFileLength(const char* FileName);
 bool OpenVGMFile(const char* FileName);

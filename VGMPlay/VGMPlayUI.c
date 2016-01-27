@@ -916,6 +916,7 @@ static void ReadOptions(const char* AppName)
 		0x20, 0x04, 0x06, 0x06, 0x20, 0x20, 0x10, 0x20,
 		0x04
 	};
+	const char* FNList[3];
 	char* FileName;
 	FILE* hFile;
 	char TempStr[0x40];
@@ -964,17 +965,16 @@ static void ReadOptions(const char* AppName)
 		RStr ++;
 	}
 	strcpy(RStr, "ini");
-	// FileName: "VGMPlay.ini"
+	// FileName: "VGMPlay.ini" or "vgmplay.ini"
 	
+	// on Linux platforms, it searches for "vgmplay.ini" first and
+	// file names are case sensitive
+	FNList[0] = FileName;
+	FNList[1] = "VGMPlay.ini";
+	FNList[2] = NULL;
 	LStr = FileName;
-	FileName = FindFile(LStr);
+	FileName = FindFile_List(FNList);
 	free(LStr);
-	if (FileName == NULL)
-	{
-		// on Linux platforms, it searches for "vgmplay.ini" first and
-		// file names are case sensitive
-		FileName = FindFile("VGMPlay.ini");
-	}
 	if (FileName == NULL)
 	{
 		printerr("Failed to load INI.\n");
