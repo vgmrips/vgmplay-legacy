@@ -45,7 +45,7 @@
  *****************************************************************************/
 
 #include "mamedef.h"
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 #include <stddef.h>	// for NULL
 //#include "emu.h"

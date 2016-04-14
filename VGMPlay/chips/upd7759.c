@@ -103,7 +103,7 @@
 #include <stdio.h>
 #endif
 #include <memory.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include "mamedef.h"
 #include "upd7759.h"
 

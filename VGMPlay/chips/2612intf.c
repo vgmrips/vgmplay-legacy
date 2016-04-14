@@ -11,7 +11,7 @@
 
 ***************************************************************************/
 
-#include <malloc.h>
+#include <stdlib.h>
 #include <stddef.h>	// for NULL
 #include "mamedef.h"
 //#include "sndintrf.h"

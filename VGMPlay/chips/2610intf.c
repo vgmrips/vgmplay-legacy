@@ -12,7 +12,7 @@
 ***************************************************************************/
 
 #include <memory.h>	// for memset
-#include <malloc.h>	// for free
+#include <stdlib.h>	// for free
 #include <stddef.h>	// for NULL
 #include "mamedef.h"
 //#include "sndintrf.h"

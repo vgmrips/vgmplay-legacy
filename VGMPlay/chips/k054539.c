@@ -8,7 +8,7 @@
 *********************************************************/
 
 //#include "emu.h"
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 #include <math.h>
 #include "mamedef.h"

@@ -38,7 +38,7 @@
 
 //#include "emu.h"
 //#include "streams.h"
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 #include "mamedef.h"
 #include "es5503.h"

@@ -4,7 +4,7 @@
 
 #include "mamedef.h"
 #include <memory.h>
-#include <malloc.h>
+#include <stdlib.h>
 //#include "sndintrf.h"
 //#include "streams.h"
 #include "rf5c68.h"

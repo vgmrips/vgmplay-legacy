@@ -125,7 +125,7 @@
 //#include "emu.h"
 //#include "streams.h"
 #include <memory.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include "sn76496.h"
 
 #define NULL	((void *)0)

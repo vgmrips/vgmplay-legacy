@@ -16,7 +16,7 @@
 //#include "emu.h"
 //#include "streams.h"
 #include <math.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 #include <stddef.h>	// for NULL
 #include "mamedef.h"

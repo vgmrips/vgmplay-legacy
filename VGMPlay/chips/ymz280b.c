@@ -37,7 +37,7 @@
 #include <stdio.h>
 #endif
 #include <memory.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include "ymz280b.h"
 
 #define NULL	((void *)0)
