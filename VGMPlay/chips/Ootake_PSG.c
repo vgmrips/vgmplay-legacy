@@ -49,7 +49,7 @@ Copyright(C)2006-2012 Kitao Nakamura.
     GNU General Public License for more details.
 ******************************************************************************/
 #include <stdio.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 #include <math.h>
 #include "mamedef.h"

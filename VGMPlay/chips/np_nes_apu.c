@@ -7,7 +7,7 @@
 // (Note: Encoding is UTF-8)
 
 //#include <assert.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>	// for memset()
 #include <stddef.h>	// for NULL
 #include "mamedef.h"

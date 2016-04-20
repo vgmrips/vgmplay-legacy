@@ -76,10 +76,7 @@ ifdef WINDOWS
 LDFLAGS += -lkernel32 -lwinmm
 else
 
-ifdef MACOSX
-# malloc.h fix (required as long as I haven't fixed the include lines)
-CFLAGS += -I/usr/include/malloc
-else
+ifndef MACOSX
 # for Linux, add librt (clock stuff) and libpthread (threads)
 LDFLAGS += -lrt -lpthread -pthread
 endif

@@ -37,7 +37,7 @@
 #include <stdio.h>
 #endif
 #include <memory.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <math.h>
 #include "qsound.h"
 

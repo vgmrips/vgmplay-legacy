@@ -40,7 +40,7 @@ to do:
 #include <stdio.h>
 #include <math.h>
 #include "mamedef.h"
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 //#include "sndintrf.h"
 #include "ym2413.h"

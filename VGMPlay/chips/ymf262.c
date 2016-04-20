@@ -55,7 +55,7 @@ differences between OPL2 and OPL3 shown in datasheets:
 
 #include <math.h>
 #include "mamedef.h"
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 //#include "sndintrf.h"
 #include "ymf262.h"
