@@ -1239,6 +1239,9 @@ static void ShowOptPanBoxes(UINT8 ChipID, UINT8 ChipSet)
 		CoreName[0x00] = "Ootake";
 		CoreName[0x01] = "MAME";
 		break;
+	case 0x27:
+		CoreName[0x00] = "VGMPlay";
+		break;
 	default:
 		ChnCount = 0;
 		EnableChk = false;
