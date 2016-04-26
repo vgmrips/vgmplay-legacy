@@ -1,9 +1,9 @@
 /*
     c352.c - Namco C352 custom PCM chip emulation
     v2.0
-	
-	Rewritten by superctr
-	
+    
+    Rewritten by superctr
+    
     Original code by R. Belmont
     Additional code by cync and the hoot development team
 
@@ -21,7 +21,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <memory.h>
-#include <stddef.h>	// for NULL
+#include <stddef.h> // for NULL
 #include "mamedef.h"
 #include "c352.h"
 #include "stdint.h"
@@ -53,22 +53,22 @@ enum {
 typedef struct {
 
     UINT32 pos;
-	UINT32 counter;
-	
-	INT16 sample;
+    UINT32 counter;
+    
+    INT16 sample;
     INT16 last_sample;
 
     UINT16 vol_f;
     UINT16 vol_r;
     UINT16 freq;
     UINT16 flags;
-	
+    
     UINT16 wave_bank;
     UINT16 wave_start;
     UINT16 wave_end;
     UINT16 wave_loop;
-	
-	int mute;
+    
+    int mute;
 
 } C352_Voice;
 
@@ -82,16 +82,16 @@ typedef struct {
     UINT16 control2;
 
     UINT8* wave;
-	INT32 wavesize;
+    INT32 wavesize;
     INT32 wave_mask;
 
     UINT16 random;
-	
+    
     INT16 mulaw[256];
 
 } C352;
 
-#define MAX_CHIPS	0x02
+#define MAX_CHIPS   0x02
 static C352 C352Data[MAX_CHIPS];
 
 
@@ -119,38 +119,38 @@ void C352_generate_mulaw(C352 *c)
 void C352_fetch_sample(C352 *c, int i)
 {
     C352_Voice *v = &c->v[i];
-	v->last_sample = v->sample;
-	
+    v->last_sample = v->sample;
+    
     if(v->flags & C352_FLG_NOISE)
     {
-		c->random = (c->random>>1) ^ (-(c->random&1)) & 0xfff6;		
-		v->sample = (c->random&4) ? 0xc000 : 0x3fff;
-		
-		v->last_sample = v->sample;	// No interpolation for noise samples
-	}
-	else
-	{
-		INT8 s;
+        c->random = (c->random>>1) ^ (-(c->random&1)) & 0xfff6;     
+        v->sample = (c->random&4) ? 0xc000 : 0x3fff;
+        
+        v->last_sample = v->sample; // No interpolation for noise samples
+    }
+    else
+    {
+        INT8 s;
 
-		s = (INT8)c->wave[v->pos&0xffffff];
+        s = (INT8)c->wave[v->pos&0xffffff];
 
-		if(v->flags & C352_FLG_MULAW)
-			v->sample = c->mulaw[(uint8_t)s];
-		else
-			v->sample = s<<8;
-		
-		UINT16 pos = v->pos&0xffff;
-		
+        if(v->flags & C352_FLG_MULAW)
+            v->sample = c->mulaw[(uint8_t)s];
+        else
+            v->sample = s<<8;
+        
+        UINT16 pos = v->pos&0xffff;
+        
         if((v->flags & C352_FLG_LOOP) && v->flags & C352_FLG_REVERSE)
         {
-			// backwards>forwards
+            // backwards>forwards
             if((v->flags & C352_FLG_LDIR) && pos == v->wave_loop)
                 v->flags &= ~C352_FLG_LDIR;
-			// forwards>backwards
+            // forwards>backwards
             else if(!(v->flags & C352_FLG_LDIR) && pos == v->wave_end)
                 v->flags |= C352_FLG_LDIR;
-			
-			v->pos += (v->flags&C352_FLG_LDIR) ? -1 : 1;
+            
+            v->pos += (v->flags&C352_FLG_LDIR) ? -1 : 1;
         }
         else if(pos == v->wave_end)
         {
@@ -168,15 +168,15 @@ void C352_fetch_sample(C352 *c, int i)
             {
                 v->flags |= C352_FLG_KEYOFF;
                 v->flags &= ~C352_FLG_BUSY;
-				v->sample=0;
-				v->last_sample=0;
+                v->sample=0;
+                v->last_sample=0;
             }
         }
-		else
-		{
-			v->pos += (v->flags&C352_FLG_REVERSE) ? -1 : 1;
-		}
-	}
+        else
+        {
+            v->pos += (v->flags&C352_FLG_REVERSE) ? -1 : 1;
+        }
+    }
 }
 
 uint16_t C352_update_voice(C352 *c, int i)
@@ -186,16 +186,16 @@ uint16_t C352_update_voice(C352 *c, int i)
     if((v->flags & C352_FLG_BUSY) == 0)
         return 0;
 
-	v->counter += v->freq;
-	
-	if(v->counter > 0x10000)
-	{
-		v->counter &= 0xffff;
-		C352_fetch_sample(c,i);
-	}
-	
-	INT32 temp = v->sample;
-	
+    v->counter += v->freq;
+    
+    if(v->counter > 0x10000)
+    {
+        v->counter &= 0xffff;
+        C352_fetch_sample(c,i);
+    }
+    
+    INT32 temp = v->sample;
+    
     if((v->flags & C352_FLG_FILTER) == 0)
          temp = v->last_sample + (v->counter*(v->sample-v->last_sample)>>16);
 
@@ -204,44 +204,44 @@ uint16_t C352_update_voice(C352 *c, int i)
 
 void c352_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 {
-	C352 *c = &C352Data[ChipID];
-	int i, j;
-	INT16 s;
-	memset(outputs[0], 0x00, samples * sizeof(stream_sample_t));
-	memset(outputs[1], 0x00, samples * sizeof(stream_sample_t));
-	
-	for(i=0;i<samples;i++)
-	{
-		for(j=0;j<32;j++)
-		{
-			s = C352_update_voice(c,j);
-			if(!c->v[j].mute)
-			{
-				// Left
-				outputs[0][i] += (c->v[j].flags & C352_FLG_PHASEFL) ? (-s * (c->v[j].vol_f>>8)  )>>8
-																  : ( s * (c->v[j].vol_f>>8)  )>>8;
-				outputs[0][i] += (c->v[j].flags & C352_FLG_PHASERL) ? (-s * (c->v[j].vol_r>>8)  )>>8
-																  : ( s * (c->v[j].vol_r>>8)  )>>8;
-				
-				// Right
-				outputs[1][i] += (c->v[j].flags & C352_FLG_PHASEFR) ? (-s * (c->v[j].vol_f&0xff))>>8
-																  : ( s * (c->v[j].vol_f&0xff))>>8;
-				outputs[1][i] += ( s * (c->v[j].vol_r&0xff))>>8;
-			}
-		}
-		
-	}
+    C352 *c = &C352Data[ChipID];
+    int i, j;
+    INT16 s;
+    memset(outputs[0], 0x00, samples * sizeof(stream_sample_t));
+    memset(outputs[1], 0x00, samples * sizeof(stream_sample_t));
+    
+    for(i=0;i<samples;i++)
+    {
+        for(j=0;j<32;j++)
+        {
+            s = C352_update_voice(c,j);
+            if(!c->v[j].mute)
+            {
+                // Left
+                outputs[0][i] += (c->v[j].flags & C352_FLG_PHASEFL) ? (-s * (c->v[j].vol_f>>8)  )>>8
+                                                                  : ( s * (c->v[j].vol_f>>8)  )>>8;
+                outputs[0][i] += (c->v[j].flags & C352_FLG_PHASERL) ? (-s * (c->v[j].vol_r>>8)  )>>8
+                                                                  : ( s * (c->v[j].vol_r>>8)  )>>8;
+                
+                // Right
+                outputs[1][i] += (c->v[j].flags & C352_FLG_PHASEFR) ? (-s * (c->v[j].vol_f&0xff))>>8
+                                                                  : ( s * (c->v[j].vol_f&0xff))>>8;
+                outputs[1][i] += ( s * (c->v[j].vol_r&0xff))>>8;
+            }
+        }
+        
+    }
 }
 
 int device_start_c352(UINT8 ChipID, int clock, int clkdiv)
 {
-	if (ChipID >= MAX_CHIPS)
-		return 0;
-	
-	C352 *c = &C352Data[ChipID];
+    if (ChipID >= MAX_CHIPS)
+        return 0;
+    
+    C352 *c = &C352Data[ChipID];
 
-	c->wave = NULL;
-	c->wavesize = 0x00;
+    c->wave = NULL;
+    c->wavesize = 0x00;
 
     if(!clkdiv)
         clkdiv = 288;
@@ -255,27 +255,27 @@ int device_start_c352(UINT8 ChipID, int clock, int clkdiv)
     c->random = 0x1234;
 
     C352_generate_mulaw(c);
-	
-	return c->rate;
+    
+    return c->rate;
 }
 
 void device_stop_c352(UINT8 ChipID)
 {
-	C352 *c = &C352Data[ChipID];
-	
-	free(c->wave);
-	c->wave = NULL;
-	
-	return;
+    C352 *c = &C352Data[ChipID];
+    
+    free(c->wave);
+    c->wave = NULL;
+    
+    return;
 }
 
 void device_reset_c352(UINT8 ChipID)
 {
-	C352 *c = &C352Data[ChipID];
-	
+    C352 *c = &C352Data[ChipID];
+    
     memset(c->v,0,sizeof(C352_Voice)*C352_VOICES);
-	
-	return;
+    
+    return;
 }
 
 UINT16 C352RegMap[8] = {
@@ -291,7 +291,7 @@ UINT16 C352RegMap[8] = {
 
 UINT16 c352_r(UINT8 ChipID, offs_t offset)
 {
-	C352 *c = &C352Data[ChipID];
+    C352 *c = &C352Data[ChipID];
 
     if(offset < 0x100)
         return *(UINT16*)(&c->v[offset/8]+C352RegMap[offset%8]);
@@ -301,10 +301,10 @@ UINT16 c352_r(UINT8 ChipID, offs_t offset)
 
 void c352_w(UINT8 ChipID, offs_t offset, UINT16 data)
 {
-	C352 *c = &C352Data[ChipID];
-	
+    C352 *c = &C352Data[ChipID];
+    
     int i;
-	
+    
     if(offset < 0x100) // Channel registers, see map above.
         *(UINT16*)((void*)&c->v[offset/8]+C352RegMap[offset%8]) = data;
     else if(offset == 0x200) // Unknown purpose.
@@ -314,22 +314,22 @@ void c352_w(UINT8 ChipID, offs_t offset, UINT16 data)
     else if(offset == 0x202) // execute keyons/keyoffs
     {
         for(i=0;i<C352_VOICES;i++)
-        {	
+        {   
             if((c->v[i].flags & C352_FLG_KEYON))
             {
                 c->v[i].pos = (c->v[i].wave_bank<<16) | c->v[i].wave_start;
 
-				c->v[i].sample = 0;
+                c->v[i].sample = 0;
                 c->v[i].last_sample = 0;
-				c->v[i].counter = 0x10000; // Immediate update
+                c->v[i].counter = 0x10000; // Immediate update
 
                 c->v[i].flags |= C352_FLG_BUSY;
                 c->v[i].flags &= ~(C352_FLG_KEYON|C352_FLG_LOOPHIST);
             }
             else if(c->v[i].flags & C352_FLG_KEYOFF)
             {
-				c->v[i].sample=0;
-				c->v[i].last_sample=0;
+                c->v[i].sample=0;
+                c->v[i].last_sample=0;
                 c->v[i].flags &= ~(C352_FLG_BUSY|C352_FLG_KEYOFF);
             }
         }
@@ -338,33 +338,33 @@ void c352_w(UINT8 ChipID, offs_t offset, UINT16 data)
 
 
 void c352_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t DataLength,
-					const UINT8* ROMData)
+                    const UINT8* ROMData)
 {
-	C352 *c = &C352Data[ChipID];
-	
-	if (c->wavesize != ROMSize)
-	{
-		c->wave = (UINT8*)realloc(c->wave, ROMSize);
-		c->wavesize = ROMSize;
-		memset(c->wave, 0xFF, ROMSize);
-	}
-	if (DataStart > ROMSize)
-		return;
-	if (DataStart + DataLength > ROMSize)
-		DataLength = ROMSize - DataStart;
-	
-	memcpy(c->wave + DataStart, ROMData, DataLength);
-	
-	return;
+    C352 *c = &C352Data[ChipID];
+    
+    if (c->wavesize != ROMSize)
+    {
+        c->wave = (UINT8*)realloc(c->wave, ROMSize);
+        c->wavesize = ROMSize;
+        memset(c->wave, 0xFF, ROMSize);
+    }
+    if (DataStart > ROMSize)
+        return;
+    if (DataStart + DataLength > ROMSize)
+        DataLength = ROMSize - DataStart;
+    
+    memcpy(c->wave + DataStart, ROMData, DataLength);
+    
+    return;
 }
 
 void c352_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 {
-	C352 *c = &C352Data[ChipID];
-	UINT8 CurChn;
-	
-	for (CurChn = 0; CurChn < 32; CurChn ++)
-		c->v[CurChn].mute = (MuteMask >> CurChn) & 0x01;
-	
-	return;
+    C352 *c = &C352Data[ChipID];
+    UINT8 CurChn;
+    
+    for (CurChn = 0; CurChn < 32; CurChn ++)
+        c->v[CurChn].mute = (MuteMask >> CurChn) & 0x01;
+    
+    return;
 }
