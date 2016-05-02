@@ -20,8 +20,8 @@
 //#include "streams.h"
 #include <math.h>
 #include <stdlib.h>
-#include <string.h>	// for memset
-#include <stddef.h>	// for NULL
+#include <string.h> // for memset
+#include <stddef.h> // for NULL
 #include "mamedef.h"
 #include "c352.h"
 
@@ -74,6 +74,7 @@ typedef struct {
 typedef struct {
 
     UINT32 rate;
+    UINT8 muteRear;
 
     C352_Voice v[C352_VOICES];
 
@@ -81,8 +82,8 @@ typedef struct {
     UINT16 control2;
 
     UINT8* wave;
-    INT32 wavesize;
-    INT32 wave_mask;
+    UINT32 wavesize;
+    UINT32 wave_mask;
 
     UINT16 random;
     
@@ -221,13 +222,15 @@ void c352_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
                 // Left
                 outputs[0][i] += (c->v[j].flags & C352_FLG_PHASEFL) ? (-s * (c->v[j].vol_f>>8)  )>>8
                                                                   : ( s * (c->v[j].vol_f>>8)  )>>8;
-                outputs[0][i] += (c->v[j].flags & C352_FLG_PHASERL) ? (-s * (c->v[j].vol_r>>8)  )>>8
-                                                                  : ( s * (c->v[j].vol_r>>8)  )>>8;
+                if (!c->muteRear)
+                    outputs[0][i] += (c->v[j].flags & C352_FLG_PHASERL) ? (-s * (c->v[j].vol_r>>8)  )>>8
+                                                                      : ( s * (c->v[j].vol_r>>8)  )>>8;
                 
                 // Right
                 outputs[1][i] += (c->v[j].flags & C352_FLG_PHASEFR) ? (-s * (c->v[j].vol_f&0xff))>>8
                                                                   : ( s * (c->v[j].vol_f&0xff))>>8;
-                outputs[1][i] += ( s * (c->v[j].vol_r&0xff))>>8;
+                if (!c->muteRear)
+                    outputs[1][i] += ( s * (c->v[j].vol_r&0xff))>>8;
             }
         }
         
@@ -249,7 +252,8 @@ int device_start_c352(UINT8 ChipID, int clock, int clkdiv)
     if(!clkdiv)
         clkdiv = 288;
 
-    c->rate = clock/clkdiv;
+    c->rate = (clock&0x7FFFFFFF)/clkdiv;
+    c->muteRear = (clock&0x80000000)>>31;
 
     memset(c->v,0,sizeof(C352_Voice)*C352_VOICES);
 

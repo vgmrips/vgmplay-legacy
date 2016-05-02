@@ -2396,6 +2396,7 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		break;
 	case 0x27:
 		Clock = FileHead->lngHzC352;
+		AllowBit31 = 0x01;	// disable rear channels
 		break;
 	case 0x28:
 		Clock = FileHead->lngHzGA20;
