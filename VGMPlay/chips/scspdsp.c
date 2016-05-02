@@ -1,5 +1,5 @@
 //#include "emu.h"
-#include <memory.h>	// for memset
+#include <string.h>	// for memset
 #include "mamedef.h"
 #include "scsp.h"
 #include "scspdsp.h"

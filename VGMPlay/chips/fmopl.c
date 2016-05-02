@@ -73,15 +73,13 @@ Revision History:
 #include <stdio.h>
 #endif
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 //#include "sndintrf.h"
 #include "fmopl.h"
 #if BUILD_Y8950
 #include "ymdeltat.h"
 #endif
-
-
-#define NULL	((void *)0)
 
 
 /* output final shift */

@@ -5,6 +5,7 @@
 ****************************************************************/
 
 #include "mamedef.h"
+#include <stddef.h>	// for NULL
 //#include "sndintrf.h"
 //#include "streams.h"
 #ifdef ENABLE_ALL_CORES
@@ -17,8 +18,6 @@
 #define EC_MAME		0x01	// YM2413 core from MAME
 #endif
 #define EC_EMU2413	0x00	// EMU2413 core from in_vgm, value 0 because it's better than MAME
-
-#define NULL	((void *)0)
 
 /* for stream system */
 typedef struct _ym2413_state ym2413_state;

@@ -111,17 +111,16 @@ has twice the steps, happening twice as fast.
 
 ***************************************************************************/
 
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 //#include "sndintrf.h"
 //#include "streams.h"
 //#include "cpuintrf.h"
 //#include "cpuexec.h"
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>	// for memset
 #include <stdio.h>
 #include "ay8910.h"
-
-#define NULL	((void *)0)
 
 /*************************************
  *

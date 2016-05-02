@@ -4,6 +4,7 @@
 
 ****************************************************************/
 
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 //#include "sndintrf.h"
 //#include "streams.h"
@@ -16,8 +17,6 @@
 #ifdef ENABLE_ALL_CORES
 #define EC_MAXIM	0x01	// SN76489 core by Maxim (from in_vgm)
 #endif
-
-#define NULL	((void *)0)
 
 /* for stream system */
 typedef struct _sn764xx_state sn764xx_state;

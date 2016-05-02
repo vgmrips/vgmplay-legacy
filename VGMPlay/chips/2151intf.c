@@ -7,14 +7,13 @@
 ***************************************************************************/
 
 #include "mamedef.h"
+#include <stddef.h>	// for NULL
 //#include "sndintrf.h"
 //#include "streams.h"
 #include "fm.h"
 #include "2151intf.h"
 #include "ym2151.h"
 
-
-#define NULL	((void *)0)
 
 typedef struct _ym2151_state ym2151_state;
 struct _ym2151_state

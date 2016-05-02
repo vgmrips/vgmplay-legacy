@@ -1,11 +1,10 @@
 // Ported from NSFPlay 2.3 to VGMPlay (including C++ -> C conversion)
 // by Valley Bell on 26 September 2013
 
-#include <stdlib.h>	// for rand()
-#include <stdlib.h>
-#include <memory.h>	// for memset()
+#include <stdlib.h>	// for rand, malloc
+#include <string.h>	// for memset
 #include <stddef.h>	// for NULL
-#include <math.h>	// for exp()
+#include <math.h>	// for exp
 #include "mamedef.h"
 #include "../stdbool.h"
 #include "np_nes_fds.h"

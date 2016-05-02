@@ -16,7 +16,7 @@
 	*/
 
 //#include "vb.h"
-#include <memory.h>
+#include <string.h>	// for memset
 #include "mamedef.h"
 #include "vsu.h"
 

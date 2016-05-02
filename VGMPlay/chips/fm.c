@@ -116,7 +116,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <math.h>
-#include <stdlib.h>
 
 #include "mamedef.h"
 //#ifndef __RAINE__

@@ -36,11 +36,10 @@
 #ifdef _DEBUG
 #include <stdio.h>
 #endif
-#include <memory.h>
 #include <stdlib.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 #include "ymz280b.h"
-
-#define NULL	((void *)0)
 
 static void update_irq_state_timer_common(void *param, int voicenum);
 

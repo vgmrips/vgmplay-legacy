@@ -54,9 +54,9 @@
 */
 
 //#include "emu.h"
-#include <stdlib.h>	// for rand()
-#include <memory.h>	// for memset()
-#include <math.h>	// for pow()
+#include <stdlib.h>	// for rand
+#include <string.h>	// for memset
+#include <math.h>	// for pow
 #include "mamedef.h"
 #include "c6280.h"
 

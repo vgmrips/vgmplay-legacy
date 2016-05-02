@@ -1,3 +1,4 @@
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 #ifdef ENABLE_ALL_CORES
 #include "c6280.h"
@@ -8,8 +9,6 @@
 #define EC_MAME		0x01
 #endif
 #define EC_OOTAKE	0x00
-
-#define NULL	((void *)0)
 
 typedef struct _c6280_state
 {

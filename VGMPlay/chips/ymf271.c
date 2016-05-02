@@ -34,20 +34,14 @@
 #include <stdio.h>
 #endif
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
+#include "../stdbool.h"
 #include "ymf271.h"
 
-#ifndef __cplusplus	// C++ already has the bool-type
-#define	false	0x00
-#define	true	0x01
-typedef	unsigned char	bool;
-#endif // !__cplusplus
-
-#define NULL	((void *)0)
-
 //#define DEVCB_NULL							{ DEVCB_TYPE_NULL }
-#define DEVCB_NULL							DEVCB_TYPE_NULL
-#define DEVCB_TYPE_NULL				(0)
+//#define DEVCB_NULL							DEVCB_TYPE_NULL
+//#define DEVCB_TYPE_NULL				(0)
 
 #define VERBOSE		(1)
 

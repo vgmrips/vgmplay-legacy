@@ -10,10 +10,9 @@
 #include <stdio.h>
 #endif
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 #include "k053260.h"
-
-#define NULL	((void *)0)
 
 /* 2004-02-28: Fixed PPCM decoding. Games sound much better now.*/
 

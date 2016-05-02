@@ -56,7 +56,6 @@
 #include <string.h>
 #include <math.h>
 #include "mamedef.h"
-#undef INLINE
 #include "emu2413.h"
 #include "panning.h" // Maxim
 
@@ -228,7 +227,7 @@ static e_uint32 dphaseTable[512][8][16];
                   Create tables
  
 ****************************************************/
-INLINE static e_int32
+INLINE e_int32
 Min (e_int32 i, e_int32 j)
 {
   if (i < j)
@@ -612,7 +611,7 @@ OPLL_patch2dump (const OPLL_PATCH * patch, e_uint8 * dump)
 
 ************************************************************/
 
-INLINE static e_uint32
+INLINE e_uint32
 calc_eg_dphase (OPLL_SLOT * slot)
 {
 
@@ -678,7 +677,7 @@ calc_eg_dphase (OPLL_SLOT * slot)
 
 
 /* Slot key on  */
-INLINE static void
+INLINE void
 slotOn (OPLL_SLOT * slot)
 {
   slot->eg_mode = ATTACK;
@@ -688,7 +687,7 @@ slotOn (OPLL_SLOT * slot)
 }
 
 /* Slot key on without reseting the phase */
-INLINE static void
+INLINE void
 slotOn2 (OPLL_SLOT * slot)
 {
   slot->eg_mode = ATTACK;
@@ -697,7 +696,7 @@ slotOn2 (OPLL_SLOT * slot)
 }
 
 /* Slot key off */
-INLINE static void
+INLINE void
 slotOff (OPLL_SLOT * slot)
 {
   if (slot->eg_mode == ATTACK)
@@ -707,7 +706,7 @@ slotOff (OPLL_SLOT * slot)
 }
 
 /* Channel key on */
-INLINE static void
+INLINE void
 keyOn (OPLL * opll, e_int32 i)
 {
   if (!opll->slot_on_flag[i * 2])
@@ -718,7 +717,7 @@ keyOn (OPLL * opll, e_int32 i)
 }
 
 /* Channel key off */
-INLINE static void
+INLINE void
 keyOff (OPLL * opll, e_int32 i)
 {
   if (opll->slot_on_flag[i * 2 + 1])
@@ -726,30 +725,30 @@ keyOff (OPLL * opll, e_int32 i)
   opll->key_status[i] = 0;
 }
 
-INLINE static void
+INLINE void
 keyOn_BD (OPLL * opll)
 {
   keyOn (opll, 6);
 }
-INLINE static void
+INLINE void
 keyOn_SD (OPLL * opll)
 {
   if (!opll->slot_on_flag[SLOT_SD])
     slotOn (CAR(opll,7));
 }
-INLINE static void
+INLINE void
 keyOn_TOM (OPLL * opll)
 {
   if (!opll->slot_on_flag[SLOT_TOM])
     slotOn (MOD(opll,8));
 }
-INLINE static void
+INLINE void
 keyOn_HH (OPLL * opll)
 {
   if (!opll->slot_on_flag[SLOT_HH])
     slotOn2 (MOD(opll,7));
 }
-INLINE static void
+INLINE void
 keyOn_CYM (OPLL * opll)
 {
   if (!opll->slot_on_flag[SLOT_CYM])
@@ -757,30 +756,30 @@ keyOn_CYM (OPLL * opll)
 }
 
 /* Drum key off */
-INLINE static void
+INLINE void
 keyOff_BD (OPLL * opll)
 {
   keyOff (opll, 6);
 }
-INLINE static void
+INLINE void
 keyOff_SD (OPLL * opll)
 {
   if (opll->slot_on_flag[SLOT_SD])
     slotOff (CAR(opll,7));
 }
-INLINE static void
+INLINE void
 keyOff_TOM (OPLL * opll)
 {
   if (opll->slot_on_flag[SLOT_TOM])
     slotOff (MOD(opll,8));
 }
-INLINE static void
+INLINE void
 keyOff_HH (OPLL * opll)
 {
   if (opll->slot_on_flag[SLOT_HH])
     slotOff (MOD(opll,7));
 }
-INLINE static void
+INLINE void
 keyOff_CYM (OPLL * opll)
 {
   if (opll->slot_on_flag[SLOT_CYM])
@@ -788,7 +787,7 @@ keyOff_CYM (OPLL * opll)
 }
 
 /* Change a voice */
-INLINE static void
+INLINE void
 setPatch (OPLL * opll, e_int32 i, e_int32 num)
 {
   opll->patch_number[i] = num;
@@ -797,14 +796,14 @@ setPatch (OPLL * opll, e_int32 i, e_int32 num)
 }
 
 /* Change a rhythm voice */
-INLINE static void
+INLINE void
 setSlotPatch (OPLL_SLOT * slot, OPLL_PATCH * patch)
 {
   slot->patch = patch;
 }
 
 /* Set sustine parameter */
-INLINE static void
+INLINE void
 setSustine (OPLL * opll, e_int32 c, e_int32 sustine)
 {
   CAR(opll,c)->sustine = sustine;
@@ -813,20 +812,20 @@ setSustine (OPLL * opll, e_int32 c, e_int32 sustine)
 }
 
 /* Volume : 6bit ( Volume register << 2 ) */
-INLINE static void
+INLINE void
 setVolume (OPLL * opll, e_int32 c, e_int32 volume)
 {
   CAR(opll,c)->volume = volume;
 }
 
-INLINE static void
+INLINE void
 setSlotVolume (OPLL_SLOT * slot, e_int32 volume)
 {
   slot->volume = volume;
 }
 
 /* Set F-Number ( fnum : 9bit ) */
-INLINE static void
+INLINE void
 setFnumber (OPLL * opll, e_int32 c, e_int32 fnum)
 {
   CAR(opll,c)->fnum = fnum;
@@ -834,7 +833,7 @@ setFnumber (OPLL * opll, e_int32 c, e_int32 fnum)
 }
 
 /* Set Block data (block : 3bit ) */
-INLINE static void
+INLINE void
 setBlock (OPLL * opll, e_int32 c, e_int32 block)
 {
   CAR(opll,c)->block = block;
@@ -842,7 +841,7 @@ setBlock (OPLL * opll, e_int32 c, e_int32 block)
 }
 
 /* Change Rhythm Mode */
-INLINE static void
+INLINE void
 update_rhythm_mode (OPLL * opll)
 {
   if (opll->patch_number[6] & 0x10)
@@ -904,7 +903,7 @@ update_rhythm_mode (OPLL * opll)
   }
 }
 
-INLINE static void
+INLINE void
 update_key_status (OPLL * opll)
 {
   int ch;
@@ -1163,7 +1162,7 @@ update_ampm (OPLL * opll)
 }
 
 /* PG */
-INLINE static void
+INLINE void
 calc_phase (OPLL_SLOT * slot, e_int32 lfo)
 {
   if (slot->patch->PM)
@@ -1283,7 +1282,7 @@ calc_envelope (OPLL_SLOT * slot, e_int32 lfo)
 }
 
 /* CARRIOR */
-INLINE static e_int32
+INLINE e_int32
 calc_slot_car (OPLL_SLOT * slot, e_int32 fm)
 {
   if (slot->egout >= (DB_MUTE - 1))
@@ -1300,7 +1299,7 @@ calc_slot_car (OPLL_SLOT * slot, e_int32 fm)
 }
 
 /* MODULATOR */
-INLINE static e_int32
+INLINE e_int32
 calc_slot_mod (OPLL_SLOT * slot)
 {
   e_int32 fm;
@@ -1328,7 +1327,7 @@ calc_slot_mod (OPLL_SLOT * slot)
 }
 
 /* TOM */
-INLINE static e_int32
+INLINE e_int32
 calc_slot_tom (OPLL_SLOT * slot)
 {
   if (slot->egout >= (DB_MUTE - 1))
@@ -1339,7 +1338,7 @@ calc_slot_tom (OPLL_SLOT * slot)
 }
 
 /* SNARE */
-INLINE static e_int32
+INLINE e_int32
 calc_slot_snare (OPLL_SLOT * slot, e_uint32 noise)
 {
   if(slot->egout>=(DB_MUTE-1))
@@ -1354,7 +1353,7 @@ calc_slot_snare (OPLL_SLOT * slot, e_uint32 noise)
 /* 
   TOP-CYM 
  */
-INLINE static e_int32
+INLINE e_int32
 calc_slot_cym (OPLL_SLOT * slot, e_uint32 pgout_hh)
 {
   e_uint32 dbout;
@@ -1377,7 +1376,7 @@ calc_slot_cym (OPLL_SLOT * slot, e_uint32 pgout_hh)
 /* 
   HI-HAT 
 */
-INLINE static e_int32
+INLINE e_int32
 calc_slot_hat (OPLL_SLOT *slot, e_int32 pgout_cym, e_uint32 noise)
 {
   e_uint32 dbout;

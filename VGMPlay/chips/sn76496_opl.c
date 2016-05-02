@@ -1,9 +1,8 @@
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 #include "math.h"
 
 void OPL_RegMapper(UINT16 Reg, UINT8 Data);
-
-#define NULL	((void *)0)
 
 typedef struct _sn76496_state_opl sn76496_state_opl;
 struct _sn76496_state_opl

@@ -16,7 +16,7 @@
 #MACOSX = 1
 
 # disable Hardware OPL Support
-#DISABLE_HWOPL_SUPPORT = 1
+DISABLE_HWOPL_SUPPORT = 1
 
 # Uncomment if you want to use libao instead of OSS for sound streaming under Linux
 USE_LIBAO = 1
@@ -76,7 +76,11 @@ ifdef WINDOWS
 LDFLAGS += -lkernel32 -lwinmm
 else
 
-ifndef MACOSX
+ifdef MACOSX
+# You might want to include additional paths using -I/some/path here,
+# in case some libraries (like libao) can't be found.
+#CFLAGS += -I/some/path
+else
 # for Linux, add librt (clock stuff) and libpthread (threads)
 LDFLAGS += -lrt -lpthread -pthread
 endif

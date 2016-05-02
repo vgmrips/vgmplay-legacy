@@ -16,8 +16,7 @@
 * NOTES
 *
 ******************************************************************************/
-#include <memory.h>
-
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 //#include "attotime.h"
 //#include "sndintrf.h"
@@ -30,8 +29,6 @@
 
 #define OPLTYPE_IS_OPL2
 #include "adlibemu.h"
-
-#define NULL	((void *)0)
 
 
 #define EC_DBOPL	0x00	// DosBox OPL (AdLibEmu)

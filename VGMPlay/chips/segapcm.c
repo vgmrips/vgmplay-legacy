@@ -3,8 +3,8 @@
 /*********************************************************/
 
 #include "mamedef.h"
-#include <memory.h>
 #include <stdlib.h>
+#include <string.h>	// for memset
 #include <stdio.h>
 //#include "sndintrf.h"
 //#include "streams.h"

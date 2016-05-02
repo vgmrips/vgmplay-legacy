@@ -1,6 +1,6 @@
 #include <math.h>
-#include <memory.h>	// for memset
 #include <stdlib.h>	// for free
+#include <string.h>	// for memset
 #include <stddef.h>	// for NULL
 #include "mamedef.h"
 //#include "sndintrf.h"

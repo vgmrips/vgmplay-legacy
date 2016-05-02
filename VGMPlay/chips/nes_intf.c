@@ -5,8 +5,8 @@
 ****************************************************************/
 
 #include "mamedef.h"
-#include <memory.h>	// for memset
 #include <stdlib.h>	// for free
+#include <string.h>	// for memset
 #include <stddef.h>	// for NULL
 #include "../stdbool.h"
 //#include "sndintrf.h"
@@ -86,7 +86,7 @@ int device_start_nes(UINT8 ChipID, int clock)
 {
 	nes_state *info;
 	int rate;
-	bool EnableFDS;
+	UINT8 EnableFDS;
 	
 	if (ChipID >= MAX_CHIPS)
 		return 0;

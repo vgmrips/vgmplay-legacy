@@ -124,11 +124,10 @@
 #endif
 //#include "emu.h"
 //#include "streams.h"
-#include <memory.h>
 #include <stdlib.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 #include "sn76496.h"
-
-#define NULL	((void *)0)
 
 
 //#define MAX_OUTPUT 0x7fff

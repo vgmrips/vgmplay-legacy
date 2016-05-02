@@ -20,11 +20,10 @@
 //#include "streams.h"
 #include <math.h>
 #include <stdlib.h>
-#include <memory.h>
-#include <stddef.h> // for NULL
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 #include "c352.h"
-#include "stdint.h"
 
 #define VERBOSE (0)
 #define LOG(x) do { if (VERBOSE) logerror x; } while (0)
@@ -131,15 +130,16 @@ void C352_fetch_sample(C352 *c, int i)
     else
     {
         INT8 s;
+        UINT16 pos;
 
         s = (INT8)c->wave[v->pos&0xffffff];
 
         if(v->flags & C352_FLG_MULAW)
-            v->sample = c->mulaw[(uint8_t)s];
+            v->sample = c->mulaw[(UINT8)s];
         else
             v->sample = s<<8;
         
-        UINT16 pos = v->pos&0xffff;
+        pos = v->pos&0xffff;
         
         if((v->flags & C352_FLG_LOOP) && v->flags & C352_FLG_REVERSE)
         {
@@ -179,9 +179,10 @@ void C352_fetch_sample(C352 *c, int i)
     }
 }
 
-uint16_t C352_update_voice(C352 *c, int i)
+UINT16 C352_update_voice(C352 *c, int i)
 {
     C352_Voice *v = &c->v[i];
+    INT32 temp;
 
     if((v->flags & C352_FLG_BUSY) == 0)
         return 0;
@@ -194,7 +195,7 @@ uint16_t C352_update_voice(C352 *c, int i)
         C352_fetch_sample(c,i);
     }
     
-    INT32 temp = v->sample;
+    temp = v->sample;
     
     if((v->flags & C352_FLG_FILTER) == 0)
          temp = v->last_sample + (v->counter*(v->sample-v->last_sample)>>16);
@@ -235,10 +236,12 @@ void c352_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 
 int device_start_c352(UINT8 ChipID, int clock, int clkdiv)
 {
+    C352 *c;
+
     if (ChipID >= MAX_CHIPS)
         return 0;
-    
-    C352 *c = &C352Data[ChipID];
+
+    c = &C352Data[ChipID];
 
     c->wave = NULL;
     c->wavesize = 0x00;
@@ -279,14 +282,14 @@ void device_reset_c352(UINT8 ChipID)
 }
 
 UINT16 C352RegMap[8] = {
-    offsetof(C352_Voice,vol_f),
-    offsetof(C352_Voice,vol_r),
-    offsetof(C352_Voice,freq),
-    offsetof(C352_Voice,flags),
-    offsetof(C352_Voice,wave_bank),
-    offsetof(C352_Voice,wave_start),
-    offsetof(C352_Voice,wave_end),
-    offsetof(C352_Voice,wave_loop),
+    offsetof(C352_Voice,vol_f) / sizeof(UINT16),
+    offsetof(C352_Voice,vol_r) / sizeof(UINT16),
+    offsetof(C352_Voice,freq) / sizeof(UINT16),
+    offsetof(C352_Voice,flags) / sizeof(UINT16),
+    offsetof(C352_Voice,wave_bank) / sizeof(UINT16),
+    offsetof(C352_Voice,wave_start) / sizeof(UINT16),
+    offsetof(C352_Voice,wave_end) / sizeof(UINT16),
+    offsetof(C352_Voice,wave_loop) / sizeof(UINT16),
 };
 
 UINT16 c352_r(UINT8 ChipID, offs_t offset)
@@ -294,7 +297,7 @@ UINT16 c352_r(UINT8 ChipID, offs_t offset)
     C352 *c = &C352Data[ChipID];
 
     if(offset < 0x100)
-        return *(UINT16*)(&c->v[offset/8]+C352RegMap[offset%8]);
+        return *((UINT16*)&c->v[offset/8]+C352RegMap[offset%8]);
     else
         return 0;
 }
@@ -306,7 +309,7 @@ void c352_w(UINT8 ChipID, offs_t offset, UINT16 data)
     int i;
     
     if(offset < 0x100) // Channel registers, see map above.
-        *(UINT16*)((void*)&c->v[offset/8]+C352RegMap[offset%8]) = data;
+        *((UINT16*)&c->v[offset/8]+C352RegMap[offset%8]) = data;
     else if(offset == 0x200) // Unknown purpose.
         c->control1 = data;
     else if(offset == 0x201)

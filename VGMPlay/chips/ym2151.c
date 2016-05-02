@@ -9,12 +9,11 @@
 
 #include "mamedef.h"
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 //#include "sndintrf.h"
 //#include "streams.h"
 #include "ym2151.h"
-
-#define NULL	((void *)0)
 
 
 /* undef this to not use MAME timer system */

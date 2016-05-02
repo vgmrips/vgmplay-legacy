@@ -3,9 +3,9 @@
 // Updated to NSFPlay 2.3 on 26 September 2013
 // (Note: Encoding is UTF-8)
 
-#include <stdlib.h>	// for rand()
+#include <stdlib.h>	// for rand
 #include <stdlib.h>
-#include <memory.h>	// for memset()
+#include <string.h>	// for memset
 #include <stddef.h>	// for NULL
 #include "mamedef.h"
 #include "../stdbool.h"

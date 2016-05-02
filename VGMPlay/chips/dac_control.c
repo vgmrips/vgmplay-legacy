@@ -16,6 +16,7 @@
 
 */
 
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 #include "dac_control.h"
 #include "c6280intf.h"
@@ -57,8 +58,6 @@ typedef struct _dac_control
 
 #define MAX_CHIPS	0xFF
 static dac_control DACData[MAX_CHIPS];
-
-#define NULL	(void*)0
 
 INLINE void daccontrol_SendCommand(dac_control *chip)
 {

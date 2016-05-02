@@ -50,7 +50,7 @@ Copyright(C)2006-2012 Kitao Nakamura.
 ******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>	// for memset
 #include <math.h>
 #include "mamedef.h"
 #include "Ootake_PSG.h"

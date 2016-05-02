@@ -10,6 +10,7 @@
 
 
 //#include "emu.h"
+#include <stddef.h>	// for NULL
 #include "mamedef.h"
 #ifdef _DEBUG
 #include <stdio.h>
@@ -17,8 +18,6 @@
 //#include "streams.h"
 #include <math.h>
 #include "okim6258.h"
-
-#define NULL	((void *)0)
 
 #define COMMAND_STOP		(1 << 0)
 #define COMMAND_PLAY		(1 << 1)

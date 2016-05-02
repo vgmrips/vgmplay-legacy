@@ -2,7 +2,7 @@
 0000000001111111111222222222233333333334444444444555555555566666666667777777777888888888899999*/
 #include <windows.h>
 #include <stdio.h>
-#include <memory.h>
+#include <string.h>
 #include <wchar.h>
 #include <math.h>
 

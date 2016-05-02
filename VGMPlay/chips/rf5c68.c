@@ -3,14 +3,13 @@
 /*********************************************************/
 
 #include "mamedef.h"
-#include <memory.h>
 #include <stdlib.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 //#include "sndintrf.h"
 //#include "streams.h"
 #include "rf5c68.h"
 #include <math.h>
-
-#define NULL	((void *)0)
 
 
 #define  NUM_CHANNELS    (8)

@@ -31,8 +31,7 @@
 #include "mamedef.h"
 #include <math.h>	// for pow() in scsplfo.c
 #include <stdlib.h>
-//#include <stdlib.h>
-#include <memory.h>	// for memset
+#include <string.h>	// for memset
 #include "scsp.h"
 #include "scspdsp.h"
 

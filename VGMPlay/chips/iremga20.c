@@ -28,7 +28,7 @@ Revisions:
 
 //#include "emu.h"
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>	// for memset
 #include <stddef.h>	// for NULL
 #include "mamedef.h"
 #include "iremga20.h"

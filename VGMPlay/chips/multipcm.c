@@ -35,11 +35,10 @@
 //#include "streams.h"
 #include "mamedef.h"
 #include <math.h>
-#include <memory.h>
 #include <stdlib.h>
+#include <string.h>	// for memset
+#include <stddef.h>	// for NULL
 #include "multipcm.h"
-
-#define NULL	((void *)0)
 
 //????
 #define MULTIPCM_CLOCKDIV   	(180.0)

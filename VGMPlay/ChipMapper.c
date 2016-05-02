@@ -1,7 +1,7 @@
 // ChipMapper.c - Handles Chip Write (including OPL Hardware Support)
 
 #include <stdio.h>
-#include <memory.h>
+#include <string.h>
 #include <math.h>
 #include "stdbool.h"
 
@@ -98,7 +98,8 @@ extern float FinalVol;
 #define DELAY_OPL2_REG	 3.3f
 #define DELAY_OPL2_DATA	23.0f
 #define DELAY_OPL3_REG	 0.0f
-#define DELAY_OPL3_DATA	 0.28f
+//#define DELAY_OPL3_DATA	 0.28f	// fine for ISA cards (like SoundBlaster 16)
+#define DELAY_OPL3_DATA	 13.3f	// required for PCI cards (CMI8738)
 #ifdef WIN32
 INT64 HWusTime;
 #endif

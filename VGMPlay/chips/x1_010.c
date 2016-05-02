@@ -50,8 +50,8 @@ Registers:
 
 //#include "emu.h"
 #include <stdlib.h>
-#include <memory.h>
 #include <stddef.h>	// for NULL
+#include <string.h>	// for memset
 #include "mamedef.h"
 #include "x1_010.h"
 
