@@ -51,7 +51,7 @@ int device_start_sn764xx(UINT8 ChipID, int clock, int shiftregwidth, int noiseta
 						 int negate, int stereo, int clockdivider, int freq0)
 {
 	sn764xx_state *info;
-	int rate;
+	int rate = 0;
 	
 	if (ChipID >= MAX_CHIPS)
 		return 0;

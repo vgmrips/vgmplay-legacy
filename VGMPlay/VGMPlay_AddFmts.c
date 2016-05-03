@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 #include "stdbool.h"
 #include <math.h>
 
@@ -558,7 +559,7 @@ static void SendMIDIVolume(UINT8 ChipID, UINT8 Channel, UINT8 Command,
 	if (NoteVol < 0x00)
 		NoteVol = 0x00;
 	
-	TempByt = NoteVol | TempIns->ScaleLevel[TempLng] & 0xC0;
+	TempByt = NoteVol | (TempIns->ScaleLevel[TempLng] & 0xC0);
 	chip_reg_write(0x09, ChipID, 0x00, 0x40 | (OpBase + OpMask), TempByt);
 	
 	return;

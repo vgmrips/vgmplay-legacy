@@ -42,7 +42,7 @@ void c6280_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 int device_start_c6280(UINT8 ChipID, int clock)
 {
 	c6280_state* info;
-	int rate;
+	int rate = 0;
 	
 	if (ChipID >= MAX_CHIPS)
 		return 0;

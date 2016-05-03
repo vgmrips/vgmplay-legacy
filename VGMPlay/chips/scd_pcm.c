@@ -455,7 +455,7 @@ int device_start_rf5c164(UINT8 ChipID, int clock)
 		rate = CHIP_SAMPLE_RATE;
 	
 	PCM_Init(ChipID, rate);
-	PCM_Chip[ChipID].Smpl0Patch = (clock & 0x80000000) >> 31;
+	chip->Smpl0Patch = (clock & 0x80000000) >> 31;
 	
 	/* allocate the stream */
 	//chip->stream = stream_create(device, 0, 2, device->clock / 384, chip, rf5c68_update);

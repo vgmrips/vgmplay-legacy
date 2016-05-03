@@ -68,6 +68,8 @@ CFLAGS := -g $(CFLAGS)
 else
 CFLAGS := -O3 -g0 $(CFLAGS)
 endif
+#CFLAGS += -Wall
+CFLAGS += -Wno-unused-variable -Wno-unused-value -Wno-unused-but-set-variable
 # libm (math library) and libz (zlib)
 LDFLAGS := -lm -lz $(LDFLAGS)
 

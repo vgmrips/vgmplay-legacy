@@ -29,6 +29,11 @@
 #include "ym2612.h"
 
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wparentheses"
+#pragma GCC diagnostic ignored "-Wpointer-sign"
+#endif
+
 /********************************************
  *            Partie définition             *
  ********************************************/
@@ -474,7 +479,7 @@ int SLOT_SET(ym2612_ *YM2612, int Adr, unsigned char data)
       break;
 
     case 0x90:
-      // SSG-EG envelope shapes :
+      /* SSG-EG envelope shapes :
       //
       // E  At Al H
       //
@@ -497,7 +502,7 @@ int SLOT_SET(ym2612_ *YM2612, int Adr, unsigned char data)
       // E  = SSG-EG enable
       // At = Start negate
       // Al = Altern
-      // H  = Hold
+      // H  = Hold */
       if(YM2612_Enable_SSGEG)
       {
         if(data & 0x08) SL->SEG = data & 0x0F;

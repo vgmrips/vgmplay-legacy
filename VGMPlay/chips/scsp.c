@@ -270,7 +270,7 @@ static UINT8 BypassDSP = 0x01;
 	return (scsp_state *)downcast<legacy_device_base *>(device)->token();
 }*/
 
-static unsigned char DecodeSCI(scsp_state *scsp,unsigned char irq)
+/*static unsigned char DecodeSCI(scsp_state *scsp,unsigned char irq)
 {
 	unsigned char SCI=0;
 	unsigned char v;
@@ -283,7 +283,7 @@ static unsigned char DecodeSCI(scsp_state *scsp,unsigned char irq)
 	return SCI;
 }
 
-/*static void CheckPendingIRQ(scsp_state *scsp)
+static void CheckPendingIRQ(scsp_state *scsp)
 {
 	UINT32 pend=scsp->udata.data[0x20/2];
 	UINT32 en=scsp->udata.data[0x1e/2];

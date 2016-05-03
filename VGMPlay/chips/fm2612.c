@@ -130,6 +130,7 @@
 
 //#include "emu.h"
 #include <stdlib.h>
+#include <string.h>	// for memset
 #include <stddef.h>	// for NULL
 #include <math.h>
 #include "mamedef.h"

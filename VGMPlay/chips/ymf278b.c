@@ -373,7 +373,7 @@ INLINE void ymf278b_slot_set_lfo(YMF278BSlot* slot, int newlfo)
 	slot->lfo_max = lfo_period[slot->lfo];
 }
 
-INLINE ymf278b_advance(YMF278BChip* chip)
+INLINE void ymf278b_advance(YMF278BChip* chip)
 {
 	YMF278BSlot* op;
 	int i;
@@ -547,7 +547,7 @@ INLINE UINT8 ymf278b_readMem(YMF278BChip* chip, offs_t address)
 	if (address < chip->ROMSize)
 		return chip->rom[address&0x3fffff];
 	else if (address < chip->ROMSize + chip->RAMSize)
-		return chip->ram[address - chip->ROMSize&0x3fffff];
+		return chip->ram[address - (chip->ROMSize&0x3fffff)];
 	else
 		return 255; // TODO check
 }
@@ -557,7 +557,7 @@ INLINE UINT8* ymf278b_readMemAddr(YMF278BChip* chip, offs_t address)
 	if (address < chip->ROMSize)
 		return &chip->rom[address&0x3fffff];
 	else if (address < chip->ROMSize + chip->RAMSize)
-		return &chip->ram[address - chip->ROMSize&0x3fffff];
+		return &chip->ram[address - (chip->ROMSize&0x3fffff)];
 	else
 		return NULL; // TODO check
 }

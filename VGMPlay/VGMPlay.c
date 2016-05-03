@@ -2780,7 +2780,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ym2203(CurChip, ChipClk, COpt->SpecialFlags & 0x01,
 													VGMHead.bytAYFlagYM2203,
-													&CAA->Paired->SmpRate);
+													(int*)&CAA->Paired->SmpRate);
 				CAA->StreamUpdate = &ym2203_stream_update;
 				CAA->Paired->StreamUpdate = &ym2203_stream_update_ay;
 				ym2203_set_srchg_cb(CurChip, &ChangeChipSampleRate, CAA, CAA->Paired);
@@ -2810,7 +2810,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ym2608(CurChip, ChipClk, COpt->SpecialFlags & 0x01,
 													VGMHead.bytAYFlagYM2608,
-													&CAA->Paired->SmpRate);
+													(int*)&CAA->Paired->SmpRate);
 				CAA->StreamUpdate = &ym2608_stream_update;
 				CAA->Paired->StreamUpdate = &ym2608_stream_update_ay;
 				ym2608_set_srchg_cb(CurChip, &ChangeChipSampleRate, CAA, CAA->Paired);
@@ -2841,7 +2841,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 				
 				ChipClk = GetChipClock(&VGMHead, (CurChip << 7) | CAA->ChipType, NULL);
 				CAA->SmpRate = device_start_ym2610(CurChip, ChipClk, COpt->SpecialFlags & 0x01,
-													&CAA->Paired->SmpRate);
+													(int*)&CAA->Paired->SmpRate);
 				CAA->StreamUpdate = (ChipClk & 0x80000000) ? ym2610b_stream_update :
 															ym2610_stream_update;
 				CAA->Paired->StreamUpdate = &ym2610_stream_update_ay;
@@ -4431,6 +4431,8 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 		BitCmp = Data[0x06];
 		CmpSubType = Data[0x07];
 		AddVal = ReadLE16(&Data[0x08]);
+		Ent1B = NULL;
+		Ent2B = NULL;
 		
 		if (CmpSubType == 0x02)
 		{
@@ -4456,6 +4458,7 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 		InShift = 0;
 		OutShift = BitDec - BitCmp;
 		OutDataEnd = Bank->Data + Bank->DataSize;
+		OutVal = 0x0000;
 		
 		for (OutPos = Bank->Data; OutPos < OutDataEnd && InPos < InDataEnd; OutPos += ValSize)
 		{

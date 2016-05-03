@@ -482,7 +482,7 @@ void qsound_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 		case DEVINFO_STR_SOURCE_FILE:						strcpy(info->s, __FILE__);						break;
 		case DEVINFO_STR_CREDITS:					strcpy(info->s, "Copyright Nicola Salmoria and the MAME Team"); break;
 	}
-}//
+}*/
 
 /**************** end of file ****************/
 

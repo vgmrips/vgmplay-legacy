@@ -31,10 +31,10 @@
 #define PSG_CUTOFF        0x6     /* Value below which PSG does not output */
 
 static const int PSGVolumeValues[16] = {
-	/* These values are taken from a real SMS2's output */
-/*	{892,892,892,760,623,497,404,323,257,198,159,123,96,75,60,0}, /* I can't remember why 892... :P some scaling I did at some point */
-	/* these values are true volumes for 2dB drops at each step (multiply previous by 10^-0.1) */
-	/*1516,1205,957,760,603,479,381,303,240,191,152,120,96,76,60,0*/
+/*	// These values are taken from a real SMS2's output
+	{892,892,892,760,623,497,404,323,257,198,159,123,96,75,60,0}, // I can't remember why 892... :P some scaling I did at some point
+	// these values are true volumes for 2dB drops at each step (multiply previous by 10^-0.1)
+	1516,1205,957,760,603,479,381,303,240,191,152,120,96,76,60,0*/
 // The MAME core uses 0x2000 as maximum volume (0x1000 for bipolar output)
 	4096, 3254, 2584, 2053, 1631, 1295, 1029, 817, 649, 516, 410, 325, 258, 205, 163, 0
 };
@@ -195,15 +195,14 @@ void SN76489_Update(SN76489_Context* chip, INT32 **buffer, int length)
 	SN76489_Context* chip_n;
 
 	NGPMode = (chip->NgpFlags >> 7) & 0x01;
-	if (NGPMode)
-		chip2 = (SN76489_Context*)chip->NgpChip2;
-	
 	if (! NGPMode)
 	{
+		chip2 = NULL;
 		chip_t = chip_n = chip;
 	}
 	else
 	{
+		chip2 = (SN76489_Context*)chip->NgpChip2;
 		if (! (chip->NgpFlags & 0x01))
 		{
 			chip_t = chip;

@@ -293,8 +293,7 @@ void SN76496Update(void *chip, stream_sample_t **outputs, int samples)
 	INT32 ggst[2];
 
 	NGPMode = (R->NgpFlags >> 7) & 0x01;
-	if (NGPMode)
-		R2 = R->NgpChip2;
+	R2 = R->NgpChip2;
 
 	if (! NGPMode)
 	{
@@ -869,7 +868,7 @@ DEVICE_GET_INFO( smsiii )
 		case DEVINFO_STR_NAME:							strcpy(info->s, "SMSIII PSG");					break;
 		default:										DEVICE_GET_INFO_CALL(sn76496);						break;
 	}
-}
+}*/
 
 
 /*DEFINE_LEGACY_SOUND_DEVICE(SN76496, sn76496);

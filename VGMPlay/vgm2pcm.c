@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
             UINT32 currentSample;
             const UINT16* sampleData;
 
-            sampleData = (INT16*)sampleBuffer;
+            sampleData = (UINT16*)sampleBuffer;
             numberOfSamples = SAMPLESIZE * bufferedLength / 0x02;
             for (currentSample = 0x00; currentSample < numberOfSamples; currentSample++) {
                 fputBE16(sampleData[currentSample], outputFile);

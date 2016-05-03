@@ -671,11 +671,11 @@ void device_reset_upd7759(UINT8 ChipID)
 
 
 //static STATE_POSTLOAD( upd7759_postload )
-static void upd7759_postload(void* param)
+/*static void upd7759_postload(void* param)
 {
 	upd7759_state *chip = (upd7759_state *)param;
 	chip->rom = chip->rombase + chip->romoffset;
-}
+}*/
 
 
 /*static void register_for_save(upd7759_state *chip, running_device *device)

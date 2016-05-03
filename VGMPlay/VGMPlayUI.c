@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <wchar.h>
+#include <ctype.h>	// for toupper
 #include <locale.h>	// for setlocale
 #include "stdbool.h"
 #include <math.h>
@@ -178,7 +179,7 @@ extern VGM_HEADER VGMHead;
 extern UINT32 VGMDataLen;
 extern UINT8* VGMData;
 extern GD3_TAG VGMTag;
-static PreferJapTag;
+static bool PreferJapTag;
 
 extern volatile bool PauseThread;
 static bool StreamStarted;

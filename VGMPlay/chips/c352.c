@@ -123,7 +123,7 @@ static void C352_fetch_sample(C352 *c, int i)
     
     if(v->flags & C352_FLG_NOISE)
     {
-        c->random = (c->random>>1) ^ (-(c->random&1)) & 0xfff6;     
+        c->random = (c->random>>1) ^ (-(c->random&1) & 0xfff6);
         v->sample = (c->random&4) ? 0xc000 : 0x3fff;
         
         v->last_sample = v->sample; // No interpolation for noise samples
