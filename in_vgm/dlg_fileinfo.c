@@ -242,15 +242,12 @@ static bool LoadInfoW(const wchar_t* FileName, FINF_DATA* FileInf)
 	UINT32 StrSize;
 	INT32 TempSLng;
 	
-	if (! FileInf->ForceReload)
+	if (! FileInf->ForceReload && ! Options.NoInfoCache)
 	{
 		if (FileInf->FileName != NULL && ! _wcsicmp(FileInf->FileName, FileName))
 			return true;	// I just loaded that file.
 	}
-	else
-	{
-		FileInf->ForceReload = false;
-	}
+	FileInf->ForceReload = false;
 	
 	StrSize = wcslen(FileName) + 1;
 	if (FileInf->FileNameAlloc < StrSize)
@@ -266,7 +263,7 @@ static bool LoadInfoW(const wchar_t* FileName, FINF_DATA* FileInf)
 	{
 		if (PlayVGMInfo.FileName != NULL && ! _wcsicmp(PlayVGMInfo.FileName, FileName))
 		{
-			if (PlayVGMInfo.ForceReload)
+			if (PlayVGMInfo.ForceReload || Options.NoInfoCache)
 				LoadInfoW(PlayVGMInfo.FileName, &PlayVGMInfo);
 			
 			// copy all info from PlayVGMInfo to current structure

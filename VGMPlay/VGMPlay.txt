@@ -58,7 +58,7 @@ Supported chips
 
 * This chip can be emulated via OPL Hardware (like Soundblaster sound cards).
 ** OPL hardware emulation is available, but software emulation is prefered. Hardware emulation is used if another chip activates HW emulation or FMForce is True.
-! You need a sample ROM, called yrw801.rom, to make playback work. Place it in the directory where VGMPlay.exe lies.
+! For some songs you need a sample ROM, called yrw801.rom, to make playback work. Place it in the directory of VGMPlay.exe.
 
 OPL hardware emulation can be enabled by setting the "FMPort"-entry in the ini-file.
 If you want to use FM Hardware under Windows NT/2000/XP/... you have to install PortTalk.
@@ -114,7 +114,7 @@ Under Linux you have to double-tap ESC to quit the program (or just press Q). I 
 
 Sometimes MAME's sound cores tend to sound strange. I already fixed some, but it's not my fault.
 
-Ubuntu refuses to run (or maybe compile) VGMPlay correctly. It either crashes upon opening a vgm file or doesn't open the sound device. (and the ini-file, too. VGMs are opened for some reason.)
+Ubuntu might refuse to run (or maybe compile) VGMPlay correctly. If so, it either crashes upon opening a vgm file or doesn't open the sound device. (and the ini-file, too. VGMs are opened for some reason.)
 Using Wine with the Windows-version of VGMPlay should work.
 
 It runs fine on openSUSE. (I compile and test it regularly with 12.3 64-bit. Older version were successfully tested with 11.1 32-bit and 11.4 64-bit)
@@ -132,7 +132,7 @@ The SN76496 OPL emulation is okay, but it's impossible to get the noise sound ri
 EMU2413 Emulator was added, because sometimes the one of MAME sounds strange.
 I added the Gens YM2612 core for the same reason (before I fixed MAME's YM2612 core).
 
-I haven't yet found a player that supports all three version of dro files. 
+I haven't yet found a player that supports all three version of dro files.
 P.S.: AdPlug now seems to support them.
 
 Some may be wondering, how someone can have the idea to implement OPL Hardware support. Here a more or less small story:
@@ -158,3 +158,4 @@ This program was written by Valley Bell.
 - the WonderSwan core was ported from in_wsr
 - Virtual Boy VSU core was ported from vbjin and originates from mednafen
 - Thanks to grauw for patches that make it work properly on Mac OS X.
+- ctr for writing the new C352 sound core.

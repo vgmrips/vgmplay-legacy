@@ -24,6 +24,7 @@
 typedef struct plugin_options
 {
 	bool ImmediateUpdate;
+	bool NoInfoCache;
 	
 	UINT32 SampleRate;
 	UINT32 ChipRate;
