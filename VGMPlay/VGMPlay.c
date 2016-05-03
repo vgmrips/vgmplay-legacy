@@ -480,6 +480,7 @@ void VGMPlay_Init(void)
 		// TODO: Is this really necessary??
 		ChipOpts[CurCSet].NES.SpecialFlags = 0x8000 |
 										(0x00 << 12) | (0x3B << 4) | (0x01 << 2) | (0x03 << 0);
+		ChipOpts[CurCSet].SCSP.SpecialFlags = 0x0001;	// bypass SCSP DSP
 		
 		TempCAud = CA_Paired[CurCSet];
 		for (CurChip = 0x00; CurChip < 0x03; CurChip ++, TempCAud ++)
@@ -1801,7 +1802,7 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	if (TextStr == NULL)
 		return NULL;
 	
-	if (gztell(hFile) != CurPos)
+	if ((UINT32)gztell(hFile) != CurPos)
 		gzseek(hFile, CurPos, SEEK_SET);
 	TempStr = TextStr - 1;
 	StrLen = 0x00;
@@ -3458,6 +3459,9 @@ static void Chips_GeneralActions(UINT8 Mode)
 		}
 		if (VGMHead.lngHzC352)
 		{
+			c352_set_options((UINT8)ChipOpts[0x00].C352.SpecialFlags);
+			ChipOpts[0x01].C352.SpecialFlags = ChipOpts[0x00].C352.SpecialFlags;
+			
 			//ChipVol = 0x40;
 			ChipCnt = (VGMHead.lngHzC352 & 0x40000000) ? 0x02 : 0x01;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)

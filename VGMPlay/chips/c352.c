@@ -94,10 +94,10 @@ typedef struct {
 #define MAX_CHIPS   0x02
 static C352 C352Data[MAX_CHIPS];
 
+static UINT8 MuteAllRear = 0x00;
 
 
-
-void C352_generate_mulaw(C352 *c)
+static void C352_generate_mulaw(C352 *c)
 {
     int i;
     double x_max = 32752.0;
@@ -116,7 +116,7 @@ void C352_generate_mulaw(C352 *c)
     }
 }
 
-void C352_fetch_sample(C352 *c, int i)
+static void C352_fetch_sample(C352 *c, int i)
 {
     C352_Voice *v = &c->v[i];
     v->last_sample = v->sample;
@@ -180,7 +180,7 @@ void C352_fetch_sample(C352 *c, int i)
     }
 }
 
-UINT16 C352_update_voice(C352 *c, int i)
+static UINT16 C352_update_voice(C352 *c, int i)
 {
     C352_Voice *v = &c->v[i];
     INT32 temp;
@@ -222,14 +222,14 @@ void c352_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
                 // Left
                 outputs[0][i] += (c->v[j].flags & C352_FLG_PHASEFL) ? (-s * (c->v[j].vol_f>>8)  )>>8
                                                                   : ( s * (c->v[j].vol_f>>8)  )>>8;
-                if (!c->muteRear)
+                if (!c->muteRear && !MuteAllRear)
                     outputs[0][i] += (c->v[j].flags & C352_FLG_PHASERL) ? (-s * (c->v[j].vol_r>>8)  )>>8
                                                                       : ( s * (c->v[j].vol_r>>8)  )>>8;
                 
                 // Right
                 outputs[1][i] += (c->v[j].flags & C352_FLG_PHASEFR) ? (-s * (c->v[j].vol_f&0xff))>>8
                                                                   : ( s * (c->v[j].vol_f&0xff))>>8;
-                if (!c->muteRear)
+                if (!c->muteRear && !MuteAllRear)
                     outputs[1][i] += ( s * (c->v[j].vol_r&0xff))>>8;
             }
         }
@@ -285,7 +285,7 @@ void device_reset_c352(UINT8 ChipID)
     return;
 }
 
-UINT16 C352RegMap[8] = {
+static UINT16 C352RegMap[8] = {
     offsetof(C352_Voice,vol_f) / sizeof(UINT16),
     offsetof(C352_Voice,vol_r) / sizeof(UINT16),
     offsetof(C352_Voice,freq) / sizeof(UINT16),
@@ -372,6 +372,13 @@ void c352_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
     
     for (CurChn = 0; CurChn < 32; CurChn ++)
         c->v[CurChn].mute = (MuteMask >> CurChn) & 0x01;
+    
+    return;
+}
+
+void c352_set_options(UINT8 Flags)
+{
+    MuteAllRear = (Flags & 0x01) >> 0;
     
     return;
 }

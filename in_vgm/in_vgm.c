@@ -458,6 +458,11 @@ void LoadConfigurationFile(void)
 	sprintf(TempStr, "%s Bypass DSP", ChipName);
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 0, 1);
 	
+	// C352
+	ChipName = GetChipName(0x27);	TempCOpt = &ChipOpts[0x00].C352;
+	sprintf(TempStr, "%s Disable Rear", ChipName);
+	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 0, 1);
+	
 	return;
 }
 
@@ -624,7 +629,12 @@ void SaveConfigurationFile(void)
 	// SCSP
 	ChipName = GetChipName(0x20);	TempCOpt = &ChipOpts[0x00].SCSP;
 	sprintf(TempStr, "%s Bypass DSP", ChipName);
-	TempCOpt->SpecialFlags |= 0x01;	// force SCSP DSP bypass upon next loading
+	//TempCOpt->SpecialFlags |= 0x01;	// force SCSP DSP bypass upon next loading
+	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 0, 1);
+	
+	// C352
+	ChipName = GetChipName(0x27);	TempCOpt = &ChipOpts[0x00].C352;
+	sprintf(TempStr, "%s Disable Rear", ChipName);
 	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 0, 1);
 	
 	return;

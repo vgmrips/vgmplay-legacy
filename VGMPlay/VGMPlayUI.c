@@ -1502,6 +1502,14 @@ static void ReadOptions(const char* AppName)
 							TempCOpt->SpecialFlags |= TempFlag << 0;
 						}
 						break;
+					case 0x27:	// C352
+						if (! stricmp_u(LStr, "DisableRear"))
+						{
+							TempFlag = GetBoolFromStr(RStr);
+							TempCOpt->SpecialFlags &= ~(0x01 << 0);
+							TempCOpt->SpecialFlags |= TempFlag << 0;
+						}
+						break;
 					}
 				}
 				break;
