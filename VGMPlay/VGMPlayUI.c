@@ -125,6 +125,7 @@ static UINT8 Show95Cmds;
 
 extern float VolumeLevel;
 extern bool SurroundSound;
+extern UINT8 HardStopOldVGMs;
 extern bool FadeRAWLog;
 static UINT8 LogToWave;
 //extern bool FullBufFill;
@@ -1099,6 +1100,12 @@ static void ReadOptions(const char* AppName)
 				else if (! stricmp_u(LStr, "JinglePause"))
 				{
 					PauseTimeJ = strtoul(RStr, NULL, 0);
+				}
+				else if (! stricmp_u(LStr, "HardStopOld"))
+				{
+					HardStopOldVGMs = (UINT8)strtoul(RStr, &TempPnt, 0);
+					if (TempPnt == RStr)
+						HardStopOldVGMs = GetBoolFromStr(RStr) ? 0x01 : 0x00;
 				}
 				else if (! stricmp_u(LStr, "FadeRAWLogs"))
 				{

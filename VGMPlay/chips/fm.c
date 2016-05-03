@@ -4424,11 +4424,6 @@ void ym2610_reset_chip(void *chip)
 	}
 	else
 		F2610->deltaT.memory_size = dev->machine->region(name)->bytes();*/
-	F2610->pcmbuf   = NULL;
-	F2610->pcm_size = 0x00;
-	F2610->deltaT.memory = NULL;
-	F2610->deltaT.memory_size = 0x00;
-	F2610->deltaT.memory_mask = 0x00;
 
 	/* Reset Prescaler */
 	OPNSetPres( OPN, 6*24, 6*24, 4*2); /* OPN 1/6 , SSG 1/4 */

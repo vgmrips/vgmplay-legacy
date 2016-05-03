@@ -301,6 +301,7 @@ UINT32 PauseTime;	// current Pause Time
 
 float VolumeLevel;
 bool SurroundSound;
+UINT8 HardStopOldVGMs;
 bool FadeRAWLog;
 //bool FullBufFill;	// Fill Buffer until it's full
 bool PauseEmulate;
@@ -433,6 +434,7 @@ void VGMPlay_Init(void)
 	FadeTime = 5000;
 	PauseTime = 0;
 	
+	HardStopOldVGMs = 0x00;
 	FadeRAWLog = false;
 	VolumeLevel = 1.0f;
 	//FullBufFill = false;
@@ -4868,6 +4870,13 @@ static void InterpretVGM(UINT32 SampleCount)
 						ErrorHappened = true;
 #endif
 						VGMHead.lngTotalSamples = VGMSmplPos;
+					}
+					
+					if (HardStopOldVGMs)
+					{
+						if (VGMHead.lngVersion < 0x150 ||
+							(VGMHead.lngVersion == 0x150 && HardStopOldVGMs == 0x02))
+						Chips_GeneralActions(0x01); // reset all chips, for instant silence
 					}
 					VGMEnd = true;
 					break;

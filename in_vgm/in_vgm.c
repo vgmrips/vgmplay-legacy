@@ -128,6 +128,7 @@ extern UINT32 PauseTime;
 
 extern float VolumeLevel;
 extern bool SurroundSound;
+extern UINT8 HardStopOldVGMs;
 //extern bool FadeRAWLog;
 
 extern bool DoubleSSGVol;
@@ -337,6 +338,7 @@ void LoadConfigurationFile(void)
 	ReadIni_Integer	("Playback",	"FadeTime",		&FadeTime);
 	ReadIni_Integer	("Playback",	"PauseNoLoop",	&Options.PauseNL);
 	ReadIni_Integer	("Playback",	"PauseLoop",	&Options.PauseLp);
+	ReadIni_IntByte	("Playback",	"HardStopOld",	&HardStopOldVGMs);
 	ReadIni_Float	("Playback",	"Volume",		&VolumeLevel);
 	ReadIni_Integer	("Playback",	"MaxLoops",		&VGMMaxLoop);
 	ReadIni_Integer	("Playback",	"PlaybackRate",	&VGMPbRate);
@@ -505,6 +507,7 @@ void SaveConfigurationFile(void)
 	WriteIni_Integer("Playback",	"FadeTime",		FadeTime);
 	WriteIni_Integer("Playback",	"PauseNoLoop",	Options.PauseNL);
 	WriteIni_Integer("Playback",	"PauseLoop",	Options.PauseLp);
+	WriteIni_Integer("Playback",	"HardStopOld",	HardStopOldVGMs);
 	WriteIni_Float	("Playback",	"Volume",		VolumeLevel);
 	WriteIni_Integer("Playback",	"MaxLoops",		VGMMaxLoop);
 	WriteIni_Integer("Playback",	"PlaybackRate",	VGMPbRate);
