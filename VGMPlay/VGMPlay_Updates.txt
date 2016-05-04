@@ -129,3 +129,14 @@ Updates since 0.4.0u6 (30.05.2015)
 - fixed Irem GA20 channel muting
 - fixed playing non-NMK banked OKIM6295 VGMs after NMK-banked ones
 - fixed SN76489 PSG muting (muting didn't work if the frequency was set to 0 to play PCM)
+- [misc] added vgm2wav (thanks libertyernie)
+- improved DAC Stream Control for HuC6280
+- [VGMPlay] added warning for zlib seeking bug
+- [VGMPlay + in_vgm] fixed bugs with .ini file reading
+- fixed YMF278B sample looping
+- repalced C352 sound core with new one written by superctr
+- added option to disable rarely used C352 rear channels
+- [in_vgm] added option to disable caching of VGM info (tags/etc.)
+- added option to enforce silence at the end of <1.50 VGMs
+- fixed memory leak when seeking back in songs that use the YM2610 (thanks to GTheGuardian for reporting)
+- fixed bug with X1-010 PCM loops

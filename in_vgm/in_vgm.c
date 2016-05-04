@@ -182,7 +182,7 @@ void About(HWND hWndParent)
 		" (Unicode build)"
 #endif
 		"\n"
-		"by Valley Bell 2011-2015\n"
+		"by Valley Bell 2011-2016\n"
 		"\n"
 		"Build date: " __DATE__ " (" INVGM_VERSION ")\n"
 		"\n"
@@ -208,7 +208,8 @@ void About(HWND hWndParent)
 		"GerbilSoft for the RF5C164 and PWM cores from Gens/GS\n"
 		"DOSBox Team for AdLibEmu (OPL2/3 sound core)\n"
 		"The author of Ootake for the HuC6280 core\n"
-		"rainwarrior for NSFPlay and the EMU2149 and NES cores";
+		"rainwarrior for NSFPlay and the EMU2149 and NES cores\n"
+		"superctr for the new C352 core";
 	char* ChipList;
 	const char* ChipStr;
 	char* FinalMsg;

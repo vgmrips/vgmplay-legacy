@@ -144,6 +144,7 @@ Credits
 =======
 This program was written by Valley Bell.
 
+- Special thanks to ctr for major contributions in general.
 - almost all software emulators are from MAME (http://mamedev.org)
 - EMU2413 and Gens YM2612 were ported from Maxim's in_vgm
 - the YMF278B core was ported from openMSX
