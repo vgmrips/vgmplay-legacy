@@ -707,9 +707,10 @@ void ymf278b_pcm_update(UINT8 ChipID, stream_sample_t** outputs, int samples)
 				sl->sample1 = sl->sample2;
 				
 				sl->sample2 = ymf278b_getSample(chip, sl);
-				sl->pos ++;
 				if (sl->pos == sl->endaddr)
 					sl->pos = sl->pos - sl->endaddr + sl->loopaddr;
+				else
+					sl->pos ++;
 			}
 		}
 		ymf278b_advance(chip);
