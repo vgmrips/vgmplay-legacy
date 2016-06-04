@@ -33,10 +33,12 @@ typedef UINT32	offs_t;
 /* stream_sample_t is used to represent a single sample in a sound stream */
 typedef INT32 stream_sample_t;
 
-#ifdef VGM_BIG_ENDIAN
+#if defined(VGM_BIG_ENDIAN)
 #define BYTE_XOR_BE(x)	 (x)
-#else
+#elif defined(VGM_LITTLE_ENDIAN)
 #define BYTE_XOR_BE(x)	((x) ^ 0x01)
+#else
+// don't define BYTE_XOR_BE so that it throws an error when compiling
 #endif
 
 #if defined(_MSC_VER)

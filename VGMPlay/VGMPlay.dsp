@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Yu"stdafx.h" /FD /c
-# ADD CPP /nologo /MD /W3 /GX /Ox /Ot /Og /Oi /Ob2 /I "zlib" /D "NDEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /D "SET_CONSOLE_TITLE" /FD /c
+# ADD CPP /nologo /MD /W3 /GX /Ox /Ot /Og /Oi /Ob2 /I "zlib" /D "NDEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "VGM_LITTLE_ENDIAN" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /D "SET_CONSOLE_TITLE" /FD /c
 # SUBTRACT CPP /Oa /Ow /YX /Yc /Yu
 # ADD BASE RSC /l 0x407 /d "NDEBUG"
 # ADD RSC /l 0x407 /d "NDEBUG"
@@ -71,7 +71,7 @@ PostBuild_Cmds=..\vgm2txt\HiddenMsg.exe Release\VGMPlay.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /Yu"stdafx.h" /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "zlib" /D "_DEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /D "SET_CONSOLE_TITLE" /FR /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "zlib" /D "_DEBUG" /D "WIN32_LEAN_AND_MEAN" /D "WIN32" /D "_CONSOLE" /D "_MBCS" /D "VGM_LITTLE_ENDIAN" /D "ENABLE_ALL_CORES" /D "CONSOLE_MODE" /D "ADDITIONAL_FORMATS" /D "SET_CONSOLE_TITLE" /FR /FD /GZ /c
 # SUBTRACT CPP /YX /Yc /Yu
 # ADD BASE RSC /l 0x407 /d "_DEBUG"
 # ADD RSC /l 0x407 /d "_DEBUG"

@@ -27,6 +27,12 @@ USE_LIBAO = 1
 # Uncomment for swprintf fix on older MinGW versions
 #OLD_SWPRINTF = 1
 
+# Byte Order
+#   0 = undefined (use endian-safe code, might be slightly slower)
+#   1 = Little Endian (Intel)
+#   2 = Big Endian (Motorola)
+BYTE_ORDER = 1
+
 
 ifdef MACOSX
 ifndef USE_LIBAO
@@ -54,8 +60,20 @@ endif
 endif
 EMUFLAGS := -DENABLE_ALL_CORES
 
-#MAINFLAGS := -DVGM_BIG_ENDIAN
-#EMUFLAGS := -DVGM_BIG_ENDIAN
+# -- Byte Order Optimizations --
+ifeq ($(BYTE_ORDER), 1)
+# Intel Byte Order
+MAINFLAGS := -DVGM_LITTLE_ENDIAN
+EMUFLAGS := -DVGM_LITTLE_ENDIAN
+else
+ifeq ($(BYTE_ORDER), 2)
+# Motorola Byte Order
+MAINFLAGS := -DVGM_BIG_ENDIAN
+EMUFLAGS := -DVGM_BIG_ENDIAN
+else
+# undefined byte order
+endif
+endif
 
 ifdef DISABLE_HWOPL_SUPPORT
 MAINFLAGS += -DDISABLE_HW_SUPPORT

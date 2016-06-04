@@ -44,7 +44,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "VGM_LITTLE_ENDIAN" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /FD /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
@@ -71,7 +71,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MD /W3 /Gm /GX /ZI /Od /I "../VGMPlay" /I "../VGMPlay/zlib" /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /D "UNICODE_INPUT_PLUGIN" /FD /GZ /c
+# ADD CPP /nologo /MD /W3 /Gm /GX /ZI /Od /I "../VGMPlay" /I "../VGMPlay/zlib" /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "VGM_LITTLE_ENDIAN" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /D "UNICODE_INPUT_PLUGIN" /FD /GZ /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
@@ -102,9 +102,9 @@ PostBuild_Cmds=copy  Debug\in_vgm.dll  D:\Programme\Winamp5_03a\Plugins\ 	copy  
 # PROP Intermediate_Dir "ReleaseW"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /FD /c
+# ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "VGM_LITTLE_ENDIAN" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /FD /c
 # SUBTRACT BASE CPP /YX
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /D "UNICODE_INPUT_PLUGIN" /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "../VGMPlay" /I "../VGMPlay/zlib" /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "IN_VGM_EXPORTS" /D "VGM_LITTLE_ENDIAN" /D "ENABLE_ALL_CORES" /D "DISABLE_HW_SUPPORT" /D "UNICODE_INPUT_PLUGIN" /FD /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32

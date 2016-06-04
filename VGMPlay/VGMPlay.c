@@ -6,7 +6,6 @@
 
 /*3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
 0000000001111111111222222222233333333334444444444555555555566666666667777777777888888888899999*/
-// TODO: Callback "ChangeSampleRate" to fix YM2203's AY8910
 
 // Mixer Muting ON:
 //		Mixer's FM Volume is set to 0 or Mute	-> absolutely muted
@@ -23,7 +22,8 @@
 //
 //#define ADDITIONAL_FORMATS
 //#define CONSOLE_MODE
-//#define VGM_BIG_ENDIAN
+//#define VGM_LITTLE_ENDIAN	// enable optimizations for Little Endian systems
+//#define VGM_BIG_ENDIAN	// enable optimizations for Big Endian systems
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -759,7 +759,7 @@ char* FindFile_List(const char** FileNameList)
 INLINE UINT16 ReadLE16(const UINT8* Data)
 {
 	// read 16-Bit Word (Little Endian/Intel Byte Order)
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 	return *(UINT16*)Data;
 #else
 	return (Data[0x01] << 8) | (Data[0x00] << 0);
@@ -769,17 +769,17 @@ INLINE UINT16 ReadLE16(const UINT8* Data)
 INLINE UINT16 ReadBE16(const UINT8* Data)
 {
 	// read 16-Bit Word (Big Endian/Motorola Byte Order)
-#ifndef VGM_BIG_ENDIAN
-	return (Data[0x00] << 8) | (Data[0x01] << 0);
-#else
+#ifdef VGM_BIG_ENDIAN
 	return *(UINT16*)Data;
+#else
+	return (Data[0x00] << 8) | (Data[0x01] << 0);
 #endif
 }
 
 INLINE UINT32 ReadLE24(const UINT8* Data)
 {
 	// read 24-Bit Word (Little Endian/Intel Byte Order)
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 	return	(*(UINT32*)Data) & 0x00FFFFFF;
 #else
 	return	(Data[0x02] << 16) | (Data[0x01] <<  8) | (Data[0x00] <<  0);
@@ -789,7 +789,7 @@ INLINE UINT32 ReadLE24(const UINT8* Data)
 INLINE UINT32 ReadLE32(const UINT8* Data)
 {
 	// read 32-Bit Word (Little Endian/Intel Byte Order)
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 	return	*(UINT32*)Data;
 #else
 	return	(Data[0x03] << 24) | (Data[0x02] << 16) |
@@ -799,7 +799,7 @@ INLINE UINT32 ReadLE32(const UINT8* Data)
 
 INLINE int gzgetLE16(gzFile hFile, UINT16* RetValue)
 {
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 	return gzread(hFile, RetValue, 0x02);
 #else
 	int RetVal;
@@ -813,7 +813,7 @@ INLINE int gzgetLE16(gzFile hFile, UINT16* RetValue)
 
 INLINE int gzgetLE32(gzFile hFile, UINT32* RetValue)
 {
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 	return gzread(hFile, RetValue, 0x04);
 #else
 	int RetVal;
@@ -1301,7 +1301,7 @@ static UINT32 GetGZFileLength_Internal(FILE* hFile)
 			fseek(hFile, -4, SEEK_END);
 			// Note: In the error case it falls back to fseek/ftell.
 			RetVal = fread(&FileSize, 0x04, 0x01, hFile);
-#ifdef VGM_BIG_ENDIAN
+#ifndef VGM_LITTLE_ENDIAN
 			FileSize = ReadLE32((UINT8*)&FileSize);
 #endif
 		}
@@ -1488,7 +1488,7 @@ static void ReadVGMHeader(gzFile hFile, VGM_HEADER* RetVGMHead)
 	UINT32 HdrLimit;
 	
 	gzread(hFile, &CurHead, sizeof(VGM_HEADER));
-#ifdef VGM_BIG_ENDIAN
+#ifndef VGM_LITTLE_ENDIAN
 	{
 		UINT8* TempPtr;
 		
@@ -4381,7 +4381,7 @@ static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 	}
 	
 	//Time = GetTickCount() - Time;
-	//printf("Decompression Time: %lu\n", Time);
+	//printf("Decompression Time: %u\n", Time);
 	
 	return;
 }*/
@@ -4502,7 +4502,7 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 					OutVal = Ent1B[InVal];
 					break;
 				case 0x02:
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 					OutVal = Ent2B[InVal];
 #else
 					OutVal = ReadLE16((UINT8*)&Ent2B[InVal]);
@@ -4512,7 +4512,7 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 				break;
 			}
 			
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 			//memcpy(OutPos, &OutVal, ValSize);
 			if (ValSize == 0x01)
 				*((UINT8*)OutPos) = (UINT8)OutVal;
@@ -4596,16 +4596,15 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 				*((UINT8*)OutPos) = (UINT8)OutVal;
 				break;
 			case 0x02:
-#ifndef VGM_BIG_ENDIAN
+#ifdef VGM_LITTLE_ENDIAN
 				AddVal = Ent2B[InVal];
-#else
-				AddVal = ReadLE16((UINT8*)&Ent2B[InVal]);
-#endif
 				OutVal += AddVal;
 				OutVal &= OutMask;
-#ifndef VGM_BIG_ENDIAN
 				*((UINT16*)OutPos) = (UINT16)OutVal;
 #else
+				AddVal = ReadLE16((UINT8*)&Ent2B[InVal]);
+				OutVal += AddVal;
+				OutVal &= OutMask;
 				OutPos[0x00] = (UINT8)((OutVal & 0x00FF) >> 0);
 				OutPos[0x01] = (UINT8)((OutVal & 0xFF00) >> 8);
 #endif
@@ -4620,7 +4619,7 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 	
 #if defined(_DEBUG) && defined(WIN32)
 	Time = GetTickCount() - Time;
-	printf("Decompression Time: %lu\n", Time);
+	printf("Decompression Time: %u\n", Time);
 #endif
 	
 	return true;
