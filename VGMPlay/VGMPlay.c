@@ -2177,6 +2177,12 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 		else
 			RetStr = "NES APU + FDS";
 		break;
+	case 0x19:
+		if (! (ChipID & 0x80))
+			RetStr = "K051649";
+		else
+			RetStr = "K052539";
+		break;
 	case 0x1C:
 		switch(SubType)
 		{
@@ -2353,6 +2359,7 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		break;
 	case 0x19:
 		Clock = FileHead->lngHzK051649;
+		AllowBit31 = 0x01;	// SCC/SCC+ Bit
 		break;
 	case 0x1A:
 		Clock = FileHead->lngHzK054539;

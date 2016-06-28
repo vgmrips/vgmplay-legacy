@@ -620,6 +620,9 @@ reverse:
 			while (samples--)
 			{
 				/* fetch two samples */
+#ifdef VGM_BIG_ENDIAN
+	#warning "ES5506 sound emulation not Endian-Safe!"
+#endif
 				INT32 val1 = base[accum >> 11];
 				INT32 val2 = base[((accum + (1 << 11)) & voice->accum_mask) >> 11];
 
@@ -658,6 +661,9 @@ reverse:
 			while (samples--)
 			{
 				/* fetch two samples */
+#ifdef VGM_BIG_ENDIAN
+	#warning "ES5506 sound emulation not Endian-Safe!"
+#endif
 				INT32 val1 = base[accum >> 11];
 				INT32 val2 = base[((accum + (1 << 11)) & voice->accum_mask) >> 11];
 
@@ -726,6 +732,9 @@ reverse:
 			while (samples--)
 			{
 				/* fetch two samples */
+#ifdef VGM_BIG_ENDIAN
+	#warning "ES5506 sound emulation not Endian-Safe!"
+#endif
 				INT32 val1 = (INT16)base[accum >> 11];
 				INT32 val2 = (INT16)base[((accum + (1 << 11)) & voice->accum_mask) >> 11];
 
@@ -760,6 +769,9 @@ reverse:
 			while (samples--)
 			{
 				/* fetch two samples */
+#ifdef VGM_BIG_ENDIAN
+	#warning "ES5506 sound emulation not Endian-Safe!"
+#endif
 				INT32 val1 = (INT16)base[accum >> 11];
 				INT32 val2 = (INT16)base[((accum + (1 << 11)) & voice->accum_mask) >> 11];
 
@@ -929,7 +941,7 @@ static void es5506_start_common(es5506_state *chip, int clock, UINT8 sndtype)
 	chip->sndtype = sndtype;
 	/* only override the number of channels if the value is in the valid range 1 .. 6 */
 	max_chns = chip->sndtype ? 6 : 4;	// 6 for ES5506, 4 for ES5505
-	if (chip->channels < 1|| chip->channels > max_chns)
+	if (chip->channels < 1 || chip->channels > max_chns)
 		chip->channels = 1;	/* 1 channel by default, for backward compatibility */
 	
 	/* debugging */

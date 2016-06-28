@@ -21,10 +21,10 @@
 #include "fm.h"
 
 
-#define EC_MAME		0x01	// AY8910 core from MAME
 #ifdef ENABLE_ALL_CORES
-#define EC_EMU2149	0x00
+#define EC_MAME		0x01	// AY8910 core from MAME
 #endif
+#define EC_EMU2149	0x00
 
 typedef struct _ym2610_state ym2610_state;
 struct _ym2610_state

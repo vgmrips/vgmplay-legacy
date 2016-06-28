@@ -1128,9 +1128,9 @@ INLINE INT32 SCSP_UpdateSlot(scsp_state *scsp, struct _SLOT *slot)
 		addr1+=smp; addr2+=smp;
 	}
 
-#if 0
-	// Since the SCSP is for Big Endian platforms, this code expects the data in
-	// byte order 1 0 3 2 5 4 ....
+#if 0	// --- old code ---
+	// Since the SCSP is for Big Endian platforms (and this is optimized for Little Endian),
+	// this code expects the data in byte order 1 0 3 2 5 4 ....
 	if(PCM8B(slot))	//8 bit signed
 	{
 		INT8 *p1=(signed char *) (scsp->SCSPRAM+BYTE_XOR_BE(((SA(slot)+addr1))&0x7FFFF));
@@ -1143,6 +1143,9 @@ INLINE INT32 SCSP_UpdateSlot(scsp_state *scsp, struct _SLOT *slot)
 	}
 	else	//16 bit signed (endianness?)
 	{
+#ifdef VGM_BIG_ENDIAN
+	#warning "SCSP sound emulation uses Endian-unsafe 16-Bit reads!"
+#endif
 		INT16 *p1=(signed short *) (scsp->SCSPRAM+((SA(slot)+addr1)&0x7FFFE));
 		INT16 *p2=(signed short *) (scsp->SCSPRAM+((SA(slot)+addr2)&0x7FFFE));
 		INT32 s;
@@ -1150,17 +1153,20 @@ INLINE INT32 SCSP_UpdateSlot(scsp_state *scsp, struct _SLOT *slot)
 		s=(int)(p1[0])*((1<<SHIFT)-fpart)+(int)(p2)*fpart;
 		sample=(s>>SHIFT);
 	}
+#else	// --- new code ---
+#ifdef VGM_BIG_ENDIAN
+#define READ_BE16(ptr)	(*(INT16*)ptr)
 #else
 #define READ_BE16(ptr)	(((ptr)[0] << 8) | (ptr)[1])
+#endif
 	// I prefer the byte order 0 1 2 3 4 5 ...
 	// also, I won't use pointers here, since they only used [0] on them anyway.
 	if(PCM8B(slot))	//8 bit signed
 	{
-		INT8 p1=(INT8)scsp->SCSPRAM[(SA(slot)+addr1)&0x7FFFF];
-		INT8 p2=(INT8)scsp->SCSPRAM[(SA(slot)+addr2)&0x7FFFF];
-		INT32 s;
+		INT16 p1=(INT8)scsp->SCSPRAM[(SA(slot)+addr1)&0x7FFFF]<<8;
+		INT16 p2=(INT8)scsp->SCSPRAM[(SA(slot)+addr2)&0x7FFFF]<<8;
 		INT32 fpart=slot->cur_addr&((1<<SHIFT)-1);
-		s=(int)(p1<<8)*((1<<SHIFT)-fpart)+(int)(p2<<8)*fpart;
+		INT32 s=(int)p1*((1<<SHIFT)-fpart)+(int)p2*fpart;
 		sample=(s>>SHIFT);
 	}
 	else	//16 bit signed
@@ -1169,9 +1175,8 @@ INLINE INT32 SCSP_UpdateSlot(scsp_state *scsp, struct _SLOT *slot)
 		UINT8 *pp2 = &scsp->SCSPRAM[(SA(slot)+addr2)&0x7FFFE];
 		INT16 p1 = (INT16)READ_BE16(pp1);
 		INT16 p2 = (INT16)READ_BE16(pp2);
-		INT32 s;
 		INT32 fpart=slot->cur_addr&((1<<SHIFT)-1);
-		s=(int)(p1)*((1<<SHIFT)-fpart)+(int)(p2)*fpart;
+		INT32 s=(int)p1*((1<<SHIFT)-fpart)+(int)p2*fpart;
 		sample=(s>>SHIFT);
 	}
 #endif
