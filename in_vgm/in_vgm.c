@@ -455,9 +455,6 @@ void LoadConfigurationFile(void)
 	sprintf(TempStr, "%s Internal 10bit", ChipName);
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 0, 1);
 	
-	sprintf(TempStr, "%s Remove DC Ofs", ChipName);
-	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 1, 1);
-	
 	// SCSP
 	ChipName = GetChipName(0x20);	TempCOpt = &ChipOpts[0x00].SCSP;
 	sprintf(TempStr, "%s Bypass DSP", ChipName);
@@ -629,9 +626,6 @@ void SaveConfigurationFile(void)
 	ChipName = GetChipName(0x17);	TempCOpt = &ChipOpts[0x00].OKIM6258;
 	sprintf(TempStr, "%s Internal 10bit", ChipName);
 	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 0, 1);
-	
-	sprintf(TempStr, "%s Remove DC Ofs", ChipName);
-	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 1, 1);
 	
 	// SCSP
 	ChipName = GetChipName(0x20);	TempCOpt = &ChipOpts[0x00].SCSP;

@@ -724,8 +724,8 @@ void okim6295_w(UINT8 ChipID, offs_t offset, UINT8 data)
 		chip->master_clock |= data << 16;
 		break;
 	case 0x0B:
-		if ((data >> 7) != chip->pin7_state)
-			printf("Pin 7 changed!\n");
+		//if ((data >> 7) != chip->pin7_state)
+		//	printf("Pin 7 changed!\n");
 		data &= 0x7F;	// fix a bug in MAME VGM logs
 		chip->master_clock &= ~0xFF000000;
 		chip->master_clock |= data << 24;

@@ -140,3 +140,7 @@ Updates since 0.4.0u6 (30.05.2015)
 - added option to enforce silence at the end of <1.50 VGMs
 - fixed memory leak when seeking back in songs that use the YM2610 (thanks to GTheGuardian for reporting)
 - fixed bug with X1-010 PCM loops
+
+Updates since 0.4.0u7 (04.05.2016)
+- fixed OKIM6258 ADPCM algorithm (thanks, XM6 source code)
+- "fixed" some Project2612 VGMs (worked around incorrect register order in the initialization block of Kega Fusion logs)

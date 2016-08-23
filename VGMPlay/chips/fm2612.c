@@ -1962,6 +1962,8 @@ static void OPNWriteReg(FM_OPN *OPN, int r, int v)
 		switch( OPN_SLOT(r) )
 		{
 		case 0:		/* 0xa0-0xa2 : FNUM1 */
+			if (IsVGMInit)
+				OPN->ST.fn_h = CH->block_fnum >> 8;
 			{
 				UINT32 fn = (((UINT32)( (OPN->ST.fn_h)&7))<<8) + v;
 				UINT8 blk = OPN->ST.fn_h>>3;
@@ -1978,8 +1980,12 @@ static void OPNWriteReg(FM_OPN *OPN, int r, int v)
 			break;
 		case 1:		/* 0xa4-0xa6 : FNUM2,BLK */
 			OPN->ST.fn_h = v&0x3f;
+			if (IsVGMInit)	// workaround for stupid Kega Fusion init block
+				CH->block_fnum = (OPN->ST.fn_h << 8) | (CH->block_fnum & 0xFF);
 			break;
 		case 2:		/* 0xa8-0xaa : 3CH FNUM1 */
+			if (IsVGMInit)
+				OPN->SL3.fn_h = OPN->SL3.block_fnum[c] >> 8;
 			if(r < 0x100)
 			{
 				UINT32 fn = (((UINT32)(OPN->SL3.fn_h&7))<<8) + v;
@@ -1994,7 +2000,11 @@ static void OPNWriteReg(FM_OPN *OPN, int r, int v)
 			break;
 		case 3:		/* 0xac-0xae : 3CH FNUM2,BLK */
 			if(r < 0x100)
+			{
 				OPN->SL3.fn_h = v&0x3f;
+				if (IsVGMInit)
+					OPN->SL3.block_fnum[c] = (OPN->SL3.fn_h << 8) | (OPN->SL3.block_fnum[c] & 0xFF);
+			}
 			break;
 		}
 		break;
