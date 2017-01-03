@@ -144,3 +144,6 @@ Updates since 0.4.0u6 (30.05.2015)
 Updates since 0.4.0u7 (04.05.2016)
 - fixed OKIM6258 ADPCM algorithm (thanks, XM6 source code)
 - "fixed" some Project2612 VGMs (worked around incorrect register order in the initialization block of Kega Fusion logs)
+- [VGMPlay] fixed YM2608/YM2610 "MutePCMCh" option not working
+- fixed bug with YM2612 "PseudoStereo" option
+- fixed YMF278B FM<->Wavetable volume balance, added code to emulate the "FM mix" register

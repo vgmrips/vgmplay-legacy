@@ -174,7 +174,7 @@ int device_start_ym2612(UINT8 ChipID, int clock)
 	
 	info = &YM2612Data[ChipID];
 	rate = clock/72;
-	if (EMU_CORE == EC_MAME && ! (ChipFlags & 0x02))
+	if (EMU_CORE == EC_MAME && ! (ChipFlags & 0x04))
 		rate /= 2;
 	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)

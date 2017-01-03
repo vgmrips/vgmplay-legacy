@@ -252,20 +252,24 @@ clean:
 # Thanks to ZekeSulastin and nextvolume for the install and uninstall routines.
 install:	vgmplay
 	install -m 755 vgmplay $(DESTDIR)$(PREFIX)/bin/vgmplay
+	mkdir -m 755 -p $(DESTDIR)$(MANPREFIX)/man1
 	install -m 644 vgmplay.1 $(DESTDIR)$(MANPREFIX)/man1/vgmplay.1
 	mkdir -m 755 -p $(DESTDIR)$(PREFIX)/share/vgmplay
 	install -m 644 VGMPlay.ini $(DESTDIR)$(PREFIX)/share/vgmplay/vgmplay.ini
-	-install -m 644 yrw801.rom $(DESTDIR)$(PREFIX)/share/vgmplay/yrw801.rom
+
+# install ROMs
+rom_install:
+	install -m 644 yrw801.rom $(DESTDIR)$(PREFIX)/share/vgmplay/yrw801.rom
 
 
 # Install the "vgm-player" wrapper
-play_inst:	install
+play_install:	install
 	install -m 755 vgm-player $(DESTDIR)$(PREFIX)/bin/vgm-player
 
 uninstall:
-	rm $(DESTDIR)$(PREFIX)/bin/vgmplay
-	rm $(DESTDIR)$(PREFIX)/bin/vgm-player
-	rm $(DESTDIR)$(MANPREFIX)/man1/vgmplay.1
+	rm -f $(DESTDIR)$(PREFIX)/bin/vgmplay
+	rm -f $(DESTDIR)$(PREFIX)/bin/vgm-player
+	rm -f $(DESTDIR)$(MANPREFIX)/man1/vgmplay.1
 	rm -rf $(DESTDIR)$(PREFIX)/share/vgmplay
 
 .PHONY: all clean install uninstall

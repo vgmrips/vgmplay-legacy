@@ -691,10 +691,11 @@ chips such as YM2612 and PWM.
 Dual Chip Support
 -----------------
 These chips support two instances of a chip in one vgm:
-PSG, YM2413, YM2612, YM2151, YM2203, YM2608, YM2610, YM3812, YM3526, Y8950,
-YMZ280B, YMF262, YMF278B, YMF271, AY8910, GameBoy DMG, NES APU, MultiPCM,
-uPD7759, OKIM6258, OKIM6295, K051649, K054539, HuC6280, C140, K053260, Pokey,
-SCSP
+PSG, YM2413, YM2612, YM2151, SegaPCM, YM2203, YM2608, YM2610, YM3812, YM3526,
+Y8950, YMZ280B, YMF262, YMF278B, YMF271, AY8910, GameBoy DMG, NES APU,
+MultiPCM, uPD7759, OKIM6258, OKIM6295, K051649, K054539, HuC6280, C140,
+K053260, Pokey, SCSP, WonderSwan, VSU, SAA1099, ES5503, ES5506, X1-010, C352,
+GA20.
 
 Dual chip support is activated by setting bit 30 (0x40000000) in the chip's
 clock value. (Note: The PSG needs this bit set for T6W28 mode.)

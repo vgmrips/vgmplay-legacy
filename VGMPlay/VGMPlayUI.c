@@ -1001,10 +1001,10 @@ static void ReadOptions(const char* AppName)
 		
 		StrLen = strlen(TempStr) - 0x01;
 		//if (TempStr[StrLen] == '\n')
-		//	TempStr[StrLen] = 0x00;
+		//	TempStr[StrLen] = '\0';
 		while(TempStr[StrLen] < 0x20)
 		{
-			TempStr[StrLen] = 0x00;
+			TempStr[StrLen] = '\0';
 			if (! StrLen)
 				break;
 			StrLen --;
@@ -1032,7 +1032,7 @@ static void ReadOptions(const char* AppName)
 			LStr ++;
 			RStr = strchr(TempStr, ']');
 			if (RStr != NULL)
-				RStr[0x00] = 0x00;
+				RStr[0x00] = '\0';
 			
 			if (! stricmp_u(LStr, "General"))
 			{
@@ -1057,16 +1057,16 @@ static void ReadOptions(const char* AppName)
 		{
 			// Line pattern: Option = Value
 			TempLng = RStr - TempStr;
-			TempStr[TempLng] = 0x00;
+			TempStr[TempLng] = '\0';
 			
 			// Prepare Strings (trim the spaces)
 			RStr = &TempStr[TempLng - 0x01];
 			while(*RStr == ' ')
-				*(RStr --) = 0x00;
+				*(RStr --) = '\0';
 			
 			RStr = &TempStr[StrLen - 0x01];
 			while(*RStr == ' ')
-				*(RStr --) = 0x00;
+				*(RStr --) = '\0';
 			RStr = &TempStr[TempLng + 0x01];
 			while(*RStr == ' ')
 				RStr ++;
@@ -1319,18 +1319,18 @@ static void ReadOptions(const char* AppName)
 							CurChn = (UINT8)strtol(LStr + 0x08, &TempPnt, 0);
 							if (TempPnt == NULL || *TempPnt)
 								break;
-							if (CurChn >= CHN_COUNT[CurChip])
+							if (CurChn >= CHN_MASK_CNT[CurChip])
 								break;
 							TempFlag = GetBoolFromStr(RStr);
 							TempCOpt->ChnMute1 &= ~(0x01 << CurChn);
 							TempCOpt->ChnMute1 |= TempFlag << CurChn;
 						}
-						else if (! strnicmp_u(LStr, "MutePCMCh", 0x08))
+						else if (! strnicmp_u(LStr, "MutePCMCh", 0x09))
 						{
-							CurChn = (UINT8)strtol(LStr + 0x08, &TempPnt, 0);
+							CurChn = (UINT8)strtol(LStr + 0x09, &TempPnt, 0);
 							if (TempPnt == NULL || *TempPnt)
 								break;
-							if (CurChn >= CHN_COUNT[CurChip])
+							if (CurChn >= CHN_MASK_CNT[CurChip])
 								break;
 							TempFlag = GetBoolFromStr(RStr);
 							TempCOpt->ChnMute2 &= ~(0x01 << CurChn);
@@ -1621,7 +1621,7 @@ static bool XMas_Extra(char* FileName, bool Mode)
 			hFile = fopen(FileName, "wb");
 			if (hFile == NULL)
 			{
-				FileName[0x00] = 0x00;
+				FileName[0x00] = '\0';
 				printerr("Critical XMas-Error!\n");
 				return false;
 			}
@@ -1755,7 +1755,7 @@ static bool OpenPlayListFile(const char* FileName)
 		RetStr = TempStr + strlen(TempStr) - 0x01;
 		while(RetStr >= TempStr && *RetStr < 0x20)
 		{
-			*RetStr = 0x00;	// remove NewLine-Characters
+			*RetStr = '\0';	// remove NewLine-Characters
 			RetStr --;
 		}
 		if (! strlen(TempStr))
