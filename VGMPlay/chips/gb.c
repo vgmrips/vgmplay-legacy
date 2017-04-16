@@ -687,7 +687,7 @@ void gameboy_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 			else
 			{
 				gb->snd_3.pos += 1 << 21;
-				if( gb->snd_3.pos >= (UINT32)gb->snd_3.period)
+				while( gb->snd_3.pos >= (UINT32)gb->snd_3.period)
 				{
 					gb->snd_3.pos -= (UINT32)gb->snd_3.period;
 					gb->snd_3.dutycount++;
