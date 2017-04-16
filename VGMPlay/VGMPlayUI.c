@@ -1445,18 +1445,6 @@ static void ReadOptions(const char* AppName)
 							TempCOpt->SpecialFlags &= ~(0x01 << 0);
 							TempCOpt->SpecialFlags |= TempFlag << 0;
 						}
-						else if (! stricmp_u(LStr, "LowerNoiseChn"))
-						{
-							TempFlag = GetBoolFromStr(RStr);
-							TempCOpt->SpecialFlags &= ~(0x01 << 1);
-							TempCOpt->SpecialFlags |= TempFlag << 1;
-						}
-						else if (! stricmp_u(LStr, "Inaccurate"))
-						{
-							TempFlag = GetBoolFromStr(RStr);
-							TempCOpt->SpecialFlags &= ~(0x01 << 2);
-							TempCOpt->SpecialFlags |= TempFlag << 2;
-						}
 						break;
 					case 0x14:	// NES
 						if (! stricmp_u(LStr, "SharedOpts"))

@@ -11,4 +11,5 @@ void device_stop_gameboy_sound(UINT8 ChipID);
 void device_reset_gameboy_sound(UINT8 ChipID);
 
 void gameboy_sound_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
+UINT32 gameboy_sound_get_mute_mask(UINT8 ChipID);
 void gameboy_sound_set_options(UINT8 Flags);

@@ -1,6 +1,6 @@
 // Winamp VGM input plug-in
 // ------------------------
-// Programmed by Valley Bell, 2011-2014
+// Programmed by Valley Bell, 2011-2017
 //
 // Made using the Example .RAW plug-in by Justin Frankel and
 // small parts (mainly dialogues) of the old in_vgm 0.35 by Maxim.
@@ -429,12 +429,6 @@ void LoadConfigurationFile(void)
 	sprintf(TempStr, "%s Boost WaveCh", ChipName);
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 0, 1);
 	
-	sprintf(TempStr, "%s Reduce NoiseCh", ChipName);
-	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 1, 1);
-	
-	sprintf(TempStr, "%s Inaccurate", ChipName);
-	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 2, 1);
-	
 	// NES
 	ChipName = GetChipName(0x14);	TempCOpt = &ChipOpts[0x00].NES;
 	TempCOpt->SpecialFlags &= 0x7FFF;
@@ -601,12 +595,6 @@ void SaveConfigurationFile(void)
 	ChipName = GetChipName(0x13);	TempCOpt = &ChipOpts[0x00].GameBoy;
 	sprintf(TempStr, "%s Boost WaveCh", ChipName);
 	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 0, 1);
-	
-	sprintf(TempStr, "%s Reduce NoiseCh", ChipName);
-	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 1, 1);
-	
-	sprintf(TempStr, "%s Inaccurate", ChipName);
-	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 2, 1);
 	
 	// NES
 	ChipName = GetChipName(0x14);	TempCOpt = &ChipOpts[0x00].NES;
