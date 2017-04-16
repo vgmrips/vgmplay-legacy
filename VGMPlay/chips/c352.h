@@ -15,6 +15,7 @@ void c352_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t DataL
 					const UINT8* ROMData);
 
 void c352_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
+UINT32 c352_get_mute_mask(UINT8 ChipID);
 void c352_set_options(UINT8 Flags);
 
 #endif /* __C352_H__ */
