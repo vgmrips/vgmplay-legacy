@@ -3,6 +3,25 @@
 #include <string.h>
 #include <wchar.h>
 
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <limits.h>
+#define MAX_PATH PATH_MAX
+#include <unistd.h>
+#include <libgen.h>
+#endif
+
+#ifdef WIN32
+#define DIR_CHR		'\\'
+#define DIR_STR		"\\"
+#define QMARK_CHR	'\"'
+#else
+#define DIR_CHR		'/'
+#define DIR_STR		"/"
+#define QMARK_CHR	'\''
+#endif
+
 #include "chips/mamedef.h"
 #include "stdbool.h"
 #include "VGMPlay.h"
@@ -17,6 +36,27 @@ extern UINT32 SampleRate;
 extern UINT32 VGMMaxLoopM;
 extern UINT32 FadeTime;
 extern bool EndPlay;
+extern char *AppPaths[8];
+static char AppPathBuffer[MAX_PATH * 2];
+
+static char* GetAppFileName(void)
+{
+	char* AppPath;
+	int RetVal;
+
+	AppPath = (char*)malloc(MAX_PATH * sizeof(char));
+#ifdef WIN32
+	RetVal = GetModuleFileName(NULL, AppPath, MAX_PATH);
+	if (! RetVal)
+		AppPath[0] = '\0';
+#else
+	RetVal = readlink("/proc/self/exe", AppPath, MAX_PATH);
+	if (RetVal == -1)
+		AppPath[0] = '\0';
+#endif
+
+	return AppPath;
+}
 
 INLINE int fputBE16(UINT16 Value, FILE* hFile)
 {
@@ -34,6 +74,11 @@ int main(int argc, char *argv[]) {
     WAVE_16BS *sampleBuffer;
     UINT32 bufferedLength;
     FILE *outputFile;
+    char *AppName;
+    char* AppPathPtr;
+    const char *StrPtr;
+    UINT8 CurPath;
+    UINT32 ChrPos;
 
     if (argc < 3) {
         fputs("usage: vgm2pcm vgm_file pcm_file\n", stderr);
@@ -41,6 +86,20 @@ int main(int argc, char *argv[]) {
     }
 
     VGMPlay_Init();
+	// Path 2: exe's directory
+	AppPathPtr = AppPathBuffer;
+	AppName = GetAppFileName();	// "C:\VGMPlay\VGMPlay.exe"
+	// Note: GetAppFileName always returns native directory separators.
+	StrPtr = strrchr(AppName, DIR_CHR);
+	if (StrPtr != NULL)
+	{
+		ChrPos = StrPtr + 1 - AppName;
+		strncpy(AppPathPtr, AppName, ChrPos);
+		AppPathPtr[ChrPos] = 0x00;	// "C:\VGMPlay\"
+		AppPaths[CurPath] = AppPathPtr;
+		CurPath ++;
+		AppPathPtr += ChrPos + 1;
+	}
     VGMPlay_Init2();
 
     if (!OpenVGMFile(argv[1])) {
