@@ -274,7 +274,7 @@ static void qsound_set_command(qsound_state *chip, UINT8 address, UINT16 data)
 			chip->channel[ch].bank = (data & 0x7f) << 16;	// Note: The most recent MAME doesn't do "& 0x7F"
 #ifdef _DEBUG
 			if (data && !(data & 0x8000))
-				printf("QSound Ch %u: Bank = %04x\n",ch,data);
+				fprintf(stderr, "QSound Ch %u: Bank = %04x\n",ch,data);
 #endif
 			break;
 		case 1:
@@ -295,7 +295,7 @@ static void qsound_set_command(qsound_state *chip, UINT8 address, UINT16 data)
 		case 3:
 #ifdef _DEBUG
 			if (chip->channel[ch].enabled && data != 0x8000)
-				printf("QSound Ch %u: KeyOn = %04x\n",ch,data);
+				fprintf(stderr, "QSound Ch %u: KeyOn = %04x\n",ch,data);
 #endif
 			// key on (does the value matter? it always writes 0x8000)
 			//chip->channel[ch].enabled = 1;
@@ -314,7 +314,7 @@ static void qsound_set_command(qsound_state *chip, UINT8 address, UINT16 data)
 			// master volume
 #ifdef _DEBUG
 			if (! chip->channel[ch].enabled && data)
-				printf("QSound update warning - please report!\n");
+				fprintf(stderr, "QSound update warning - please report!\n");
 #endif
 			chip->channel[ch].vol = data;
 			break;

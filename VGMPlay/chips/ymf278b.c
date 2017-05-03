@@ -1141,11 +1141,11 @@ static void ymf278b_load_rom(YMF278BChip *chip)
 			RetVal = fread(ROMFile, 0x01, ROMFileSize, hFile);
 			fclose(hFile);
 			if (RetVal != ROMFileSize)
-				printf("Error while reading OPL4 Sample ROM (%s)!\n", ROM_FILENAME);
+				fprintf(stderr, "Error while reading OPL4 Sample ROM (%s)!\n", ROM_FILENAME);
 		}
 		else
 		{
-			printf("Warning! OPL4 Sample ROM (%s) not found!\n", ROM_FILENAME);
+			fprintf(stderr, "Warning! OPL4 Sample ROM (%s) not found!\n", ROM_FILENAME);
 		}
 	}
 	

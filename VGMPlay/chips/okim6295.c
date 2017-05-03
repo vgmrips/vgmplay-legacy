@@ -614,7 +614,7 @@ void okim6295_write_command(okim6295_state *info, UINT8 data)
 
 		/* the manual explicitly says that it's not possible to start multiple voices at the same time */
 		if (temp != 0 && temp != 1 && temp != 2 && temp != 4 && temp != 8)
-			printf("OKI6295 start %x contact MAMEDEV\n", temp);
+			fprintf(stderr, "OKI6295 start %x contact MAMEDEV\n", temp);
 
 		/* update the stream */
 		//stream_update(info->stream);
@@ -725,7 +725,7 @@ void okim6295_w(UINT8 ChipID, offs_t offset, UINT8 data)
 		break;
 	case 0x0B:
 		//if ((data >> 7) != chip->pin7_state)
-		//	printf("Pin 7 changed!\n");
+		//	fprintf(stderr, "Pin 7 changed!\n");
 		data &= 0x7F;	// fix a bug in MAME VGM logs
 		chip->master_clock &= ~0xFF000000;
 		chip->master_clock |= data << 24;
@@ -760,7 +760,7 @@ void okim6295_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t D
 	{
 		chip->ROM = (UINT8*)realloc(chip->ROM, ROMSize);
 		chip->ROMSize = ROMSize;
-		//printf("OKIM6295: New ROM Size: 0x%05X\n", ROMSize);
+		//fprintf(stderr, "OKIM6295: New ROM Size: 0x%05X\n", ROMSize);
 		memset(chip->ROM, 0xFF, ROMSize);
 	}
 	if (DataStart > ROMSize)

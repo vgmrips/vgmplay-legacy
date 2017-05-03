@@ -125,7 +125,7 @@ void SEGAPCM_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 				v = rom[(addr >> 8) & rgnmask] - 0x80;
 #ifdef _DEBUG
 				if ((romusage[(addr >> 8) & rgnmask] & 0x03) == 0x02 && (voll || volr))
-					printf("Access to empty ROM section! (0x%06lX)\n",
+					fprintf(stderr, "Access to empty ROM section! (0x%06lX)\n",
 							((flags & spcm->bankmask) << spcm->bankshift) + (addr >> 8) & rgnmask);
 				romusage[(addr >> 8) & rgnmask] |= 0x01;
 #endif
@@ -180,7 +180,7 @@ void SEGAPCM_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 				v = rom[(addr >> 8) & rgnmask] - 0x80;
 #ifdef _DEBUG
 				if ((romusage[(addr >> 8) & rgnmask] & 0x03) == 0x02 && (regs[2] || regs[3]))
-					printf("Access to empty ROM section! (0x%06lX)\n",
+					fprintf(stderr, "Access to empty ROM section! (0x%06lX)\n",
 							((regs[0x86] & spcm->bankmask) << spcm->bankshift) + (addr >> 8) & rgnmask);
 				romusage[(addr >> 8) & rgnmask] |= 0x01;
 #endif

@@ -518,13 +518,13 @@ void VGMPlay_Init(void)
 #ifdef _DEBUG
 	if (sizeof(CHIP_AUDIO) != sizeof(CAUD_ATTR) * CHIP_COUNT)
 	{
-		printf("Fatal Error! ChipAudio structure invalid!\n");
+		fprintf(stderr, "Fatal Error! ChipAudio structure invalid!\n");
 		getchar();
 		exit(-1);
 	}
 	if (sizeof(CHIPS_OPTION) != sizeof(CHIP_OPTS) * CHIP_COUNT)
 	{
-		printf("Fatal Error! ChipOpts structure invalid!\n");
+		fprintf(stderr, "Fatal Error! ChipOpts structure invalid!\n");
 		getchar();
 		exit(-1);
 	}
@@ -1036,7 +1036,7 @@ void PlayVGM(void)
 		ResetPBTimer = false;
 		if (StartThread())
 		{
-			printf("Error starting Playing Thread!\n");
+			fprintf(stderr, "Error starting Playing Thread!\n");
 			return;
 		}
 #ifdef CONSOLE_MODE
@@ -1390,8 +1390,8 @@ static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize)
 	ReadVGMHeader(hFile, &VGMHead);
 	if (VGMHead.fccVGM != FCC_VGM)
 	{
-		printf("VGM signature matched on the first read, but not on the second one!\n");
-		printf("This is a known zlib bug where gzseek fails. Please install a fixed zlib.\n");
+		fprintf(stderr, "VGM signature matched on the first read, but not on the second one!\n");
+		fprintf(stderr, "This is a known zlib bug where gzseek fails. Please install a fixed zlib.\n");
 		return false;
 	}
 	
@@ -1400,19 +1400,19 @@ static bool OpenVGMFile_Internal(gzFile hFile, UINT32 FileSize)
 		VGMDataLen = VGMHead.lngEOFOffset;
 	if (! VGMHead.lngEOFOffset || VGMHead.lngEOFOffset > VGMDataLen)
 	{
-		printf("Warning! Invalid EOF Offset 0x%02X! (should be: 0x%02X)\n",
+		fprintf(stderr, "Warning! Invalid EOF Offset 0x%02X! (should be: 0x%02X)\n",
 				VGMHead.lngEOFOffset, VGMDataLen);
 		VGMHead.lngEOFOffset = VGMDataLen;
 	}
 	if (VGMHead.lngLoopOffset && ! VGMHead.lngLoopSamples)
 	{
 		// 0-Sample-Loops causes the program to hangs in the playback routine
-		printf("Warning! Ignored Zero-Sample-Loop!\n");
+		fprintf(stderr, "Warning! Ignored Zero-Sample-Loop!\n");
 		VGMHead.lngLoopOffset = 0x00000000;
 	}
 	if (VGMHead.lngDataOffset < 0x00000040)
 	{
-		printf("Warning! Invalid Data Offset 0x%02X!\n", VGMHead.lngDataOffset);
+		fprintf(stderr, "Warning! Invalid Data Offset 0x%02X!\n", VGMHead.lngDataOffset);
 		VGMHead.lngDataOffset = 0x00000040;
 	}
 	
@@ -4254,7 +4254,7 @@ static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data)
 		}
 	}
 	if (BankSize != TempBnk->DataSize)
-		printf("Error reading Data Block! Data Size conflict!\n");
+		fprintf(stderr, "Error reading Data Block! Data Size conflict!\n");
 	TempPCM->DataSize += BankSize;
 	
 	// realloc may've moved the Bank block, so refresh all DAC Streams
@@ -4342,12 +4342,12 @@ static void DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 			Ent2B = (UINT16*)PCMTbl.Entries;
 			if (! PCMTbl.EntryCount)
 			{
-				printf("Error loading table-compressed data block! No table loaded!\n");
+				fprintf(stderr, "Error loading table-compressed data block! No table loaded!\n");
 				return;
 			}
 			else if (BitDec != PCMTbl.BitDec || BitCmp != PCMTbl.BitCmp)
 			{
-				printf("Warning! Data block and loaded value table incompatible!\n");
+				fprintf(stderr, "Warning! Data block and loaded value table incompatible!\n");
 				return;
 			}
 		}
@@ -4448,13 +4448,13 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 			if (! PCMTbl.EntryCount)
 			{
 				Bank->DataSize = 0x00;
-				printf("Error loading table-compressed data block! No table loaded!\n");
+				fprintf(stderr, "Error loading table-compressed data block! No table loaded!\n");
 				return false;
 			}
 			else if (BitDec != PCMTbl.BitDec || BitCmp != PCMTbl.BitCmp)
 			{
 				Bank->DataSize = 0x00;
-				printf("Warning! Data block and loaded value table incompatible!\n");
+				fprintf(stderr, "Warning! Data block and loaded value table incompatible!\n");
 				return false;
 			}
 		}
@@ -4548,13 +4548,13 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 		if (! PCMTbl.EntryCount)
 		{
 			Bank->DataSize = 0x00;
-			printf("Error loading table-compressed data block! No table loaded!\n");
+			fprintf(stderr, "Error loading table-compressed data block! No table loaded!\n");
 			return false;
 		}
 		else if (BitDec != PCMTbl.BitDec || BitCmp != PCMTbl.BitCmp)
 		{
 			Bank->DataSize = 0x00;
-			printf("Warning! Data block and loaded value table incompatible!\n");
+			fprintf(stderr, "Warning! Data block and loaded value table incompatible!\n");
 			return false;
 		}
 		
@@ -4620,13 +4620,13 @@ static bool DecompressDataBlk(VGM_PCM_DATA* Bank, UINT32 DataSize, const UINT8* 
 		}
 		break;
 	default:
-		printf("Error: Unknown data block compression!\n");
+		fprintf(stderr, "Error: Unknown data block compression!\n");
 		return false;
 	}
 	
 #if defined(_DEBUG) && defined(WIN32)
 	Time = GetTickCount() - Time;
-	printf("Decompression Time: %u\n", Time);
+	fprintf(stderr, "Decompression Time: %u\n", Time);
 #endif
 	
 	return true;
@@ -4690,7 +4690,7 @@ static void ReadPCMTable(UINT32 DataSize, const UINT8* Data)
 	memcpy(PCMTbl.Entries, &Data[0x06], TblSize);
 	
 	if (DataSize < 0x06 + TblSize)
-		printf("Warning! Bad PCM Table Length!\n");
+		fprintf(stderr, "Warning! Bad PCM Table Length!\n");
 	
 	return;
 }
@@ -4874,7 +4874,7 @@ static void InterpretVGM(UINT32 SampleCount)
 					if (VGMHead.lngTotalSamples != (UINT32)VGMSmplPos)
 					{
 #ifdef CONSOLE_MODE
-						printf("Warning! Header Samples: %u\t Counted Samples: %u\n",
+						fprintf(stderr, "Warning! Header Samples: %u\t Counted Samples: %u\n",
 								VGMHead.lngTotalSamples, VGMSmplPos);
 						ErrorHappened = true;
 #endif
@@ -5635,7 +5635,7 @@ static void InterpretVGM(UINT32 SampleCount)
 #ifdef CONSOLE_MODE
 				if (! CmdList[Command])
 				{
-					printf("Unknown command: %02hX\n", Command);
+					fprintf(stderr, "Unknown command: %02hX\n", Command);
 					CmdList[Command] = true;
 				}
 #endif
@@ -5951,7 +5951,7 @@ static void ResampleChipStream(CA_LIST* CLst, WAVE_32BS* RetSample, UINT32 Lengt
 			InNow = (UINT32)fp2i_ceil(InPosL);
 			/*if (InNow - CAA->SmpNext >= SMPL_BUFSIZE)
 			{
-				printf("Sample Buffer Overflow!\n");
+				fprintf(stderr, "Sample Buffer Overflow!\n");
 #ifdef _DEBUG
 				*(char*)NULL = 0;
 #endif
@@ -5972,7 +5972,7 @@ static void ResampleChipStream(CA_LIST* CLst, WAVE_32BS* RetSample, UINT32 Lengt
 			InBase = FIXPNT_FACT + (UINT32)(InPosL - (SLINT)CAA->SmpNext * FIXPNT_FACT);
 			/*if (fp2i_floor(InBase) >= SMPL_BUFSIZE)
 			{
-				printf("Sample Buffer Overflow!\n");
+				fprintf(stderr, "Sample Buffer Overflow!\n");
 #ifdef _DEBUG
 				*(char*)NULL = 0;
 #endif
