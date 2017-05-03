@@ -48,10 +48,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    outputFile = fopen(argv[2], "wb");
-    if (outputFile == NULL) {
-        fprintf(stderr, "vgm2pcm: error: failed to open pcm_file (%s)\n", argv[2]);
-        return 1;
+    if(!strcmp(argv[2], "-")) {
+        outputFile = stdout;
+    } else {
+        outputFile = fopen(argv[2], "wb");
+        if (outputFile == NULL) {
+            fprintf(stderr, "vgm2pcm: error: failed to open pcm_file (%s)\n", argv[2]);
+            return 1;
+        }
     }
 
     PlayVGM();
