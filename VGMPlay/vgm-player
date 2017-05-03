@@ -228,7 +228,7 @@ done
 #   Prefers vgmplay in working dir over any others
 if [ -n "$_binary" ]; then
     break
-elif [ -x "$_pwd/vgmplay" ]; then
+elif [ -x "$_pwd/vgmplay" ] && [ -f "$_pwd/vgmplay" ]; then
     _binary="$_pwd/vgmplay"
 else
     _binary="$(command -v vgmplay 2>/dev/null)"
