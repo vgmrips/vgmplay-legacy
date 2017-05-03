@@ -252,6 +252,8 @@ clean:
 # Thanks to ZekeSulastin and nextvolume for the install and uninstall routines.
 install:	vgmplay
 	install -m 755 vgmplay $(DESTDIR)$(PREFIX)/bin/vgmplay
+	install -m 755 vgm2pcm $(DESTDIR)$(PREFIX)/bin/vgm2pcm
+	install -m 755 vgm2wav $(DESTDIR)$(PREFIX)/bin/vgm2wav
 	mkdir -m 755 -p $(DESTDIR)$(MANPREFIX)/man1
 	install -m 644 vgmplay.1 $(DESTDIR)$(MANPREFIX)/man1/vgmplay.1
 	mkdir -m 755 -p $(DESTDIR)$(PREFIX)/share/vgmplay
@@ -268,6 +270,8 @@ play_install:	install
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/vgmplay
+	rm -f $(DESTDIR)$(PREFIX)/bin/vgm2pcm
+	rm -f $(DESTDIR)$(PREFIX)/bin/vgm2wav
 	rm -f $(DESTDIR)$(PREFIX)/bin/vgm-player
 	rm -f $(DESTDIR)$(MANPREFIX)/man1/vgmplay.1
 	rm -rf $(DESTDIR)$(PREFIX)/share/vgmplay
