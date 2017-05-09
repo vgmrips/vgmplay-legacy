@@ -640,6 +640,8 @@ UINT32 FormatVGMTag(const UINT32 BufLen, in_char* Buffer, GD3_TAG* FileTag, VGM_
 					FormatStr ++;
 				}
 				TagStr = GetTagStringEngJap(TagStrE, TagStrJ, TempFlag);
+				if (TagStr == NULL)
+					TagStr = L"";
 #ifndef UNICODE_INPUT_PLUGIN
 				CnvBytes = WideCharToMultiByte(CP_THREAD_ACP, 0x00, TagStr, -1, CurBuf,
 												BufEnd - CurBuf, NULL, NULL);
@@ -1383,6 +1385,13 @@ DllExport int winampGetExtendedFileInfoW(const wchar_t* wfilename, const char* m
 	bool RetVal;
 	
 	RetVal = GetExtendedFileInfoW(wfilename, metadata, ret, retlen);
+#if 0
+	{
+		wchar_t MsgStr[MAX_PATH * 2];
+		swprintf(MsgStr, L"file: %s\nMetadata: %hs\nResult: %ls", wfilename, metadata, ret);
+		MessageBoxW(NULL, MsgStr, L"GetExtFileInfoW", MB_ICONINFORMATION | MB_OK);
+	}
+#endif
 	
 	return RetVal;
 }
@@ -1414,6 +1423,13 @@ DllExport int winampGetExtendedFileInfo(const char* filename, const char* metada
 	
 	free(FileNameW);
 	free(wRetStr);
+#if 0
+	{
+		char MsgStr[MAX_PATH * 2];
+		sprintf(MsgStr, "file: %s\nMetadata: %s\nResult: %s", filename, metadata, ret);
+		MessageBoxA(NULL, MsgStr, "GetExtFileInfoA", MB_ICONINFORMATION | MB_OK);
+	}
+#endif
 	
 	return RetVal;
 }
