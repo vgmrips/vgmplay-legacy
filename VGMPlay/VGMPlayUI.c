@@ -34,6 +34,7 @@
 #include "Stream.h"
 #include "VGMPlay.h"
 #include "VGMPlay_Intf.h"
+#include "mmkeys.h"
 
 #ifdef XMAS_EXTRA
 #include "XMasFiles/XMasBonus.h"
@@ -102,6 +103,7 @@ static void PrintChipStr(UINT8 ChipID, UINT8 SubType, UINT32 Clock);
 static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag);
 static void ShowVGMTag(void);
 
+static void MMKey_Event(UINT8 event);
 static void PlayVGM_UI(void);
 INLINE INT8 sign(double Value);
 INLINE long int Round(double Value);
@@ -172,6 +174,8 @@ static UINT8 NextPLCmd;
 static UINT8 PLMode;	// set to 1 to show Playlist text
 static bool FirstInit;
 extern bool AutoStopSkip;
+
+static UINT8 lastMMEvent = 0x00;
 
 static char VgmFileName[MAX_PATH];
 static UINT8 FileMode;
@@ -347,6 +351,9 @@ int main(int argc, char* argv[])
 	ReadOptions(AppName);
 	VGMPlay_Init2();
 	
+	MultimediaKeyHook_Init();
+	MultimediaKeyHook_SetCallback(&MMKey_Event);
+	
 	ErrRet = 0;
 	argbase = 0x01;
 	if (argc >= argbase + 0x01)
@@ -466,6 +473,7 @@ int main(int argc, char* argv[])
 	else
 		PLMode = 0x01;
 	
+	lastMMEvent = 0x00;
 	if (! PLMode)
 	{
 		PLFileCount = 0x00;
@@ -585,6 +593,7 @@ ExitProgram:
 //	printf("\x1B]0;${USER}@${HOSTNAME}: ${PWD/$HOME/~}\x07", APP_NAME);	// Reset xterm/rxvt Terminal Title
 #endif
 #endif
+	MultimediaKeyHook_Deinit();
 	VGMPlay_Deinit();
 	free(AppName);
 	
@@ -2056,6 +2065,13 @@ static void ShowVGMTag(void)
 }
 
 
+static void MMKey_Event(UINT8 event)
+{
+	lastMMEvent = event;
+	
+	return;
+}
+
 #define LOG_SAMPLES	(SampleRate / 5)
 static void PlayVGM_UI(void)
 {
@@ -2305,9 +2321,22 @@ static void PlayVGM_UI(void)
 			if (PlayingTime >= PlayTimeEnd)
 				QuitPlay = true;
 		}
-		if (_kbhit())
+		if (_kbhit() || lastMMEvent)
 		{
-			KeyCode = _getch();
+			if (lastMMEvent)
+			{
+				if (lastMMEvent == MMKEY_PLAY)
+					KeyCode = ' ';
+				else if (lastMMEvent == MMKEY_PREV)
+					KeyCode = 'B';
+				else if (lastMMEvent == MMKEY_NEXT)
+					KeyCode = 'N';
+				lastMMEvent = 0x00;
+			}
+			else
+			{
+				KeyCode = _getch();
+			}
 			if (KeyCode < 0x80)
 				KeyCode = toupper(KeyCode);
 			switch(KeyCode)

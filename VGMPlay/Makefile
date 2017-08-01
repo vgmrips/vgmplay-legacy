@@ -103,6 +103,9 @@ ifdef MACOSX
 else
 # for Linux, add librt (clock stuff) and libpthread (threads)
 LDFLAGS += -lrt -lpthread -pthread
+
+CFLAGS += $(shell pkg-config --cflags dbus-1 dbus-glib-1)
+LDFLAGS += $(shell pkg-config --libs dbus-1 dbus-glib-1)
 endif
 MAINFLAGS += -pthread -DSHARE_PREFIX=\"$(PREFIX)\"
 
@@ -205,7 +208,8 @@ EMUOBJS = \
 	$(EMUOBJ)/ym2413hd.o \
 	$(EMUOBJ)/ym2413_opl.o
 VGMPLAY_OBJS = \
-	$(OBJ)/VGMPlayUI.o
+	$(OBJ)/VGMPlayUI.o \
+	$(OBJ)/mmkeys_gdbus.o
 VGM2PCM_OBJS = \
 	$(OBJ)/vgm2pcm.o
 VGM2WAV_OBJS = \
