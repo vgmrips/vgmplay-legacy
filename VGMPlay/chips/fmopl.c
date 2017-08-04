@@ -2209,9 +2209,9 @@ static unsigned char OPLRead(FM_OPL *OPL,int a)
 		if(OPL->type&OPL_TYPE_ADPCM)
 		{
 #ifdef _DEBUG
-			logerror("Y8950 A/D convertion is accessed but not implemented !\n");
+			logerror("Y8950 A/D conversion is accessed but not implemented !\n");
 #endif
-			return 0x80; /* 2's complement PCM data - result from A/D convertion */
+			return 0x80; /* 2's complement PCM data - result from A/D conversion */
 		}
 		return 0;
 	}
