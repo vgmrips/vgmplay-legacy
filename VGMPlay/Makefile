@@ -113,8 +113,7 @@ LDFLAGS := -lm -lz $(LDFLAGS)
 ifeq ($(WINDOWS), 1)
 # for Windows, add kernel32 and winmm (Multimedia APIs)
 LDFLAGS += -lkernel32 -lwinmm
-endif
-
+else	# if UNIX
 ifeq ($(MACOSX), 1)
 # You might want to include additional paths using -I/some/path here,
 # in case some libraries (like libao) can't be found.
@@ -124,6 +123,7 @@ else
 LDFLAGS += -lrt -lpthread -pthread
 endif
 MAINFLAGS += -pthread -DSHARE_PREFIX=\"$(PREFIX)\"
+endif
 
 ifeq ($(USE_LIBAO), 1)
 LDFLAGS += -lao
