@@ -19,7 +19,7 @@ ifndef MACOSX
 MACOSX = 0
 endif
 
-ifeq ($(MACOSX), 1)
+ifeq ($(WINDOWS), 1)
 # no libAO for Windows
 USE_LIBAO = 0
 endif
