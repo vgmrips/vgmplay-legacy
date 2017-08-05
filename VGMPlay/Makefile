@@ -43,6 +43,7 @@ endif
 
 CC = gcc
 PREFIX = /usr/local
+#PREFIX = $(HOME)/.local
 MANPREFIX = $(PREFIX)/share/man
 
 # -- VGMPlay specific Compile Flags --

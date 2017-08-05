@@ -2281,7 +2281,7 @@ static void PlayVGM_UI(void)
 #endif
 		}
 #ifndef WIN32
-		if (! PausePlay)
+		if (! PausePlay && PlayingMode != 0x01)
 			WaveOutLinuxCallBack();
 		else
 			Sleep(100);
