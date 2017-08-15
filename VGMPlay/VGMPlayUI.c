@@ -144,6 +144,7 @@ extern bool FMForce;
 //extern bool FMAccurate;
 extern bool FMBreakFade;
 extern float FMVol;
+extern bool FMOPL2Pan;
 
 extern CHIPS_OPTION ChipOpts[0x02];
 
@@ -768,7 +769,9 @@ static void cls(void)
 	// put the cursor at (0, 0)
 	bSuccess = SetConsoleCursorPosition(hConsole, coordScreen);
 #else
-	system("clear");
+	int retVal;
+	
+	retVal = system("clear");
 #endif
 	
 	return;
@@ -1170,6 +1173,10 @@ static void ReadOptions(const char* AppName)
 				else if (! stricmp_u(LStr, "FMVolume"))
 				{
 					FMVol = (float)strtod(RStr, NULL);
+				}
+				else if (! stricmp_u(LStr, "FMOPL2Pan"))
+				{
+					FMOPL2Pan = GetBoolFromStr(RStr);
 				}
 				/*else if (! stricmp_u(LStr, "AccurateFM"))
 				{
