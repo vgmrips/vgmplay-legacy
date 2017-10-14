@@ -151,3 +151,8 @@ Updates since 0.4.0u7 (04.05.2016)
 - fixed YM2151 to use 10 bits per channel instead of 9 (improves Toms in Sharp X1 Space Harrier), thanks MovieMovies1
 - improved GameBoy emulation by porting current MAME core (ported from libvgm)
 - improved C352 emulation by porting ctr's updates from libvgm
+
+Updates since 0.4.0u8 (16.04.2017)
+- [in_vgm] fixed a crash and incorrect track times (thanks to NewRisingSun for the bug report)
+- fixed mid-sample frequency changes in DAC Stream Control (thanks NewRisingSun)
+- fixed SAA1099 sample rate and noise volume (thanks NewRisingSun)
