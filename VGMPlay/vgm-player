@@ -151,7 +151,7 @@ while :; do
         --help )
             _help ;;
         --version )
-            echo "VGMPlay 0.40.3 supporting VGM 1.70"
+            echo "VGMPlay 0.40.8 supporting VGM 1.71"
             exit 0 ;;
         -a | --alsa )
             _set_output alsa
@@ -277,7 +277,7 @@ fi
 # Determine output to use if not forced
 # Also sets pulse-server if detected
 # PULSE_SERVER, oss, padsp, aoss, log set, error
-if [ -n $_set_output ]; then
+if [ -z "$_set_output" ]; then
     if [ -n "$PULSE_SERVER" ] && [ -x "$_padsp" ]; then
         _set_output="pulse-server"
     elif [ -w /dev/dsp ]; then
