@@ -1291,6 +1291,12 @@ static void ReadOptions(const char* AppName)
 							TempCOpt->SpecialFlags &= ~(0x01 << 2);
 							TempCOpt->SpecialFlags |= TempFlag << 2;
 						}
+						else if (! stricmp_u(LStr, "NukedType"))
+						{
+							TempLng = (UINT32)strtoul(RStr, NULL, 0) & 0x03;
+							TempCOpt->SpecialFlags &= ~(0x03 << 3);
+							TempCOpt->SpecialFlags |= TempLng << 3;
+						}
 						break;
 					//case 0x03:	// YM2151
 					//case 0x04:	// SegaPCM

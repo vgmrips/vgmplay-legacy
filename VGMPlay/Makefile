@@ -213,6 +213,7 @@ EMUOBJS = \
 	$(EMUOBJ)/ym2151.o \
 	$(EMUOBJ)/ym2413.o \
 	$(EMUOBJ)/ym2612.o \
+	$(EMUOBJ)/ym3438.o \
 	$(EMUOBJ)/ymdeltat.o \
 	$(EMUOBJ)/ymf262.o \
 	$(EMUOBJ)/ymf271.o \

@@ -22,12 +22,14 @@
 #include "2612intf.h"
 #ifdef ENABLE_ALL_CORES
 #include "ym2612.h"
+#include "ym3438.h"
 #endif
 
 
 #define EC_MAME		0x00	// YM2612 core from MAME (now fixed, so it isn't worse than Gens anymore)
 #ifdef ENABLE_ALL_CORES
 #define EC_GENS		0x01	// Gens YM2612 core from in_vgm
+#define EC_NUKED	0x02	// Nuked YM3438/YM2612 core
 #endif
 
 typedef struct _ym2612_state ym2612_state;
@@ -114,6 +116,8 @@ void ym2612_update_request(void *param)
 		YM2612_Update(info->chip, DUMMYBUF, 0);
 		YM2612_DacAndTimers_Update(info->chip, DUMMYBUF, 0);
 		break;
+	case EC_NUKED:
+		break;
 #endif
 	}
 }
@@ -147,6 +151,9 @@ void ym2612_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 			outputs[0x01][i] = (stream_sample_t)GensBuf[0x01][i];
 		}
 		break;
+	case EC_NUKED:
+		OPN2_GenerateStream(info->chip, outputs, samples);
+		break;
 #endif
 	}
 }
@@ -174,7 +181,7 @@ int device_start_ym2612(UINT8 ChipID, int clock)
 	
 	info = &YM2612Data[ChipID];
 	rate = clock/72;
-	if (EMU_CORE == EC_MAME && ! (ChipFlags & 0x04))
+	if (EMU_CORE != EC_GENS && ! (ChipFlags & 0x04))
 		rate /= 2;
 	if ((CHIP_SAMPLING_MODE == 0x01 && rate < CHIP_SAMPLE_RATE) ||
 		CHIP_SAMPLING_MODE == 0x02)
@@ -208,6 +215,9 @@ int device_start_ym2612(UINT8 ChipID, int clock)
 		info->chip = YM2612_Init(clock, rate, 0x00);
 		YM2612_SetMute(info->chip, 0x80);	// Disable SSG-EG
 		break;
+	case EC_NUKED:
+		info->chip = malloc(sizeof(ym3438_t));
+		OPN2_Reset(info->chip, rate, clock);
 #endif
 	}
 	//assert_always(info->chip != NULL, "Error creating YM2612 chip");
@@ -239,6 +249,9 @@ void device_stop_ym2612(UINT8 ChipID)
 			GensBuf[0x01] = NULL;
 		}
 		break;
+	case EC_NUKED:
+		free(info->chip);
+		break;
 #endif
 	}
 }
@@ -257,6 +270,9 @@ void device_reset_ym2612(UINT8 ChipID)
 	case EC_GENS:
 		YM2612_Reset(info->chip);
 		break;
+	case EC_NUKED:
+		OPN2_Reset(info->chip, 0, 0);
+		break;
 #endif
 	}
 }
@@ -274,6 +290,8 @@ UINT8 ym2612_r(UINT8 ChipID, offs_t offset)
 #ifdef ENABLE_ALL_CORES
 	case EC_GENS:
 		return YM2612_Read(info->chip);
+	case EC_NUKED:
+		return OPN2_Read(info->chip, offset);
 #endif
 	default:
 		return 0x00;
@@ -293,6 +311,9 @@ void ym2612_w(UINT8 ChipID, offs_t offset, UINT8 data)
 #ifdef ENABLE_ALL_CORES
 	case EC_GENS:
 		YM2612_Write(info->chip, (unsigned char)(offset & 0x03), data);
+		break;
+	case EC_NUKED:
+		OPN2_WriteBuffered(info->chip, offset, data);
 		break;
 #endif
 	}
@@ -346,7 +367,7 @@ void ym2612_data_port_b_w(UINT8 ChipID, offs_t offset, UINT8 data)
 void ym2612_set_emu_core(UINT8 Emulator)
 {
 #ifdef ENABLE_ALL_CORES
-	EMU_CORE = (Emulator < 0x02) ? Emulator : 0x00;
+	EMU_CORE = (Emulator < 0x03) ? Emulator : 0x00;
 #else
 	EMU_CORE = EC_MAME;
 #endif
@@ -366,6 +387,9 @@ void ym2612_set_options(UINT8 Flags)
 	case EC_GENS:
 		YM2612_SetOptions(Flags);
 		break;
+	case EC_NUKED:
+		OPN2_SetOptions(Flags);
+		break;
 #endif
 	}
 	
@@ -383,6 +407,9 @@ void ym2612_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 #ifdef ENABLE_ALL_CORES
 	case EC_GENS:
 		YM2612_SetMute(info->chip, (int)MuteMask);
+		break;
+	case EC_NUKED:
+		OPN2_SetMute(info->chip, MuteMask);
 		break;
 #endif
 	}
