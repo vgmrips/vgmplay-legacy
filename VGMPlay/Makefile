@@ -9,54 +9,73 @@
 
 # (notice that you can just pass these as arguments when running make)
 
-# Uncomment if you build on Windows using MinGW.
-#WINDOWS = 1
+# set to 1 if you build on Windows using MinGW.
+ifndef WINDOWS
+WINDOWS = 0
+endif
 
-# Uncomment if you build on Mac OSX
-#MACOSX = 1
+# set to 1 if you build on Mac OSX
+ifndef MACOSX
+MACOSX = 0
+endif
 
-# disable Hardware OPL Support
-DISABLE_HWOPL_SUPPORT = 1
-
-# Uncomment if you want to use libao instead of OSS for sound streaming under Linux
-USE_LIBAO = 1
-
-# Uncomment for debug builds
-#DEBUG = 1
-
-# Uncomment for swprintf fix on older MinGW versions
-#OLD_SWPRINTF = 1
-
-# Byte Order
-#   0 = undefined (use endian-safe code, might be slightly slower)
-#   1 = Little Endian (Intel)
-#   2 = Big Endian (Motorola)
-BYTE_ORDER = 1
-
-
-ifdef MACOSX
-ifndef USE_LIBAO
+ifeq ($(WINDOWS), 1)
+# no libAO for Windows
+USE_LIBAO = 0
+endif
+ifeq ($(MACOSX), 1)
 # Mac OSX requires libAO
 USE_LIBAO = 1
 endif
+
+# disable Hardware OPL Support [enabled by default]
+ifndef DISABLE_HWOPL_SUPPORT
+DISABLE_HWOPL_SUPPORT = 1
 endif
 
+# set to 1 if you want to use libao instead of OSS for sound streaming under Linux [enabled by default]
+ifndef USE_LIBAO
+USE_LIBAO = 1
+endif
+
+# set to 1 for debug builds
+ifndef DEBUG
+DEBUG = 0
+endif
+
+# set to 1 for swprintf fix on older MinGW versions
+ifndef OLD_SWPRINTF
+OLD_SWPRINTF = 0
+endif
+
+# Byte Order
+#   0 = undefined (use endian-safe code, might be slightly slower)
+#   1 = Little Endian (Intel) [default]
+#   2 = Big Endian (Motorola)
+ifndef BYTE_ORDER
+BYTE_ORDER = 1
+endif
+
+
+
 CC = gcc
+ifndef PREFIX
 PREFIX = /usr/local
+#PREFIX = $(HOME)/.local
+endif
 MANPREFIX = $(PREFIX)/share/man
 
 # -- VGMPlay specific Compile Flags --
 MAINFLAGS := -DCONSOLE_MODE -DADDITIONAL_FORMATS -DSET_CONSOLE_TITLE
-ifdef WINDOWS
+ifeq ($(WINDOWS), 1)
 # MinGW defines __WINDOWS__, Visual Studio defines WIN32
 MAINFLAGS += -DWIN32
-ifdef OLD_SWPRINTF
+endif
+ifeq ($(OLD_SWPRINTF), 1)
 MAINFLAGS += -DOLD_SWPRINTF
 endif
-else
-ifdef USE_LIBAO
+ifeq ($(USE_LIBAO), 1)
 MAINFLAGS += -DUSE_LIBAO
-endif
 endif
 EMUFLAGS := -DENABLE_ALL_CORES
 
@@ -75,28 +94,27 @@ else
 endif
 endif
 
-ifdef DISABLE_HWOPL_SUPPORT
+ifeq ($(DISABLE_HWOPL_SUPPORT), 1)
 MAINFLAGS += -DDISABLE_HW_SUPPORT
 endif
 
 
 # -- General Compile Flags --
-ifdef DEBUG
-CFLAGS := -g $(CFLAGS)
-else
+ifeq ($(DEBUG), 0)
 CFLAGS := -O3 -g0 $(CFLAGS)
+else
+CFLAGS := -g $(CFLAGS)
 endif
 #CFLAGS += -Wall
 CFLAGS += -Wno-unused-variable -Wno-unused-value -Wno-unused-but-set-variable
 # libm (math library) and libz (zlib)
 LDFLAGS := -lm -lz $(LDFLAGS)
 
-ifdef WINDOWS
+ifeq ($(WINDOWS), 1)
 # for Windows, add kernel32 and winmm (Multimedia APIs)
 LDFLAGS += -lkernel32 -lwinmm
-else
-
-ifdef MACOSX
+else	# if UNIX
+ifeq ($(MACOSX), 1)
 # You might want to include additional paths using -I/some/path here,
 # in case some libraries (like libao) can't be found.
 #CFLAGS += -I/some/path
@@ -108,10 +126,10 @@ CFLAGS += $(shell pkg-config --cflags dbus-1 dbus-glib-1)
 LDFLAGS += $(shell pkg-config --libs dbus-1 dbus-glib-1)
 endif
 MAINFLAGS += -pthread -DSHARE_PREFIX=\"$(PREFIX)\"
-
-ifdef USE_LIBAO
-LDFLAGS += -lao
 endif
+
+ifeq ($(USE_LIBAO), 1)
+LDFLAGS += -lao
 endif
 
 # add Library Path, if defined
@@ -132,8 +150,8 @@ MAINOBJS = \
 	$(OBJ)/VGMPlay_AddFmts.o \
 	$(OBJ)/Stream.o \
 	$(OBJ)/ChipMapper.o
-ifdef WINDOWS
-ifndef DISABLE_HWOPL_SUPPORT
+ifeq ($(WINDOWS), 1)
+ifeq ($(DISABLE_HWOPL_SUPPORT), 0)
 MAINOBJS += $(OBJ)/pt_ioctl.o
 endif
 endif

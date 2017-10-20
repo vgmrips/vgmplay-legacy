@@ -317,6 +317,7 @@ bool FMForce;
 //bool FMAccurate;
 bool FMBreakFade;
 float FMVol;
+bool FMOPL2Pan;
 
 CHIPS_OPTION ChipOpts[0x02];
 
@@ -443,6 +444,7 @@ void VGMPlay_Init(void)
 	//FMAccurate = false;
 	FMBreakFade = false;
 	FMVol = 0.0f;
+	FMOPL2Pan = false;
 	SurroundSound = false;
 	VGMMaxLoop = 0x02;
 	VGMPbRate = 0;

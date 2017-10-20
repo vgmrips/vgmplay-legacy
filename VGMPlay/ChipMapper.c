@@ -85,6 +85,7 @@ extern bool WINNT_MODE;
 extern UINT16 FMPort;
 extern UINT8 PlayingMode;
 extern bool FMBreakFade;
+extern bool FMOPL2Pan;
 extern float FinalVol;
 
 #ifdef WIN32
@@ -730,14 +731,14 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 			}
 			break;
 		case 0x09:	// YM3812
-			if ((Offset & 0xF0) == 0xC0 && ! (Data & 0x30))
+			if ((Offset & 0xF0) == 0xC0 && (! FMOPL2Pan || ! (Data & 0x30)))
 				Data |= 0x30;
 			else if ((Offset & 0xF0) == 0xE0)
 				Data &= 0xF3;
 			OPL_RegMapper((ChipID << 8) | Offset, Data);
 			break;
 		case 0x0A:	// YM3526
-			if ((Offset & 0xF0) == 0xC0 && ! (Data & 0x30))
+			if ((Offset & 0xF0) == 0xC0 && (! FMOPL2Pan || ! (Data & 0x30)))
 				Data |= 0x30;
 			else if ((Offset & 0xF0) == 0xE0)
 				Data &= 0xF0;
@@ -746,7 +747,7 @@ void chip_reg_write(UINT8 ChipType, UINT8 ChipID,
 		case 0x0B:	// Y8950
 			if (Offset == 0x07 || (Offset >= 0x09 && Offset <= 0x17))
 				break;
-			if ((Offset & 0xF0) == 0xC0 && ! (Data & 0x30))
+			if ((Offset & 0xF0) == 0xC0 && (! FMOPL2Pan || ! (Data & 0x30)))
 				Data |= 0x30;
 			else if ((Offset & 0xF0) == 0xE0)
 				Data &= 0xF0;

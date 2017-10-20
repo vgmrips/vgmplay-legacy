@@ -3841,9 +3841,9 @@ UINT8 ym2608_read(void *chip,int a)
 			if(addr == 0x0f)
 			{
 #ifdef _DEBUG
-				logerror("YM2608 A/D convertion is accessed but not implemented !\n");
+				logerror("YM2608 A/D conversion is accessed but not implemented !\n");
 #endif
-				ret = 0x80; /* 2's complement PCM data - result from A/D convertion */
+				ret = 0x80; /* 2's complement PCM data - result from A/D conversion */
 			}
 		}
 		break;

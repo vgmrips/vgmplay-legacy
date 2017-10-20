@@ -5,7 +5,7 @@
 // (Custom Driver to handle PCM Streams of YM2612 DAC and PWM.)
 //
 // Written on 3 February 2011 by Valley Bell
-// Last Update: 04 October 2015
+// Last Update: 29 September 2017
 //
 // Only for usage in non-commercial, VGM file related software.
 
@@ -418,6 +418,8 @@ void daccontrol_set_frequency(UINT8 ChipID, UINT32 Frequency)
 	if (chip->Running & 0x80)
 		return;
 	
+	if (Frequency)
+		chip->Step = chip->Step * chip->Frequency / Frequency;
 	chip->Frequency = Frequency;
 	
 	return;

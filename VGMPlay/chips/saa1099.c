@@ -298,8 +298,8 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 				if (saa->noise[ch/3].level & 1)
 				{
 					// subtract to avoid overflows, also use only half amplitude
-					output_l -= saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 16 / 2;
-					output_r -= saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 16 / 2;
+					output_l -= saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 16;
+					output_r -= saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 16;
 				}
 			}
 
@@ -319,13 +319,13 @@ void saa1099_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 			{
 				if (saa->noise[ch/3].level & 1)
 				{
-					output_l += saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32 / 2;
-					output_r += saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32 / 2;
+					output_l += saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32;
+					output_r += saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32;
 				}
 				else
 				{
-					output_l -= saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32 / 2;
-					output_r -= saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32 / 2;
+					output_l -= saa->channels[ch].amplitude[ LEFT] * saa->channels[ch].envelope[ LEFT] / 32;
+					output_r -= saa->channels[ch].amplitude[RIGHT] * saa->channels[ch].envelope[RIGHT] / 32;
 				}
 			}
 
@@ -382,7 +382,7 @@ int device_start_saa1099(UINT8 ChipID, int clock)
 	//saa->device = device;
 	//saa->sample_rate = device->clock() / 256;
 	saa->master_clock = clock;
-	saa->sample_rate = clock / 256.0;
+	saa->sample_rate = clock / 128.0;
 
 	/* for each chip allocate one stream */
 	//saa->stream = device->machine().sound().stream_alloc(*device, 0, 2, saa->sample_rate, saa, saa1099_update);

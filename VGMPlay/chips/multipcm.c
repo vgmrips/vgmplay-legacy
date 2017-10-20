@@ -368,7 +368,7 @@ static void WriteSlot(MultiPCM *ptChip,struct _SLOT *slot,int reg,unsigned char 
 			{
 				if(data&0x80)		//KeyOn
 				{
-					slot->Sample=ptChip->Samples+slot->Regs[1];
+					slot->Sample=ptChip->Samples+slot->Regs[1]+((slot->Regs[2]&1)<<8);
 					slot->Playing=1;
 					slot->Base=slot->Sample->Start;
 					slot->offset=0;
@@ -382,9 +382,9 @@ static void WriteSlot(MultiPCM *ptChip,struct _SLOT *slot,int reg,unsigned char 
 					if(slot->Base>=0x100000)
 					{
 						if(slot->Pan&8)
-							slot->Base=(slot->Base&0xfffff)|(ptChip->BankL);
+							slot->Base=(slot->Base&0x3fffff)|(ptChip->BankL);
 						else
-							slot->Base=(slot->Base&0xfffff)|(ptChip->BankR);
+							slot->Base=(slot->Base&0x3fffff)|(ptChip->BankR);
 					}
 
 				}
