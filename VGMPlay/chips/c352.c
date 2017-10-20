@@ -85,6 +85,8 @@ typedef struct {
 
     UINT8 muteRear;     // flag from VGM header
     //UINT8 optMuteRear;  // option
+    
+    UINT16 mulaw_table[256];
 
 } C352;
 
@@ -114,10 +116,7 @@ static void C352_fetch_sample(C352 *c, C352_Voice *v)
         v->sample = s<<8;
         if(v->flags & C352_FLG_MULAW)
         {
-            s2 = (s&0x7f)>>4;
-
-            v->sample = ((s2*s2)<<4) - (~(s2<<1)) * (s&0x0f);
-            v->sample = (s&0x80) ? (~v->sample)<<5 : v->sample<<5;
+            v->sample = c->mulaw_table[s&0xff];
         }
         
         pos = v->pos&0xffff;
@@ -219,11 +218,11 @@ void c352_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
             {
                 // Left
                 out[0] += (((v->flags & C352_FLG_PHASEFL) ? -s : s) * v->curr_vol[0])>>8;
-                out[2] += (((v->flags & C352_FLG_PHASEFR) ? -s : s) * v->curr_vol[2])>>8;
+                out[2] += (((v->flags & C352_FLG_PHASERL) ? -s : s) * v->curr_vol[2])>>8;
 
                 // Right
-                out[1] += (((v->flags & C352_FLG_PHASERL) ? -s : s) * v->curr_vol[1])>>8;
-                out[3] += (((v->flags & C352_FLG_PHASERL) ? -s : s) * v->curr_vol[3])>>8;
+                out[1] += (((v->flags & C352_FLG_PHASEFR) ? -s : s) * v->curr_vol[1])>>8;
+                out[3] += (((v->flags & C352_FLG_PHASEFR) ? -s : s) * v->curr_vol[3])>>8;
             }
         }
 
@@ -256,6 +255,24 @@ int device_start_c352(UINT8 ChipID, int clock, int clkdiv)
     memset(c->v,0,sizeof(C352_Voice)*C352_VOICES);
 
     c352_set_mute_mask(ChipID, 0x00000000);
+    
+    int i,j=0;
+    for(i=0;i<128;i++)
+    {
+        c->mulaw_table[i] = j<<5;
+        if(i < 16)
+            j += 1;
+        else if(i < 24)
+            j += 2;
+        else if(i < 48)
+            j += 4;
+        else if(i < 100)
+            j += 8;
+        else
+            j += 16;
+    }
+    for(i=128;i<256;i++)
+        c->mulaw_table[i] = (~c->mulaw_table[i-128])&0xffe0;
 
     return c->sample_rate_base;
 }
@@ -364,9 +381,9 @@ void c352_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t DataL
     {
         c->wave = (UINT8*)realloc(c->wave, ROMSize);
         c->wavesize = ROMSize;
-		for (c->wave_mask = 1; c->wave_mask < c->wavesize; c->wave_mask <<= 1)
-			;
-		c->wave_mask --;
+        for (c->wave_mask = 1; c->wave_mask < c->wavesize; c->wave_mask <<= 1)
+            ;
+        c->wave_mask --;
         memset(c->wave, 0xFF, ROMSize);
     }
     if (DataStart > ROMSize)
