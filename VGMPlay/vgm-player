@@ -9,7 +9,7 @@
 # 7z support by Valley Bell
 
 trap '[ -n "$_tmpdir" ] && rm -rf "$_tmpdir"; [ -w "$_log_path/vgmplay.ini" ] && rm "$_log_path/vgmplay.ini"' EXIT
-trap '[ -n "$_tmpdir" ] && rm -rf "$_tmpdir"; [ -w "$_log_path/vgmplay.ini" ] && rm "$_log_path/vgmplay.ini"; reset' HUP INT QUIT TERM SEGV
+trap '[ -n "$_tmpdir" ] && rm -rf "$_tmpdir"; [ -w "$_log_path/vgmplay.ini" ] && rm "$_log_path/vgmplay.ini"' HUP INT QUIT TERM SEGV
 
 _set_output=
 _output=
@@ -251,7 +251,7 @@ esac
 if [ -r "$_config" ]; then
     break
 else
-    for i in "$_pwd" "$XDG_CONFIG_HOME/vgmplay" "$HOME/.config/vgmplay" "$XDG_CONFIG_DIRS/vgmplay" "/etc/xdg/vgmplay" "/usr/local/share/vgmplay" "/usr/share/vgmplay"; do
+    for i in "$_pwd" "$XDG_CONFIG_HOME/vgmplay" "$HOME/.config/vgmplay" "$XDG_CONFIG_DIRS/vgmplay" "$HOME/.local/share/vgmplay" "/etc/xdg/vgmplay" "/usr/local/share/vgmplay" "/usr/share/vgmplay"; do
         _config="$i/vgmplay.ini"
         [ -r "$_config" ] && break
     done
@@ -325,7 +325,7 @@ elif [ $_ext = "7z" ] || [ $_ext = "vgm7z" ]; then
         _m3u_stub="$(command grep < "$_tmpdir/extractlog" m3u | command sed 's/Extracting  //g')"
         _music_file="${_m3u_stub%%  }"
 		#echo "Test:$_music_file|"
-		if [ "$_music_file" == "" ]; then
+		if [ "$_music_file" = "" ]; then
 			_music_file="List.m3u"
 			#echo "Test:$_music_file|"
 	        command grep < "$_tmpdir/extractlog" vgm | command sed 's/Extracting  //g' >"$_tmpdir/$_music_file"
