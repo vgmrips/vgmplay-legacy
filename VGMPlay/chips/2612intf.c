@@ -179,6 +179,9 @@ int device_start_ym2612(UINT8 ChipID, int clock)
 	if (ChipID >= MAX_CHIPS)
 		return 0;
 	
+	int chiptype = clock&0x80000000;
+	clock&=0x3fffffff;
+	
 	info = &YM2612Data[ChipID];
 	rate = clock/72;
 	if (EMU_CORE != EC_GENS && ! (ChipFlags & 0x04))
@@ -217,6 +220,8 @@ int device_start_ym2612(UINT8 ChipID, int clock)
 		break;
 	case EC_NUKED:
 		info->chip = malloc(sizeof(ym3438_t));
+		if(chiptype)
+			OPN2_SetChipType(ym3438_type_discrete);
 		OPN2_Reset(info->chip, rate, clock);
 #endif
 	}

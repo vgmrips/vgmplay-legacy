@@ -2056,7 +2056,7 @@ const char* GetChipName(UINT8 ChipID)
 	const char* CHIP_STRS[CHIP_COUNT] = 
 	{	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
 		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B", "YMF271", "YMZ280B",
-		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
+		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "YMW258", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
 		"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
 		"GA20"};
@@ -2128,6 +2128,12 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 	case 0x01:
 		if (ChipID & 0x80)
 			RetStr = "VRC7";
+		break;
+	case 0x02:
+		if (! (ChipID & 0x80))
+			RetStr = "YM2612";
+		else
+			RetStr = "YM3438";
 		break;
 	case 0x04:
 		RetStr = "Sega PCM";
@@ -2279,6 +2285,7 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 		break;
 	case 0x02:
 		Clock = FileHead->lngHzYM2612;
+		AllowBit31 = 0x01;	// YM3438 Mode
 		break;
 	case 0x03:
 		Clock = FileHead->lngHzYM2151;
@@ -2704,7 +2711,6 @@ static void Chips_GeneralActions(UINT8 Mode)
 			ym2612_set_options((UINT8)ChipOpts[0x00].YM2612.SpecialFlags);
 			ChipOpts[0x01].YM2612.EmuCore = ChipOpts[0x00].YM2612.EmuCore;
 			ChipOpts[0x01].YM2612.SpecialFlags = ChipOpts[0x00].YM2612.SpecialFlags;
-			
 			ChipCnt = (VGMHead.lngHzYM2612 & 0x40000000) ? 0x02 : 0x01;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{
