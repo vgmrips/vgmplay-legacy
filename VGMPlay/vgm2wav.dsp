@@ -456,6 +456,14 @@ SOURCE=.\chips\ym2612.c
 
 SOURCE=.\chips\ym2612.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\chips\ym3438.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\ym3438.h
+# End Source File
 # End Group
 # Begin Group "FM OPx Chips"
 
