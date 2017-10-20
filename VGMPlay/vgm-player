@@ -17,11 +17,10 @@ _pulse_server=
 _log_path=
 _binary=
 _config=
-_unpacker=
 _pwd="$(pwd)"
 _host="$(hostname)"
 _ext=
-_unpacker=
+_unpack=false
 _tmpdir=
 _music_file=
 _m3u_stub=
@@ -238,8 +237,10 @@ fi
 # If a compressed pack, does a suitable unpacker exist?
 case $_ext in
     zip )
+        _unpack=true
         command -v unzip 2>/dev/null || _die no_unpacker ;;
     7z | vgm7z )
+        _unpack=true
         command -v 7z 2>/dev/null || _die no_unpacker ;;
     vgm | vgz | cmf | dro | m3u )
         break ;;
@@ -294,47 +295,24 @@ if [ -z "$_set_output" ]; then
 fi
 [ -n "$_pulse_server" ] && _set_output=pulse-server
 
-# Extract packs to tmpdir.
-if [ $_ext = "zip" ]; then
+if [ "$_unpack" = true ]; then
     if [ "$_set_output" = log ]; then
-        (   [ -d "$_log_path" ] && cd "$_log_path" || _die log_path_nowrite
-            command unzip "$_music_file" >"$_log_path/extractlog"
-        )
-        _m3u_stub="$(command grep < "$_log_path/extractlog" m3u | command sed 's/  inflating: \| extracting: //g')"
-        _music_file="$_log_path/${_m3u_stub%%  }"
-        command rm "$_log_path/extractlog"
+        [ -d "$_log_path" ] && cd "$_log_path" || _die log_path_nowrite
     else
-        (   [ -d "$_tmpdir" ] && cd "$_tmpdir" || _die tmpdir_failed
-            command unzip "$_music_file" >"$_tmpdir/extractlog"
-        )
-        _m3u_stub="$(command grep < "$_tmpdir/extractlog" m3u | command sed 's/  inflating: \| extracting: //g')"
-        _music_file="$_tmpdir/${_m3u_stub%%  }"
+        [ -d "$_tmpdir" ] && cd "$_tmpdir" || _die tmpdir_failed
     fi
-elif [ $_ext = "7z" ] || [ $_ext = "vgm7z" ]; then
-    if [ "$_set_output" = log ]; then
-        (   [ -d "$_log_path" ] && cd "$_log_path" || _die log_path_nowrite
-            command 7z x "$_music_file" >"$_log_path/extractlog"
-        )
-        _m3u_stub="$(command grep < "$_log_path/extractlog" m3u | command sed 's/Extracting  //g')"
-        _music_file="$_log_path/${_m3u_stub%%  }"
-        command rm "$_log_path/extractlog"
-    else
-        (   [ -d "$_tmpdir" ] && cd "$_tmpdir" || _die tmpdir_failed
-            command 7z x "$_music_file" >"$_tmpdir/extractlog"
-        )
-        _m3u_stub="$(command grep < "$_tmpdir/extractlog" m3u | command sed 's/Extracting  //g')"
-        _music_file="${_m3u_stub%%  }"
-		#echo "Test:$_music_file|"
-		if [ "$_music_file" = "" ]; then
-			_music_file="List.m3u"
-			#echo "Test:$_music_file|"
-	        command grep < "$_tmpdir/extractlog" vgm | command sed 's/Extracting  //g' >"$_tmpdir/$_music_file"
-			#exec cat "$_music_file"
-		fi
-		_music_file="$_tmpdir/$_music_file"
+    if [ $_ext = "zip" ]; then
+        command unzip "$_music_file" > /dev/null
+    elif [ $_ext = "7z" ] || [ $_ext = "vgm7z" ]; then
+        command 7z x "$_music_file" > /dev/null
     fi
+    _m3u_stub=$(command ls *.m3u 2> /dev/null | tail -n 1)
+    if [ -z "$_m3u_stub" ]; then
+        _m3u_stub="List.m3u"
+        ls *.vgm *.vgz > "$_m3u_stub" 2> /dev/null
+    fi
+    _music_file="$PWD/$_m3u_stub"
 fi
-_music_file=`echo "$_music_file" | sed -e "s/\\s*$//g"`
 
 # Plays back song with specified everything
 case $_set_output in
