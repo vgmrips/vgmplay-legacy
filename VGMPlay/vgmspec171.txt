@@ -120,13 +120,13 @@ The format starts with a 256 byte header:
         It should be 0 if there us no YM2612 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2612.
-        If bit 31 is set it is a YM3438.
+        If bit 31 is set it is a YM3438 (version 1.51+).
 0x30: YM2151/YM2164 clock (32 bits)
         Input clock rate in Hz for the YM2151 chip. A typical value is 3579545.
         It should be 0 if there us no YM2151 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2151.
-        If bit 31 is set it is a YM2164.
+        If bit 31 is set it is a YM2164 (version 1.51+).
 [VGM 1.50 additions:]
 0x34: VGM data offset (32 bits)
         Relative offset to VGM data stream.
