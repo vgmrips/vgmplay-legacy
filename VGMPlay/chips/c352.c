@@ -108,7 +108,7 @@ static void C352_fetch_sample(C352 *c, C352_Voice *v)
     }
     else
     {
-        INT8 s, s2;
+        INT8 s;
         UINT16 pos;
 
         s = (INT8)c->wave[v->pos & c->wave_mask];
@@ -239,6 +239,7 @@ void c352_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 int device_start_c352(UINT8 ChipID, int clock, int clkdiv)
 {
     C352 *c;
+    int i,j;
 
     if (ChipID >= MAX_CHIPS)
         return 0;
@@ -256,7 +257,7 @@ int device_start_c352(UINT8 ChipID, int clock, int clkdiv)
 
     c352_set_mute_mask(ChipID, 0x00000000);
     
-    int i,j=0;
+    j=0;
     for(i=0;i<128;i++)
     {
         c->mulaw_table[i] = j<<5;

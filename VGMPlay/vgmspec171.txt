@@ -180,7 +180,7 @@ The format starts with a 256 byte header:
         Input clock rate in Hz for the PWM chip. A typical value is
         23011361. It should be 0 if there is no PWM chip used.
 0x74: AY8910 clock (32 bits)
-        Input clock rate in Hz for the AY8910 chip. A typical value is 1789750.
+        Input clock rate in Hz for the AY8910 chip. A typical value is 1789773.
         It should be 0 if there is no AY8910 chip used.
 0x78: AY8910 Chip Type (8 bits)
         Defines the exact type of AY8910. The values are:
