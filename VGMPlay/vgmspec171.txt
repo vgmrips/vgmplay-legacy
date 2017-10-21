@@ -115,13 +115,13 @@ The format starts with a 256 byte header:
         For version 1.51 and earlier files, all the flags should not be set.
         If the PSG is not used then this may be omitted (left at zero).
 [VGM 1.10 additions:]
-0x2C: YM2612 clock (32 bits)
+0x2C: YM2612/YM3438 clock (32 bits)
         Input clock rate in Hz for the YM2612 chip. A typical value is 7670454.
         It should be 0 if there us no YM2612 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2612.
         If bit 31 is set it is a YM3438.
-0x30: YM2151 clock (32 bits)
+0x30: YM2151/YM2164 clock (32 bits)
         Input clock rate in Hz for the YM2151 chip. A typical value is 3579545.
         It should be 0 if there us no YM2151 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
@@ -284,7 +284,7 @@ The format starts with a 256 byte header:
 0x98: OKIM6295 clock (32 bits)
         Input clock rate in Hz for the OKIM6295 chip. A typical value is
         8000000. It should be 0 if there is no OKIM6295 chip used.
-0x9C: K051649 clock (32 bits)
+0x9C: K051649/K052539 clock (32 bits)
         Input clock rate in Hz for the K051649 chip. A typical value is
         1789773. It should be 0 if there is no K051649 chip used.
         If bit 31 is set it is a K052539.
