@@ -286,7 +286,7 @@ The format starts with a 256 byte header:
         8000000. It should be 0 if there is no OKIM6295 chip used.
 0x9C: K051649 clock (32 bits)
         Input clock rate in Hz for the K051649 chip. A typical value is
-        1500000. It should be 0 if there is no K051649 chip used.
+        1789773. It should be 0 if there is no K051649 chip used.
         If bit 31 is set it is a K052539.
 0xA0: K054539 clock (32 bits)
         Input clock rate in Hz for the K054539 chip. A typical value is
