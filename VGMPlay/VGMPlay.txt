@@ -34,7 +34,7 @@ Supported chips
 - AY8910 (MSX PSG)
 - GameBoy DMG
 - NES APU (incl. FDS)
-- MultiPCM
+- YMW258 (MultiPCM)
 - UPD7759
 - OKI6258 (Sharp X68000 ADPCM)
 - OKI6295

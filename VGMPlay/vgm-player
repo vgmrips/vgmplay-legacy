@@ -68,7 +68,7 @@ exit 0
 }
 
 _to_stderr () {
-    echo "$0: $2" 1>&2
+    echo -e "$0: $2" 1>&2
     exit $1
 }
 
@@ -114,6 +114,10 @@ _die () {
             _to_stderr 69 "no usable otuput detected" ;;
         log_path_nowrite )
             _to_stderr 73 "log path unwriteable" ;;
+        no_music_file )
+            _to_stderr 64 "No music file specified." ;;
+        * )
+            _to_stderr 64 "Unhandled script error: $1" ;;
     esac
 }
 
@@ -138,7 +142,7 @@ _set_output () {
 # Set terminal title for xterm/rxvt
 case $TERM in
     xterm* | rxvt* )
-        printf '%b\n' '\033]2;VGM Player\007' ;;
+        printf '%b' '\033]2;VGM Player\007' ;;
     * )
         ;;
 esac
@@ -149,8 +153,8 @@ while :; do
     case $1 in
         --help )
             _help ;;
-        --version )
-            echo "VGMPlay 0.40.8 supporting VGM 1.71"
+        -v | --version )
+            echo "VGMPlay 0.40.8 player script"
             exit 0 ;;
         -a | --alsa )
             _set_output alsa
@@ -254,6 +258,8 @@ if [ -r "$_config" ]; then
 else
     for i in "$_pwd" "$XDG_CONFIG_HOME/vgmplay" "$HOME/.config/vgmplay" "$XDG_CONFIG_DIRS/vgmplay" "$HOME/.local/share/vgmplay" "/etc/xdg/vgmplay" "/usr/local/share/vgmplay" "/usr/share/vgmplay"; do
         _config="$i/vgmplay.ini"
+        [ -r "$_config" ] && break
+        _config="$i/VGMPlay.ini"
         [ -r "$_config" ] && break
     done
 fi
