@@ -29,8 +29,11 @@
 #include <string.h>
 #include "ym3438.h"
 
-#define OUTPUT_FACTOR 13
-#define OUTPUT_FILTER 0.293630905
+//#define OUTPUT_FACTOR 13
+//#define OUTPUT_FILTER_B 0.708809388238497 // Broken megadrive (3000hz or something)
+#define OUTPUT_FACTOR 12
+#define OUTPUT_FILTER_B 0.512331301282628 // 5894Hz
+#define OUTPUT_FILTER (1-OUTPUT_FILTER_B)
 
 enum {
     eg_num_attack = 0,
