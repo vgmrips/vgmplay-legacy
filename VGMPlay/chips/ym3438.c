@@ -29,6 +29,9 @@
 #include <string.h>
 #include "ym3438.h"
 
+#define OUTPUT_FACTOR 13
+#define OUTPUT_FILTER 0.293630905
+
 enum {
     eg_num_attack = 0,
     eg_num_decay = 1,
@@ -1511,8 +1514,9 @@ void OPN2_GenerateResampled(ym3438_t *chip, Bit32s *buf)
             }
             chip->writebuf_samplecnt++;
         }
-        chip->samples[0] *= 11;
-        chip->samples[1] *= 11;
+        chip->samples[0] = chip->oldsamples[0] + OUTPUT_FILTER * (chip->samples[0]*OUTPUT_FACTOR - chip->oldsamples[0]);
+        chip->samples[1] = chip->oldsamples[1] + OUTPUT_FILTER * (chip->samples[1]*OUTPUT_FACTOR - chip->oldsamples[1]);
+
         chip->samplecnt -= chip->rateratio;
     }
     buf[0] = (Bit32s)((chip->oldsamples[0] * (chip->rateratio - chip->samplecnt)
