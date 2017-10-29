@@ -5864,7 +5864,7 @@ static void dual_ay8910_stereo(UINT8 ChipID, stream_sample_t **outputs, int samp
 {
 	ayxx_stream_update(ChipID, outputs, samples);
 	
-	// Dual-OPL with Stereo
+	// Dual AY8910 with Stereo
 	if (ChipID & 0x01)
 		memset(outputs[0x00], 0x00, sizeof(stream_sample_t) * samples);	// Mute Left Chanel
 	else
@@ -5877,7 +5877,7 @@ static void dual_ym2203ay_stereo(UINT8 ChipID, stream_sample_t **outputs, int sa
 {
 	ym2203_stream_update_ay(ChipID, outputs, samples);
 	
-	// Dual-OPL with Stereo
+	// Dual YM2203 (AY part) with Stereo
 	if (ChipID & 0x01)
 		memset(outputs[0x00], 0x00, sizeof(stream_sample_t) * samples);	// Mute Left Chanel
 	else
