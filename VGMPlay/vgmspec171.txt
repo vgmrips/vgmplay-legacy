@@ -255,7 +255,6 @@ The format starts with a 256 byte header:
         8053975. It should be 0 if there is no MultiPCM chip used.
 0x8C: uPD7759 clock (32 bits)
         Input clock rate in Hz for the uPD7759 chip. A typical value is 640000.
-        It should be 0 if there is no uPD7759 chip used.
         It should be 0 if there is no uPD7759 chip used. Set bit 31 (0x80000000)
         to denote that the chip is in a Slave, clear bit 31 to denote that the
         chip is in a Master configuration.
