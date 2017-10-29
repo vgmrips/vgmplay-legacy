@@ -60,6 +60,7 @@ The format starts with a 256 byte header:
 0x10: YM2413 clock (32 bits)
         Input clock rate in Hz for the YM2413 chip. A typical value is 3579545.
         It should be 0 if there is no YM2413 chip used.
+        If bit 31 is set it is a VRC7 (version 1.51+).
 0x14: GD3 offset (32 bits)
         Relative offset to GD3 tag. 0 if no GD3 tag.
         GD3 tags are descriptive tags similar in use to ID3 tags in MP3 files.
@@ -376,6 +377,7 @@ written to the chips or timing information. A command is one of:
                Bit 4-5: Channel C mask (00=off, 01=left, 10=right, 11=center)
                Bit 6: Chip type, 0=AY8910, 1=YM2203 AY8910 part.
                Bit 7: Chip number, 0 or 1.
+  0x3F dd    : Used for dual chip support: see below
   0x4F dd    : Game Gear PSG stereo, write dd to port 0x06
   0x50 dd    : PSG (SN76489/SN76496) write value dd
   0x51 aa dd : YM2413, write value dd to register aa
