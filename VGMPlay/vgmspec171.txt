@@ -115,16 +115,18 @@ The format starts with a 256 byte header:
         For version 1.51 and earlier files, all the flags should not be set.
         If the PSG is not used then this may be omitted (left at zero).
 [VGM 1.10 additions:]
-0x2C: YM2612 clock (32 bits)
+0x2C: YM2612/YM3438 clock (32 bits)
         Input clock rate in Hz for the YM2612 chip. A typical value is 7670454.
         It should be 0 if there us no YM2612 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2612.
-0x30: YM2151 clock (32 bits)
+        If bit 31 is set it is a YM3438 (version 1.51+).
+0x30: YM2151/YM2164 clock (32 bits)
         Input clock rate in Hz for the YM2151 chip. A typical value is 3579545.
         It should be 0 if there us no YM2151 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2151.
+        If bit 31 is set it is a YM2164 (version 1.51+).
 [VGM 1.50 additions:]
 0x34: VGM data offset (32 bits)
         Relative offset to VGM data stream.
@@ -201,7 +203,8 @@ The format starts with a 256 byte header:
         bit 2   Discrete Output
         bit 3   RAW Output
         bit 4   YM2149 Pin 26 (additional /2 clock divider)
-        bit 5-7 reserved (must be zero)
+        bit 5-6 reserved (must be zero)
+        bit 7   Use ZX-Spectrum-like pan configuration (Left-Center-Right).
         If the AY8910 is not used then this may be omitted (left at zero).
 0x7A: YM2203/AY8910 Flags (8 bits)
         Misc flags for the AY8910. This one is specific for the AY8910 that's
@@ -252,7 +255,9 @@ The format starts with a 256 byte header:
         8053975. It should be 0 if there is no MultiPCM chip used.
 0x8C: uPD7759 clock (32 bits)
         Input clock rate in Hz for the uPD7759 chip. A typical value is 640000.
-        It should be 0 if there is no uPD7759 chip used.
+        It should be 0 if there is no uPD7759 chip used. Set bit 31 (0x80000000)
+        to denote that the chip is in a Slave, clear bit 31 to denote that the
+        chip is in a Master configuration.
 0x90: OKIM6258 clock (32 bits)
         Input clock rate in Hz for the OKIM6258 chip. A typical value is
         4000000. It should be 0 if there is no OKIM6258 chip used.
@@ -282,9 +287,11 @@ The format starts with a 256 byte header:
 0x98: OKIM6295 clock (32 bits)
         Input clock rate in Hz for the OKIM6295 chip. A typical value is
         8000000. It should be 0 if there is no OKIM6295 chip used.
-0x9C: K051649 clock (32 bits)
+        Set bit 31 (0x80000000) to denote the status of pin 7.
+0x9C: K051649/K052539 clock (32 bits)
         Input clock rate in Hz for the K051649 chip. A typical value is
-        1500000. It should be 0 if there is no K051649 chip used.
+        1789773. It should be 0 if there is no K051649 chip used.
+        If bit 31 is set it is a K052539.
 0xA0: K054539 clock (32 bits)
         Input clock rate in Hz for the K054539 chip. A typical value is
         18432000. It should be 0 if there is no K054539 chip used.
@@ -362,6 +369,13 @@ Starting at the location specified by the VGM data offset (or, offset 0x40 for
 file versions below 1.50) is found a sequence of commands containing data
 written to the chips or timing information. A command is one of:
 
+  0x30 dd    : Used for dual chip support: see below
+  0x31 dd    : Set AY8910 stereo mask.
+               Bit 0-1: Channel A mask (00=off, 01=left, 10=right, 11=center)
+               Bit 2-3: Channel B mask (00=off, 01=left, 10=right, 11=center)
+               Bit 4-5: Channel C mask (00=off, 01=left, 10=right, 11=center)
+               Bit 6: Chip type, 0=AY8910, 1=YM2203 AY8910 part.
+               Bit 7: Chip number, 0 or 1.
   0x4F dd    : Game Gear PSG stereo, write dd to port 0x06
   0x50 dd    : PSG (SN76489/SN76496) write value dd
   0x51 aa dd : YM2413, write value dd to register aa
@@ -399,6 +413,8 @@ written to the chips or timing information. A command is one of:
                NOT n+1. (Note: Written to first chip instance only.)
   0x90-0x95  : DAC Stream Control Write: see below
   0xA0 aa dd : AY8910, write value dd to register aa
+  0xA1-0xAF
+       aa dd : Used for dual chip support: see below
   0xB0 aa dd : RF5C68, write value dd to register aa
   0xB1 aa dd : RF5C164, write value dd to register aa
   0xB2 ad dd : PWM, write value ddd to register a (d is MSB, dd is LSB)
@@ -446,12 +462,9 @@ written to the chips or timing information. A command is one of:
 
 Some ranges are reserved for future use, with different numbers of operands:
 
-  0x30..0x3F dd          : one operand, reserved for future use
-                           Note: used for dual-chip support (see below)
+  0x32..0x3E dd          : one operand, reserved for future use
   0x40..0x4E dd dd       : two operands, reserved for future use
                            Note: was one operand only til v1.60
-  0xA1..0xAF dd dd       : two operands, reserved for future use
-                           Note: used for dual-chip support (see below)
   0xC9..0xCF dd dd dd    : three operands, reserved for future use
   0xD7..0xDF dd dd dd    : three operands, reserved for future use
   0xE2..0xFF dd dd dd dd : four operands, reserved for future use
@@ -715,6 +728,10 @@ between the 1st and 2nd chip. (0x00-7F = Chip 1, 0x80-0xFF = chip 2)
 Note: The SegaPCM chip has the 2nd-chip-bit in the high byte of the address
 parameter. This is the second parameter byte.
 
+Note: For the YM3812 only, setting bit 31 (0x80000000) in the chip's clock
+value hard-pans the first chip on the left and the second chip on the right.
+This replicates the pan configuration of the Sound Blaster Pro 1 and Pro
+Audio Spectrum sound cards on the IBM PC.
 
 Extra Header
 ------------
@@ -847,4 +864,12 @@ Data blocks (type 0x) for OKIM6258, HuC6280, SCSP and NES added.
 VGM v1.61 players should support the data block of their respective chips
 despite their late addition.
 
-All changes done by Valley Bell.
+Added bit 31 flags to change chip types for YM2612, YM2151 and K051649. These
+changes should be considered backwards compatible with VGM 1.51. [grauw, ctr]
+
+Added command 0x31 to set AY8910 stereo mask. [NewRisingSun]
+
+Documented some chip flags that have been present since earlier versions of
+VGMPlay. [NewRisingSun]
+
+All other changes done by Valley Bell.

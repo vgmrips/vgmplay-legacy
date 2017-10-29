@@ -41,4 +41,5 @@ void ym2203_write_port_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
 void ym2203_set_ay_emu_core(UINT8 Emulator);
 void ym2203_set_mute_mask(UINT8 ChipID, UINT32 MuteMaskFM, UINT32 MuteMaskAY);
+void ym2203_set_stereo_mask_ay(UINT8 ChipID, UINT32 StereoMaskAY);
 void ym2203_set_srchg_cb(UINT8 ChipID, SRATE_CALLBACK CallbackFunc, void* DataPtr, void* AYDataPtr);

@@ -168,3 +168,21 @@ void ayxx_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 	
 	return;
 }
+
+void ayxx_set_stereo_mask(UINT8 ChipID, UINT32 StereoMask)
+{
+	ayxx_state *info = &AYxxData[ChipID];
+	switch(EMU_CORE)
+	{
+#ifdef ENABLE_ALL_CORES
+	case EC_MAME:
+		ay8910_set_stereo_mask_ym(info->chip, StereoMask);
+		break;
+#endif
+	case EC_EMU2149:
+		PSG_setStereoMask((PSG*)info->chip, StereoMask);
+		break;
+	}
+	
+	return;
+}

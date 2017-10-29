@@ -1335,6 +1335,18 @@ void ay8910_set_mute_mask_ym(void *chip, UINT32 MuteMask)
 	return;
 }
 
+void ay8910_set_stereo_mask_ym(void *chip, UINT32 StereoMask)
+{
+	ay8910_context *psg = (ay8910_context *)chip;
+	UINT8 CurChn;
+	
+	for (CurChn = 0; CurChn < NUM_CHANNELS; CurChn ++) {
+		psg->StereoMask[CurChn] = StereoMask &3;
+		StereoMask >>= 2;
+	}	
+	return;
+}
+
 /*void ay8910_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 {
 	ay8910_context *psg = &AY8910Data[ChipID];
