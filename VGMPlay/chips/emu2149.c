@@ -145,6 +145,18 @@ PSG_setMask (PSG *psg, e_uint32 mask)
   return ret;
 }
 
+EMU2149_API void
+PSG_setStereoMask (PSG *psg, e_uint32 mask)
+{
+  e_uint32 ret = 0;
+  if(psg)
+  {
+    psg->stereo_mask[0] = (mask >>0) &3;
+    psg->stereo_mask[1] = (mask >>2) &3;
+    psg->stereo_mask[2] = (mask >>4) &3;
+  }  
+}
+
 EMU2149_API e_uint32
 PSG_toggleMask (PSG *psg, e_uint32 mask)
 {

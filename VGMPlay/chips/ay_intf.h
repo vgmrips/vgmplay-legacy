@@ -10,3 +10,4 @@ void ayxx_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
 void ayxx_set_emu_core(UINT8 Emulator);
 void ayxx_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);
+void ayxx_set_stereo_mask(UINT8 ChipID, UINT32 StereoMask);

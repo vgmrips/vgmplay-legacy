@@ -276,8 +276,6 @@ static void ChangeChipSampleRate(void* DataPtr, UINT32 NewSmplRate);
 INLINE INT16 Limit2Short(INT32 Value);
 static void null_update(UINT8 ChipID, stream_sample_t **outputs, int samples);
 static void dual_opl2_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples);
-static void dual_ay8910_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples);
-static void dual_ym2203ay_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples);
 static void ResampleChipStream(CA_LIST* CLst, WAVE_32BS* RetSample, UINT32 Length);
 static INT32 RecalcFadeVolume(void);
 //UINT32 FillBuffer(WAVE_16BS* Buffer, UINT32 BufferSize)
@@ -2799,7 +2797,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 													VGMHead.bytAYFlagYM2203,
 													(int*)&CAA->Paired->SmpRate);
 				CAA->StreamUpdate = &ym2203_stream_update;
-				CAA->Paired->StreamUpdate = (VGMHead.lngHzYM2203 & 0x80000000) ? dual_ym2203ay_stereo :&ym2203_stream_update_ay;
+				CAA->Paired->StreamUpdate = &ym2203_stream_update_ay;
 				ym2203_set_srchg_cb(CurChip, &ChangeChipSampleRate, CAA, CAA->Paired);
 				
 				CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
@@ -3089,7 +3087,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 				{
 					CAA->SmpRate = device_start_ayxx(CurChip, ChipClk,
 													VGMHead.bytAYType, VGMHead.bytAYFlag);
-					CAA->StreamUpdate = (VGMHead.lngHzAY8910 & 0x80000000) ? dual_ay8910_stereo :&ayxx_stream_update;
+					CAA->StreamUpdate = &ayxx_stream_update;
 					
 					CAA->Volume = GetChipVolume(&VGMHead, CAA->ChipType, CurChip, ChipCnt);
 					AbsVol += CAA->Volume * 2;
@@ -5124,6 +5122,17 @@ static void InterpretVGM(UINT32 SampleCount)
 				PCMBank[0x00].DataPos = ReadLE32(&VGMPnt[0x01]);
 				VGMPos += 0x05;
 				break;
+			case 0x3E:	// Set AY8910 stereo mask
+			{ unsigned char dataByte = VGMPnt[0x01];
+				unsigned long int stereoMask = dataByte & 0x3F;
+				CurChip = (dataByte & 0x80)? 1: 0;
+				if (dataByte & 0x40)
+					ym2203_set_stereo_mask_ay(CurChip, stereoMask);
+				else
+					ayxx_set_stereo_mask(CurChip, stereoMask);
+				VGMPos += 0x02;
+				break;
+			}
 			case 0x4F:	// GG Stereo
 				if (CHIP_CHECK(SN76496))
 				{
@@ -5852,32 +5861,6 @@ static void dual_opl2_stereo(UINT8 ChipID, stream_sample_t **outputs, int sample
 	ym3812_stream_update(ChipID, outputs, samples);
 	
 	// Dual-OPL with Stereo
-	if (ChipID & 0x01)
-		memset(outputs[0x00], 0x00, sizeof(stream_sample_t) * samples);	// Mute Left Chanel
-	else
-		memset(outputs[0x01], 0x00, sizeof(stream_sample_t) * samples);	// Mute Right Chanel
-	
-	return;
-}
-
-static void dual_ay8910_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples)
-{
-	ayxx_stream_update(ChipID, outputs, samples);
-	
-	// Dual AY8910 with Stereo
-	if (ChipID & 0x01)
-		memset(outputs[0x00], 0x00, sizeof(stream_sample_t) * samples);	// Mute Left Chanel
-	else
-		memset(outputs[0x01], 0x00, sizeof(stream_sample_t) * samples);	// Mute Right Chanel
-	
-	return;
-}
-
-static void dual_ym2203ay_stereo(UINT8 ChipID, stream_sample_t **outputs, int samples)
-{
-	ym2203_stream_update_ay(ChipID, outputs, samples);
-	
-	// Dual YM2203 (AY part) with Stereo
 	if (ChipID & 0x01)
 		memset(outputs[0x00], 0x00, sizeof(stream_sample_t) * samples);	// Mute Left Chanel
 	else
