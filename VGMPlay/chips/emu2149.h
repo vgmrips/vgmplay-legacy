@@ -94,6 +94,7 @@ extern "C"
   EMU2149_API void PSG_setVolumeMode (PSG * psg, int type);
   EMU2149_API e_uint32 PSG_setMask (PSG *, e_uint32 mask);
   EMU2149_API e_uint32 PSG_toggleMask (PSG *, e_uint32 mask);
+  EMU2149_API void PSG_setStereoMask (PSG *psg, e_uint32 mask);
     
 /*#ifdef __cplusplus
 }

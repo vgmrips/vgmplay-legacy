@@ -365,6 +365,13 @@ Starting at the location specified by the VGM data offset (or, offset 0x40 for
 file versions below 1.50) is found a sequence of commands containing data
 written to the chips or timing information. A command is one of:
 
+  0x30 dd    : Used for dual chip support: see below
+  0x31 dd    : Set AY8910 stereo mask.
+               Bit 0-1: Channel A mask (00=off, 01=left, 10=right, 11=center)
+               Bit 2-3: Channel B mask (00=off, 01=left, 10=right, 11=center)
+               Bit 4-5: Channel C mask (00=off, 01=left, 10=right, 11=center)
+               Bit 6: Chip type, 0=AY8910, 1=YM2203 AY8910 part.
+               Bit 7: Chip number, 0 or 1.
   0x4F dd    : Game Gear PSG stereo, write dd to port 0x06
   0x50 dd    : PSG (SN76489/SN76496) write value dd
   0x51 aa dd : YM2413, write value dd to register aa
@@ -402,6 +409,8 @@ written to the chips or timing information. A command is one of:
                NOT n+1. (Note: Written to first chip instance only.)
   0x90-0x95  : DAC Stream Control Write: see below
   0xA0 aa dd : AY8910, write value dd to register aa
+  0xA1-0xAF
+       aa dd : Used for dual chip support: see below
   0xB0 aa dd : RF5C68, write value dd to register aa
   0xB1 aa dd : RF5C164, write value dd to register aa
   0xB2 ad dd : PWM, write value ddd to register a (d is MSB, dd is LSB)
@@ -449,12 +458,9 @@ written to the chips or timing information. A command is one of:
 
 Some ranges are reserved for future use, with different numbers of operands:
 
-  0x30..0x3F dd          : one operand, reserved for future use
-                           Note: used for dual-chip support (see below)
+  0x32..0x3E dd          : one operand, reserved for future use
   0x40..0x4E dd dd       : two operands, reserved for future use
                            Note: was one operand only til v1.60
-  0xA1..0xAF dd dd       : two operands, reserved for future use
-                           Note: used for dual-chip support (see below)
   0xC9..0xCF dd dd dd    : three operands, reserved for future use
   0xD7..0xDF dd dd dd    : three operands, reserved for future use
   0xE2..0xFF dd dd dd dd : four operands, reserved for future use
@@ -850,4 +856,9 @@ Data blocks (type 0x) for OKIM6258, HuC6280, SCSP and NES added.
 VGM v1.61 players should support the data block of their respective chips
 despite their late addition.
 
-All changes done by Valley Bell.
+Added bit 31 flags to change chip types for YM2612, YM2151 and K051649. These
+changes should be considered backwards compatible with VGM 1.51. [grauw, ctr]
+
+Added command 0x31 to set AY8910 stereo mask. [NewRisingSun]
+
+All other changes done by Valley Bell.
