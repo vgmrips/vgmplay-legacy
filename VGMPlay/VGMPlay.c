@@ -5122,17 +5122,16 @@ static void InterpretVGM(UINT32 SampleCount)
 				PCMBank[0x00].DataPos = ReadLE32(&VGMPnt[0x01]);
 				VGMPos += 0x05;
 				break;
-			case 0x3E:	// Set AY8910 stereo mask
-			{ unsigned char dataByte = VGMPnt[0x01];
-				unsigned long int stereoMask = dataByte & 0x3F;
-				CurChip = (dataByte & 0x80)? 1: 0;
-				if (dataByte & 0x40)
-					ym2203_set_stereo_mask_ay(CurChip, stereoMask);
+			case 0x32:	// Set AY8910 stereo mask
+			    TempByt = VGMPnt[0x01];
+				TempLng = TempByt & 0x3F;
+				CurChip = (TempByt & 0x80)? 1: 0;
+				if (TempByt & 0x40)
+					ym2203_set_stereo_mask_ay(CurChip, TempLng);
 				else
-					ayxx_set_stereo_mask(CurChip, stereoMask);
+					ayxx_set_stereo_mask(CurChip, TempLng);
 				VGMPos += 0x02;
 				break;
-			}
 			case 0x4F:	// GG Stereo
 				if (CHIP_CHECK(SN76496))
 				{
