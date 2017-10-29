@@ -59,8 +59,7 @@ The format starts with a 256 byte header:
         to indicate that this is a T6W28. (PSG variant used in NeoGeo Pocket)
 0x10: YM2413 clock (32 bits)
         Input clock rate in Hz for the YM2413 chip. A typical value is 3579545.
-        It should be 0 if there is no YM2413 chip used. Set bit 31 (0x80000000)
-	to denote that the chip is a VRC7 rather than an original YM2413.
+        It should be 0 if there is no YM2413 chip used.
 0x14: GD3 offset (32 bits)
         Relative offset to GD3 tag. 0 if no GD3 tag.
         GD3 tags are descriptive tags similar in use to ID3 tags in MP3 files.
@@ -116,22 +115,22 @@ The format starts with a 256 byte header:
         For version 1.51 and earlier files, all the flags should not be set.
         If the PSG is not used then this may be omitted (left at zero).
 [VGM 1.10 additions:]
-0x2C: YM2612 clock (32 bits)
+0x2C: YM2612/YM3438 clock (32 bits)
         Input clock rate in Hz for the YM2612 chip. A typical value is 7670454.
         It should be 0 if there us no YM2612 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2612.
-	Set bit 31 (0x80000000) co denote that the chip is an YM3438 rather
-	than an original YM2413.
-0x30: YM2151 clock (32 bits)
+        If bit 31 is set it is a YM3438 (version 1.51+).
+0x30: YM2151/YM2164 clock (32 bits)
         Input clock rate in Hz for the YM2151 chip. A typical value is 3579545.
         It should be 0 if there us no YM2151 chip used.
         For version 1.01 and earlier files, the YM2413 clock rate should be
         used for the clock rate of the YM2151.
+        If bit 31 is set it is a YM2164 (version 1.51+).
 [VGM 1.50 additions:]
 0x34: VGM data offset (32 bits)
         Relative offset to VGM data stream.
-        If the VGM data starts at absolute offset 0x40, this will contain
+        If the VGM data starts at absolute offset 0x40, this will contain 
         value 0x0000000C. For versions prior to 1.50, it should be 0 and the
         VGM data must start at offset 0x40.
 [VGM 1.51 additions:]
@@ -204,8 +203,7 @@ The format starts with a 256 byte header:
         bit 2   Discrete Output
         bit 3   RAW Output
         bit 4   YM2149 Pin 26 (additional /2 clock divider)
-        bit 5-6 reserved (must be zero)
-	bit 7   Use ZX-Spectrum-like pan configuration (Left-Center-Right).
+        bit 5-7 reserved (must be zero)
         If the AY8910 is not used then this may be omitted (left at zero).
 0x7A: YM2203/AY8910 Flags (8 bits)
         Misc flags for the AY8910. This one is specific for the AY8910 that's
@@ -256,9 +254,7 @@ The format starts with a 256 byte header:
         8053975. It should be 0 if there is no MultiPCM chip used.
 0x8C: uPD7759 clock (32 bits)
         Input clock rate in Hz for the uPD7759 chip. A typical value is 640000.
-        It should be 0 if there is no uPD7759 chip used. Set bit 31 (0x80000000)
-	to denote that the chip is in a Slave, clear bit 31 to denote that the
-	chip is in a Master configuration.
+        It should be 0 if there is no uPD7759 chip used.
 0x90: OKIM6258 clock (32 bits)
         Input clock rate in Hz for the OKIM6258 chip. A typical value is
         4000000. It should be 0 if there is no OKIM6258 chip used.
@@ -288,12 +284,10 @@ The format starts with a 256 byte header:
 0x98: OKIM6295 clock (32 bits)
         Input clock rate in Hz for the OKIM6295 chip. A typical value is
         8000000. It should be 0 if there is no OKIM6295 chip used.
-	Set bit 31 (0x80000000) to denote the status of pin 7.
-0x9C: K051649 clock (32 bits)
+0x9C: K051649/K052539 clock (32 bits)
         Input clock rate in Hz for the K051649 chip. A typical value is
-        1500000. It should be 0 if there is no K051649 chip used.
-	Set bit 31 (0x80000000)	to denote that the chip is an SCC+ rather
-	than an original SCC.
+        1789773. It should be 0 if there is no K051649 chip used.
+        If bit 31 is set it is a K052539.
 0xA0: K054539 clock (32 bits)
         Input clock rate in Hz for the K054539 chip. A typical value is
         18432000. It should be 0 if there is no K054539 chip used.
@@ -304,7 +298,7 @@ The format starts with a 256 byte header:
         Input clock rate in Hz for the C140 chip. A typical value is 8000000.
         It should be 0 if there is no C140 chip used.
 0xAC: K053260 clock (32 bits)
-        Input clock rate in Hz for the K053260 chip. A typical value is
+        Input clock rate in Hz for the K053260 chip. A typical value is 
         3579545. It should be 0 if there is no K053260 chip used.
 0xB0: Pokey clock (32 bits)
         Input clock rate in Hz for the Pokey chip. A typical value is 1789772.
@@ -371,7 +365,8 @@ Starting at the location specified by the VGM data offset (or, offset 0x40 for
 file versions below 1.50) is found a sequence of commands containing data
 written to the chips or timing information. A command is one of:
 
-  0x3E dd    : Set AY8910 stereo mask.
+  0x30 dd    : Used for dual chip support: see below
+  0x31 dd    : Set AY8910 stereo mask.
                Bit 0-1: Channel A mask (00=off, 01=left, 10=right, 11=center)
                Bit 2-3: Channel B mask (00=off, 01=left, 10=right, 11=center)
                Bit 4-5: Channel C mask (00=off, 01=left, 10=right, 11=center)
@@ -409,11 +404,13 @@ written to the chips or timing information. A command is one of:
   0x67 ...   : data block: see below
   0x68 ...   : PCM RAM write: see below
   0x7n       : wait n+1 samples, n can range from 0 to 15.
-  0x8n       : YM2612 port 0 address 2A write from the data bank, then wait
+  0x8n       : YM2612 port 0 address 2A write from the data bank, then wait 
                n samples; n can range from 0 to 15. Note that the wait is n,
                NOT n+1. (Note: Written to first chip instance only.)
   0x90-0x95  : DAC Stream Control Write: see below
   0xA0 aa dd : AY8910, write value dd to register aa
+  0xA1-0xAF
+       aa dd : Used for dual chip support: see below
   0xB0 aa dd : RF5C68, write value dd to register aa
   0xB1 aa dd : RF5C164, write value dd to register aa
   0xB2 ad dd : PWM, write value ddd to register a (d is MSB, dd is LSB)
@@ -461,12 +458,9 @@ written to the chips or timing information. A command is one of:
 
 Some ranges are reserved for future use, with different numbers of operands:
 
-  0x30..0x3F dd          : one operand, reserved for future use
-                           Note: used for dual-chip support (see below)
+  0x32..0x3E dd          : one operand, reserved for future use
   0x40..0x4E dd dd       : two operands, reserved for future use
                            Note: was one operand only til v1.60
-  0xA1..0xAF dd dd       : two operands, reserved for future use
-                           Note: used for dual-chip support (see below)
   0xC9..0xCF dd dd dd    : three operands, reserved for future use
   0xD7..0xDF dd dd dd    : three operands, reserved for future use
   0xE2..0xFF dd dd dd dd : four operands, reserved for future use
@@ -493,7 +487,7 @@ Data blocks of recorded streams, if present, should be at the very start of the
 VGM data. Multiple data blocks expand the data bank. (The start offset and
 length of the block in the data bank should be saved for command 0x95.)
 Because data blocks can happen anywhere in the stream, players must be able to
-parse data blocks anywhere in the stream.
+parse data blocks anywhere in the stream. 
 
 The data block type specifies what type of data it contains. Currently defined
 types are:
@@ -730,11 +724,6 @@ between the 1st and 2nd chip. (0x00-7F = Chip 1, 0x80-0xFF = chip 2)
 Note: The SegaPCM chip has the 2nd-chip-bit in the high byte of the address
 parameter. This is the second parameter byte.
 
-Note: For the YM3812 only, setting bit 31 (0x80000000) in the chip's clock
-value hard-pans the first chip on the left and the second chip on the right.
-This replicates the pan configuration of the Sound Blaster Pro 1 and Pro
-Audio Spectrum sound cards on the IBM PC.
-
 
 Extra Header
 ------------
@@ -796,7 +785,7 @@ Rate value added by Maxim; 1.00 files are fully compatible
 [1.10]
 PSG white noise feedback and shift register width parameters added by Maxim,
 with note on how to handle earlier version files.
-Additional wait command added by Maxim with thanks to Steve Snake for the
+Additional wait command added by Maxim with thanks to Steve Snake for the 
 suggestion.
 1.01 files are fully compatible but 1.01 players might have problems
 with 1.10 files, hence the 0.1 version change.
@@ -867,4 +856,9 @@ Data blocks (type 0x) for OKIM6258, HuC6280, SCSP and NES added.
 VGM v1.61 players should support the data block of their respective chips
 despite their late addition.
 
-All changes done by Valley Bell.
+Added bit 31 flags to change chip types for YM2612, YM2151 and K051649. These
+changes should be considered backwards compatible with VGM 1.51. [grauw, ctr]
+
+Added command 0x31 to set AY8910 stereo mask. [NewRisingSun]
+
+All other changes done by Valley Bell.
