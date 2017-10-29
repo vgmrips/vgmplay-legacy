@@ -203,7 +203,8 @@ The format starts with a 256 byte header:
         bit 2   Discrete Output
         bit 3   RAW Output
         bit 4   YM2149 Pin 26 (additional /2 clock divider)
-        bit 5-7 reserved (must be zero)
+        bit 5-6 reserved (must be zero)
+        bit 7   Use ZX-Spectrum-like pan configuration (Left-Center-Right).
         If the AY8910 is not used then this may be omitted (left at zero).
 0x7A: YM2203/AY8910 Flags (8 bits)
         Misc flags for the AY8910. This one is specific for the AY8910 that's
@@ -255,6 +256,9 @@ The format starts with a 256 byte header:
 0x8C: uPD7759 clock (32 bits)
         Input clock rate in Hz for the uPD7759 chip. A typical value is 640000.
         It should be 0 if there is no uPD7759 chip used.
+        It should be 0 if there is no uPD7759 chip used. Set bit 31 (0x80000000)
+        to denote that the chip is in a Slave, clear bit 31 to denote that the
+        chip is in a Master configuration.
 0x90: OKIM6258 clock (32 bits)
         Input clock rate in Hz for the OKIM6258 chip. A typical value is
         4000000. It should be 0 if there is no OKIM6258 chip used.
@@ -284,6 +288,7 @@ The format starts with a 256 byte header:
 0x98: OKIM6295 clock (32 bits)
         Input clock rate in Hz for the OKIM6295 chip. A typical value is
         8000000. It should be 0 if there is no OKIM6295 chip used.
+        Set bit 31 (0x80000000) to denote the status of pin 7.
 0x9C: K051649/K052539 clock (32 bits)
         Input clock rate in Hz for the K051649 chip. A typical value is
         1789773. It should be 0 if there is no K051649 chip used.
@@ -724,6 +729,10 @@ between the 1st and 2nd chip. (0x00-7F = Chip 1, 0x80-0xFF = chip 2)
 Note: The SegaPCM chip has the 2nd-chip-bit in the high byte of the address
 parameter. This is the second parameter byte.
 
+Note: For the YM3812 only, setting bit 31 (0x80000000) in the chip's clock
+value hard-pans the first chip on the left and the second chip on the right.
+This replicates the pan configuration of the Sound Blaster Pro 1 and Pro
+Audio Spectrum sound cards on the IBM PC.
 
 Extra Header
 ------------
@@ -860,5 +869,8 @@ Added bit 31 flags to change chip types for YM2612, YM2151 and K051649. These
 changes should be considered backwards compatible with VGM 1.51. [grauw, ctr]
 
 Added command 0x31 to set AY8910 stereo mask. [NewRisingSun]
+
+Documented some chip flags that have been present since earlier versions of
+VGMPlay. [NewRisingSun]
 
 All other changes done by Valley Bell.

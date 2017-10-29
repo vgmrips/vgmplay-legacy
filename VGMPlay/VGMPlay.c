@@ -5122,8 +5122,8 @@ static void InterpretVGM(UINT32 SampleCount)
 				PCMBank[0x00].DataPos = ReadLE32(&VGMPnt[0x01]);
 				VGMPos += 0x05;
 				break;
-			case 0x32:	// Set AY8910 stereo mask
-			    TempByt = VGMPnt[0x01];
+			case 0x31:	// Set AY8910 stereo mask
+				TempByt = VGMPnt[0x01];
 				TempLng = TempByt & 0x3F;
 				CurChip = (TempByt & 0x80)? 1: 0;
 				if (TempByt & 0x40)
