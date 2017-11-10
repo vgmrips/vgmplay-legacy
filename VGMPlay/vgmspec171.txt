@@ -402,10 +402,6 @@ written to the chips or timing information. A command is one of:
                0x61 0xdf 0x02
   0x63       : wait 882 samples (50th of a second), a shortcut for
                0x61 0x72 0x03
-  0x64 cc nn nn : override length of 0x62/0x63
-                  cc - command (0x62/0x63)
-                  nn - delay in samples
-                  [Note: Not yet implemented. Am I really sure about this?]
   0x66       : end of sound data
   0x67 ...   : data block: see below
   0x68 ...   : PCM RAM write: see below
@@ -873,5 +869,8 @@ Added command 0x31 to set AY8910 stereo mask. [NewRisingSun]
 
 Documented some chip flags that have been present since earlier versions of
 VGMPlay. [NewRisingSun]
+
+Removed command 0x64 “override length of 0x62/0x63”. It was not useful, and
+never used or implemented. [grauw]
 
 All other changes done by Valley Bell.
