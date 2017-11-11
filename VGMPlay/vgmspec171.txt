@@ -870,7 +870,4 @@ Added command 0x31 to set AY8910 stereo mask. [NewRisingSun]
 Documented some chip flags that have been present since earlier versions of
 VGMPlay. [NewRisingSun]
 
-Removed command 0x64 “override length of 0x62/0x63”. It was not useful, and
-never used or implemented. [grauw]
-
 All other changes done by Valley Bell.
