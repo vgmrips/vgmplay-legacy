@@ -1,0 +1,339 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ChipMapper.h" />
+    <ClInclude Include="chips\2151intf.h" />
+    <ClInclude Include="chips\2203intf.h" />
+    <ClInclude Include="chips\2413intf.h" />
+    <ClInclude Include="chips\2413tone.h" />
+    <ClInclude Include="chips\2608intf.h" />
+    <ClInclude Include="chips\2610intf.h" />
+    <ClInclude Include="chips\2612intf.h" />
+    <ClInclude Include="chips\262intf.h" />
+    <ClInclude Include="chips\281btone.h" />
+    <ClInclude Include="chips\3526intf.h" />
+    <ClInclude Include="chips\3812intf.h" />
+    <ClInclude Include="chips\8950intf.h" />
+    <ClInclude Include="chips\adlibemu.h" />
+    <ClInclude Include="chips\ay8910.h" />
+    <ClInclude Include="chips\ay_intf.h" />
+    <ClInclude Include="chips\c140.h" />
+    <ClInclude Include="chips\c352.h" />
+    <ClInclude Include="chips\c6280.h" />
+    <ClInclude Include="chips\c6280intf.h" />
+    <ClInclude Include="chips\ChipIncl.h" />
+    <ClInclude Include="chips\dac_control.h" />
+    <ClInclude Include="chips\emu2149.h" />
+    <ClInclude Include="chips\emu2413.h" />
+    <ClInclude Include="chips\emutypes.h" />
+    <ClInclude Include="chips\es5503.h" />
+    <ClInclude Include="chips\es5506.h" />
+    <ClInclude Include="chips\fm.h" />
+    <ClInclude Include="chips\fmopl.h" />
+    <ClInclude Include="chips\gb.h" />
+    <ClInclude Include="chips\iremga20.h" />
+    <ClInclude Include="chips\k051649.h" />
+    <ClInclude Include="chips\k053260.h" />
+    <ClInclude Include="chips\k054539.h" />
+    <ClInclude Include="chips\mamedef.h" />
+    <ClInclude Include="chips\multipcm.h" />
+    <ClInclude Include="chips\nes_apu.h" />
+    <ClInclude Include="chips\nes_defs.h" />
+    <ClInclude Include="chips\nes_intf.h" />
+    <ClInclude Include="chips\np_nes_apu.h" />
+    <ClInclude Include="chips\np_nes_dmc.h" />
+    <ClInclude Include="chips\np_nes_fds.h" />
+    <ClInclude Include="chips\okim6258.h" />
+    <ClInclude Include="chips\okim6295.h" />
+    <ClInclude Include="chips\Ootake_PSG.h" />
+    <ClInclude Include="chips\opl.h" />
+    <ClInclude Include="chips\panning.h" />
+    <ClInclude Include="chips\pokey.h" />
+    <ClInclude Include="chips\pwm.h" />
+    <ClInclude Include="chips\qsound.h" />
+    <ClInclude Include="chips\rf5c68.h" />
+    <ClInclude Include="chips\saa1099.h" />
+    <ClInclude Include="chips\scd_pcm.h" />
+    <ClInclude Include="chips\scsp.h" />
+    <ClInclude Include="chips\scspdsp.h" />
+    <ClInclude Include="chips\segapcm.h" />
+    <ClInclude Include="chips\sn76489.h" />
+    <ClInclude Include="chips\sn76496.h" />
+    <ClInclude Include="chips\sn764intf.h" />
+    <ClInclude Include="chips\upd7759.h" />
+    <ClInclude Include="chips\vrc7tone.h" />
+    <ClInclude Include="chips\vsu.h" />
+    <ClInclude Include="chips\ws_audio.h" />
+    <ClInclude Include="chips\ws_initialIo.h" />
+    <ClInclude Include="chips\x1_010.h" />
+    <ClInclude Include="chips\ym2151.h" />
+    <ClInclude Include="chips\ym2413.h" />
+    <ClInclude Include="chips\ym2413hd.h" />
+    <ClInclude Include="chips\ym2612.h" />
+    <ClInclude Include="chips\ymdeltat.h" />
+    <ClInclude Include="chips\ymf262.h" />
+    <ClInclude Include="chips\ymf271.h" />
+    <ClInclude Include="chips\ymf278b.h" />
+    <ClInclude Include="chips\ymz280b.h" />
+    <ClInclude Include="PortTalk_IOCTL.h" />
+    <ClInclude Include="Stream.h" />
+    <ClInclude Include="VGMFile.h" />
+    <ClInclude Include="VGMPlay.h" />
+    <ClInclude Include="VGMPlay_Intf.h" />
+    <ClInclude Include="XMasFiles\SWJ-SQRC01_1C.h" />
+    <ClInclude Include="XMasFiles\XMasBonus.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ChipMapper.c" />
+    <ClCompile Include="chips\2151intf.c" />
+    <ClCompile Include="chips\2203intf.c" />
+    <ClCompile Include="chips\2413intf.c" />
+    <ClCompile Include="chips\2608intf.c" />
+    <ClCompile Include="chips\2610intf.c" />
+    <ClCompile Include="chips\2612intf.c" />
+    <ClCompile Include="chips\262intf.c" />
+    <ClCompile Include="chips\3526intf.c" />
+    <ClCompile Include="chips\3812intf.c" />
+    <ClCompile Include="chips\8950intf.c" />
+    <ClCompile Include="chips\adlibemu_opl2.c" />
+    <ClCompile Include="chips\adlibemu_opl3.c" />
+    <ClCompile Include="chips\ay8910.c" />
+    <ClCompile Include="chips\ay8910_opl.c" />
+    <ClCompile Include="chips\ay_intf.c" />
+    <ClCompile Include="chips\c140.c" />
+    <ClCompile Include="chips\c352.c" />
+    <ClCompile Include="chips\c6280.c" />
+    <ClCompile Include="chips\c6280intf.c" />
+    <ClCompile Include="chips\dac_control.c" />
+    <ClCompile Include="chips\emu2149.c" />
+    <ClCompile Include="chips\emu2413.c" />
+    <ClCompile Include="chips\es5503.c" />
+    <ClCompile Include="chips\es5506.c" />
+    <ClCompile Include="chips\fm.c" />
+    <ClCompile Include="chips\fm2612.c" />
+    <ClCompile Include="chips\fmopl.c" />
+    <ClCompile Include="chips\gb.c" />
+    <ClCompile Include="chips\iremga20.c" />
+    <ClCompile Include="chips\k051649.c" />
+    <ClCompile Include="chips\k053260.c" />
+    <ClCompile Include="chips\k054539.c" />
+    <ClCompile Include="chips\multipcm.c" />
+    <ClCompile Include="chips\nes_apu.c" />
+    <ClCompile Include="chips\nes_intf.c" />
+    <ClCompile Include="chips\np_nes_apu.c" />
+    <ClCompile Include="chips\np_nes_dmc.c" />
+    <ClCompile Include="chips\np_nes_fds.c" />
+    <ClCompile Include="chips\okim6258.c" />
+    <ClCompile Include="chips\okim6295.c" />
+    <ClCompile Include="chips\Ootake_PSG.c" />
+    <ClCompile Include="chips\opl.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="chips\panning.c" />
+    <ClCompile Include="chips\pokey.c" />
+    <ClCompile Include="chips\pwm.c" />
+    <ClCompile Include="chips\qsound.c" />
+    <ClCompile Include="chips\rf5c68.c" />
+    <ClCompile Include="chips\saa1099.c" />
+    <ClCompile Include="chips\scd_pcm.c" />
+    <ClCompile Include="chips\scsp.c" />
+    <ClCompile Include="chips\scspdsp.c" />
+    <ClCompile Include="chips\scsplfo.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="chips\segapcm.c" />
+    <ClCompile Include="chips\sn76489.c" />
+    <ClCompile Include="chips\sn76496.c" />
+    <ClCompile Include="chips\sn76496_opl.c" />
+    <ClCompile Include="chips\sn764intf.c" />
+    <ClCompile Include="chips\upd7759.c" />
+    <ClCompile Include="chips\vsu.c" />
+    <ClCompile Include="chips\ws_audio.c" />
+    <ClCompile Include="chips\x1_010.c" />
+    <ClCompile Include="chips\ym2151.c" />
+    <ClCompile Include="chips\ym2413.c" />
+    <ClCompile Include="chips\ym2413hd.c" />
+    <ClCompile Include="chips\ym2413_opl.c" />
+    <ClCompile Include="chips\ym2612.c" />
+    <ClCompile Include="chips\ymdeltat.c" />
+    <ClCompile Include="chips\ymf262.c" />
+    <ClCompile Include="chips\ymf271.c" />
+    <ClCompile Include="chips\ymf278b.c" />
+    <ClCompile Include="chips\ymz280b.c" />
+    <ClCompile Include="pt_ioctl.c" />
+    <ClCompile Include="Stream.c" />
+    <ClCompile Include="VGMPlay.c" />
+    <ClCompile Include="VGMPlayUI.c" />
+    <ClCompile Include="VGMPlay_AddFmts.c" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{8519237F-1B46-4C8A-994C-58D218182F2C}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>VGMPlay</RootNamespace>
+    <WindowsTargetPlatformVersion>7.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v100</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v100</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v100</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v100</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(ProjectDir)zlib;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)zlib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(Configuration)_Win32\</OutDir>
+    <IntDir>$(Configuration)_Win32\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(ProjectDir)zlib;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)zlib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(Configuration)_Win64\</OutDir>
+    <IntDir>$(Configuration)_Win64\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(ProjectDir)zlib;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)zlib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(Configuration)_Win32\</OutDir>
+    <IntDir>$(Configuration)_Win32\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(ProjectDir)zlib;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)zlib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(Configuration)_Win64\</OutDir>
+    <IntDir>$(Configuration)_Win64\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>VGM_LITTLE_ENDIAN;ENABLE_ALL_CORES;CONSOLE_MODE;ADDITIONAL_FORMATS;SET_CONSOLE_TITLE;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>kernel32.lib;user32.lib;advapi32.lib;winmm.lib;zlibd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>VGM_LITTLE_ENDIAN;ENABLE_ALL_CORES;CONSOLE_MODE;ADDITIONAL_FORMATS;SET_CONSOLE_TITLE;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>kernel32.lib;user32.lib;advapi32.lib;winmm.lib;zlibstat64d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>VGM_LITTLE_ENDIAN;ENABLE_ALL_CORES;CONSOLE_MODE;ADDITIONAL_FORMATS;SET_CONSOLE_TITLE;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>kernel32.lib;user32.lib;advapi32.lib;winmm.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>VGM_LITTLE_ENDIAN;ENABLE_ALL_CORES;CONSOLE_MODE;ADDITIONAL_FORMATS;SET_CONSOLE_TITLE;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>kernel32.lib;user32.lib;advapi32.lib;winmm.lib;zlibstat64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

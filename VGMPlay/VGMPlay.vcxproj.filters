@@ -1,0 +1,527 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Quelldateien">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Headerdateien">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Ressourcendateien">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="SoundCore">
+      <UniqueIdentifier>{d92e176a-b6da-4926-ac77-9285e175b450}</UniqueIdentifier>
+      <Extensions>c;h;cpp</Extensions>
+    </Filter>
+    <Filter Include="SoundCore\FM OPN Chips">
+      <UniqueIdentifier>{7b8c14e4-98d2-494e-8eeb-102684e2b0d8}</UniqueIdentifier>
+      <Extensions>c;h</Extensions>
+    </Filter>
+    <Filter Include="SoundCore\FM OPx Chips">
+      <UniqueIdentifier>{b7d46055-4043-4069-8dfd-cd0614f24cb8}</UniqueIdentifier>
+      <Extensions>c;h</Extensions>
+    </Filter>
+    <Filter Include="SoundCore\PCM Chips">
+      <UniqueIdentifier>{5f79bd0e-fae5-4188-8c92-06c81891c82c}</UniqueIdentifier>
+      <Extensions>c;h</Extensions>
+    </Filter>
+    <Filter Include="SoundCore\OPL Mapper">
+      <UniqueIdentifier>{a8502cef-6a14-45a9-b505-818f39601a20}</UniqueIdentifier>
+      <Extensions>c;h</Extensions>
+    </Filter>
+    <Filter Include="SoundCore\PSG Chips">
+      <UniqueIdentifier>{b0a32a39-96e4-4b81-92ca-fff506eb2b1e}</UniqueIdentifier>
+      <Extensions>c;h</Extensions>
+    </Filter>
+    <Filter Include="SoundCore\NES Chips">
+      <UniqueIdentifier>{c2ae641c-5a5a-41d2-8a54-e5caa03cd919}</UniqueIdentifier>
+      <Extensions>c;h</Extensions>
+    </Filter>
+    <Filter Include="SoundCore\FM OPL Chips">
+      <UniqueIdentifier>{8e35abaa-f8c4-43f7-8fe0-e17fefb8c132}</UniqueIdentifier>
+      <Extensions>c;h</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="PortTalk_IOCTL.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Stream.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="VGMFile.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="VGMPlay.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="VGMPlay_Intf.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="XMasFiles\SWJ-SQRC01_1C.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="XMasFiles\XMasBonus.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ChipIncl.h">
+      <Filter>SoundCore</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\dac_control.h">
+      <Filter>SoundCore</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\mamedef.h">
+      <Filter>SoundCore</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\panning.h">
+      <Filter>SoundCore</Filter>
+    </ClInclude>
+    <ClInclude Include="ChipMapper.h">
+      <Filter>SoundCore</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\2413intf.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\2413tone.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\262intf.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\281btone.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\adlibemu.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\emu2413.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\emutypes.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\fmopl.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\opl.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ym2413.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ymf262.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ymf278b.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\vrc7tone.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\3526intf.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\3812intf.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\8950intf.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\2203intf.h">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\2608intf.h">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\2610intf.h">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\2612intf.h">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\fm.h">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ym2612.h">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\2151intf.h">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\scsp.h">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\scspdsp.h">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ym2151.h">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ymf271.h">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\c140.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\c352.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\es5503.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\es5506.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\iremga20.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\k053260.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\k054539.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\multipcm.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\okim6258.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\okim6295.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\pwm.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\qsound.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\rf5c68.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\scd_pcm.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\segapcm.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\upd7759.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\x1_010.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ymdeltat.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ymz280b.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ym2413hd.h">
+      <Filter>SoundCore\OPL Mapper</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ay_intf.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ay8910.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\c6280.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\c6280intf.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\emu2149.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\gb.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\k051649.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\Ootake_PSG.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\pokey.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\saa1099.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\sn76489.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\sn76496.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\sn764intf.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\vsu.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ws_audio.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\ws_initialIo.h">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\nes_apu.h">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\nes_defs.h">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\nes_intf.h">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\np_nes_apu.h">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\np_nes_dmc.h">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\np_nes_fds.h">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pt_ioctl.c">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Stream.c">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="VGMPlay.c">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="VGMPlay_AddFmts.c">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="VGMPlayUI.c">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\dac_control.c">
+      <Filter>SoundCore</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\panning.c">
+      <Filter>SoundCore</Filter>
+    </ClCompile>
+    <ClCompile Include="ChipMapper.c">
+      <Filter>SoundCore</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\2413intf.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\262intf.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\adlibemu_opl2.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\adlibemu_opl3.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\emu2413.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\fmopl.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\opl.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ym2413.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ymf262.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ymf278b.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\3526intf.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\3812intf.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\8950intf.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\2203intf.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\2608intf.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\2610intf.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\2612intf.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\fm.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\fm2612.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ym2612.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\2151intf.c">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\scsp.c">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\scspdsp.c">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\scsplfo.c">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ym2151.c">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ymf271.c">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\c140.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\c352.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\es5503.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\es5506.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\iremga20.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\k053260.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\k054539.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\multipcm.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\okim6258.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\okim6295.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\pwm.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\qsound.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\rf5c68.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\scd_pcm.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\segapcm.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\upd7759.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\x1_010.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ymdeltat.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ymz280b.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ay8910_opl.c">
+      <Filter>SoundCore\OPL Mapper</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\sn76496_opl.c">
+      <Filter>SoundCore\OPL Mapper</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ym2413_opl.c">
+      <Filter>SoundCore\OPL Mapper</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ym2413hd.c">
+      <Filter>SoundCore\OPL Mapper</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ay_intf.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ay8910.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\c6280.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\c6280intf.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\emu2149.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\gb.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\k051649.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\Ootake_PSG.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\pokey.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\saa1099.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\sn76489.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\sn76496.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\sn764intf.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\vsu.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\ws_audio.c">
+      <Filter>SoundCore\PSG Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\nes_apu.c">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\nes_intf.c">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\np_nes_apu.c">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\np_nes_dmc.c">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\np_nes_fds.c">
+      <Filter>SoundCore\NES Chips</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
