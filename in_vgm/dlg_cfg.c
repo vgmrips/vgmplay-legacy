@@ -920,7 +920,6 @@ static void ShowMutingCheckBoxes(UINT8 ChipID, UINT8 ChipSet)
 		break;
 	case 0x15:	// Multi PCM
 		ChnCount = 28;
-		EnableChk &= ! ChipSet;
 		break;
 	case 0x16:	// UPD7759
 		ChnCount = 0;
