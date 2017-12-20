@@ -157,3 +157,6 @@ Updates since 0.4.0u8 (16.04.2017)
 - fixed mid-sample frequency changes in DAC Stream Control (thanks NewRisingSun)
 - fixed SAA1099 sample rate and noise volume (thanks NewRisingSun)
 - [in_vgm] fixed being unable to mute 2nd MultiPCM chip (thanks to Alianger for the bug report)
+- added command for AY8910 panning (thanks NewRisingSun)
+- fixed YMF278B FM<->Wavetable volume balance again (thanks to ctr for a test VGM and thanks to l_oliveira for the hardware recording)
+- added (very basic) YMF278B RAM block support

@@ -382,7 +382,7 @@ int device_start_saa1099(UINT8 ChipID, int clock)
 	//saa->device = device;
 	//saa->sample_rate = device->clock() / 256;
 	saa->master_clock = clock;
-	saa->sample_rate = clock / 128.0;
+	saa->sample_rate = clock / 128.0 * 8;
 
 	/* for each chip allocate one stream */
 	//saa->stream = device->machine().sound().stream_alloc(*device, 0, 2, saa->sample_rate, saa, saa1099_update);

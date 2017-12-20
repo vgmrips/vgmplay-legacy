@@ -46,7 +46,8 @@
 #include <pthread.h>	// for pthread functions
 
 // (suitable?) Apple substitute for clock_gettime()
-#ifdef __MACH__
+//#ifdef __MACH__
+#if 0	// not required in Mac OS X 10.12 and later
 #include <mach/mach_time.h>
 #define CLOCK_REALTIME	0
 #define CLOCK_MONOTONIC	0
@@ -5005,7 +5006,7 @@ static void InterpretVGM(UINT32 SampleCount)
 					case 0x87:	// YMF278B RAM Image
 						if (! CHIP_CHECK(YMF278B))
 							break;
-						//ymf278b_write_ram(CurChip, ROMSize, DataStart, DataLen, ROMData);
+						ymf278b_write_ram(CurChip, DataStart, DataLen, ROMData);
 						break;
 					case 0x88:	// Y8950 DELTA-T ROM Image
 						if (! CHIP_CHECK(Y8950) || PlayingMode == 0x01)

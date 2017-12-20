@@ -639,7 +639,7 @@ void ymf278b_pcm_update(UINT8 ChipID, stream_sample_t** outputs, int samples)
 		vl = mix_level[chip->fm_l] - 8;	vl = chip->volume[vl];
 		vr = mix_level[chip->fm_r] - 8;	vr = chip->volume[vr];
 		// make FM softer by 3 db
-		vl = (vl * 0xB5) >> 8;	vr = (vr * 0xB5) >> 8;
+		vl = (vl * 0x16A) >> 8;	vr = (vr * 0x16A) >> 8;
 		for (j = 0; j < samples; j ++)
 		{
 			outputs[0][j] = (outputs[0][j] * vl) >> 15;
@@ -1265,6 +1265,20 @@ void ymf278b_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t Da
 		DataLength = ROMSize - DataStart;
 	
 	memcpy(chip->rom + DataStart, ROMData, DataLength);
+	
+	return;
+}
+
+void ymf278b_write_ram(UINT8 ChipID, offs_t DataStart, offs_t DataLength, const UINT8* RAMData)
+{
+	YMF278BChip *chip = &YMF278BData[ChipID];
+	
+	if (DataStart >= chip->RAMSize)
+		return;
+	if (DataStart + DataLength > chip->RAMSize)
+		DataLength = chip->RAMSize - DataStart;
+	
+	memcpy(chip->ram + DataStart, RAMData, DataLength);
 	
 	return;
 }

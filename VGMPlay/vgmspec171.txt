@@ -371,12 +371,12 @@ file versions below 1.50) is found a sequence of commands containing data
 written to the chips or timing information. A command is one of:
 
   0x30 dd    : Used for dual chip support: see below
-  0x31 dd    : Set AY8910 stereo mask.
+  0x31 dd    : Set AY8910 stereo mask
                Bit 0-1: Channel A mask (00=off, 01=left, 10=right, 11=center)
                Bit 2-3: Channel B mask (00=off, 01=left, 10=right, 11=center)
                Bit 4-5: Channel C mask (00=off, 01=left, 10=right, 11=center)
-               Bit 6: Chip type, 0=AY8910, 1=YM2203 AY8910 part.
-               Bit 7: Chip number, 0 or 1.
+               Bit 6: Chip type, 0=AY8910, 1=YM2203 SSG part
+               Bit 7: Chip number, 0 or 1
   0x3F dd    : Used for dual chip support: see below
   0x4F dd    : Game Gear PSG stereo, write dd to port 0x06
   0x50 dd    : PSG (SN76489/SN76496) write value dd

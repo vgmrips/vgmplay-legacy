@@ -25,6 +25,7 @@ UINT8 ymf278b_r(UINT8 ChipID, offs_t offset);
 void ymf278b_w(UINT8 ChipID, offs_t offset, UINT8 data);
 void ymf278b_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t DataLength,
 					   const UINT8* ROMData);
+void ymf278b_write_ram(UINT8 ChipID, offs_t DataStart, offs_t DataLength, const UINT8* RAMData);
 
 void ymf278b_set_mute_mask(UINT8 ChipID, UINT32 MuteMaskFM, UINT32 MuteMaskWT);
 
