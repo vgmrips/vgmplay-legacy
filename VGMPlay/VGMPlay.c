@@ -2111,10 +2111,13 @@ const char* GetAccurateChipName(UINT8 ChipID, UINT8 SubType)
 				RetStr = "SN94624";
 				break;
 			case 0x06:
-				RetStr = "NCR7496";
+				RetStr = "SEGA PSG";
 				break;
 			case 0x07:
-				RetStr = "SEGA PSG";
+				RetStr = "NCR7496";
+				break;
+			case 0x08:
+				RetStr = "PSSJ-3";
 				break;
 			default:
 				RetStr = "SN76496";
@@ -2241,7 +2244,7 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 	case 0x00:
 		Clock = FileHead->lngHzPSG;
 		AllowBit31 = 0x01;	// T6W28 Mode
-		if (RetSubType != NULL && ! (Clock & 0x80000000))	// The T6W28 is handles differently.
+		if (RetSubType != NULL && ! (Clock & 0x80000000))	// The T6W28 is handled differently.
 		{
 			switch(FileHead->bytPSG_SRWidth)
 			{
@@ -2253,9 +2256,14 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 				break;
 			case 0x10:	//  0x8000
 				if (FileHead->shtPSG_Feedback == 0x0009)
-					SubType = 0x07;	// SEGA PSG
+					SubType = 0x06;	// SEGA PSG
 				else if (FileHead->shtPSG_Feedback == 0x0022)
-					SubType = 0x06;	// NCR7496
+				{
+					if (0)	// if Tandy noise mode enabled
+						SubType = (FileHead->bytPSG_Flags & 0x02) ? 0x07 : 0x08;	// NCR7496 / PSSJ-3
+					else
+						SubType = 0x07;	// NCR7496
+				}
 				break;
 			case 0x11:	// 0x10000
 				if (FileHead->bytPSG_Flags & 0x08)	// Clock Divider == 1?
@@ -2271,12 +2279,13 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 				03 SN76494		0x10000, 0x04, 0x08, FALSE, FALSE, 1, TRUE		0C	11	0D (00|04|08|01)
 				04 SN76496		0x10000, 0x04, 0x08, FALSE, FALSE, 8, TRUE		0C	11	05 (00|04|00|01) [same as SN76489A]
 				05 SN94624		 0x4000, 0x01, 0x02, TRUE,  FALSE, 1, TRUE		03	0F	0F (02|04|08|01) [unverified, SN76489A without /8]
-				06 NCR7496		 0x8000, 0x02, 0x20, FALSE, FALSE, 8, TRUE		22	10	05 (00|04|00|01) [unverified]
-				07 GameGear PSG	 0x8000, 0x01, 0x08, TRUE,  TRUE,  8, FALSE		09	10	02 (02|00|00|00)
-				07 SEGA VDP PSG	 0x8000, 0x01, 0x08, TRUE,  FALSE, 8, FALSE		09	10	06 (02|04|00|00)
+				06 GameGear PSG	 0x8000, 0x01, 0x08, TRUE,  TRUE,  8, FALSE		09	10	02 (02|00|00|00)
+				06 SEGA VDP PSG	 0x8000, 0x01, 0x08, TRUE,  FALSE, 8, FALSE		09	10	06 (02|04|00|00)
+				07 NCR7496		 0x8000, 0x02, 0x20, TRUE,  FALSE, 8, TRUE		22	10	07 (02|04|00|01)
+				08 PSSJ-3		 0x8000, 0x02, 0x20, FALSE, FALSE, 8, TRUE		22	10	05 (00|04|00|01)
 				01 U8106		 0x4000, 0x01, 0x02, TRUE,  FALSE, 8, TRUE		03	0F	07 (02|04|00|01) [unverified, same as SN76489]
 				02 Y2404		0x10000, 0x04, 0x08, FALSE, FALSE; 8, TRUE		0C	11	05 (00|04|00|01) [unverified, same as SN76489A]
-				-- T6W28		 0x4000, 0x01, 0x04, ????,  FALSE, 8, ????		05	0F	?? (??|??|00|01) [It IS stereo, but not in GameGear way].
+				-- T6W28		0x10000, 0x04, 0x08, ????,  FALSE, 8, ????		0C	11	?? (??|??|00|01) [It IS stereo, but not in GameGear way].
 			*/
 		}
 		break;

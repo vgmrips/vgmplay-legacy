@@ -514,7 +514,9 @@ static void init_envelope(YMF271Chip *chip, YMF271Slot *slot)
 	slot->env_decay2_step = (rate < 4) ? 0 : (int)(((double)(255-0) / chip->lut_dc[rate]) * 65536.0);
 
 	// init release state
-	rate = get_keyscaled_rate(slot->relrate * 4, keycode, slot->keyscale);
+	//rate = get_keyscaled_rate(slot->relrate * 4, keycode, slot->keyscale);
+	// improved rate as tested by GTheGuardian and kirishima
+	rate = get_keyscaled_rate(slot->relrate * 1.75, keycode, slot->keyscale);
 	slot->env_release_step = (rate < 4) ? 0 : (int)(((double)(255-0) / chip->lut_ar[rate]) * 65536.0);
 
 	slot->volume = (255-160) << ENV_VOLUME_SHIFT;		// -60db

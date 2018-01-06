@@ -160,3 +160,4 @@ Updates since 0.4.0u8 (16.04.2017)
 - added command for AY8910 panning (thanks NewRisingSun)
 - fixed YMF278B FM<->Wavetable volume balance again (thanks to ctr for a test VGM and thanks to l_oliveira for the hardware recording)
 - added (very basic) YMF278B RAM block support
+- slightly improved YMF271 emulation, thanks to GTheGuardian and kirishima
