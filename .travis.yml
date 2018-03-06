@@ -1,9 +1,12 @@
 language: c
 
+cache: ccache
+
 before_install:
   - cd VGMPlay
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update       ; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install libao; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ccache; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sed -i .bak 's/MACOSX = 0/MACOSX = 1/g' Makefile; fi
 
 os:
