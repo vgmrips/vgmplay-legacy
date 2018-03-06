@@ -1653,9 +1653,9 @@ static void ConvertCP1252toUTF8(char** DstStr, const char* SrcStr)
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
 	char* DstPtr;
-	const char* SrcPtr;
+	const unsigned char* SrcPtr;
 	
-	SrcPtr = SrcStr;
+	SrcPtr = (const unsigned char*)SrcStr;
 	StrLen = 0x00;
 	while(*SrcPtr != '\0')
 	{
@@ -1673,7 +1673,7 @@ static void ConvertCP1252toUTF8(char** DstStr, const char* SrcStr)
 	}
 	
 	*DstStr = (char*)malloc((StrLen + 0x01) * sizeof(char));
-	SrcPtr = SrcStr;
+	SrcPtr = (const unsigned char*)SrcStr;
 	DstPtr = *DstStr;
 	while(*SrcPtr != '\0')
 	{
