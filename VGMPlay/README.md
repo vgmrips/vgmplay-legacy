@@ -51,7 +51,7 @@ make
 
 1. install libao by executing the line `brew install libao`
 2. run `make install MACOSX=1 DISABLE_HWOPL_SUPPORT=1` in VGMPlay's folder 
-(Alternatively edit the Makefile to set those constants and just run "make".)
+(Alternatively edit the Makefile to set those constants and just run `make`.)
 3. Done.
 
 Thanks to grauw for macOS compilation instructions.
