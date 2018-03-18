@@ -1,4 +1,4 @@
-# VGMPlay Build Instructions
+# VGMPlay Build Instructions [![Build Status](https://travis-ci.org/vgmrips/vgmplay.svg?branch=master)](https://travis-ci.org/vgmrips/vgmplay)
 
 ## Compile VGMPlay under Windows
 
