@@ -1,4 +1,6 @@
-# VGMPlay Build Instructions [![Build Status](https://travis-ci.org/vgmrips/vgmplay.svg?branch=master)](https://travis-ci.org/vgmrips/vgmplay)
+# VGMPlay [![Build Status](https://travis-ci.org/vgmrips/vgmplay.svg?branch=master)](https://travis-ci.org/vgmrips/vgmplay)
+
+The official and always up-to-date player for all VGM files.
 
 ## Compile VGMPlay under Windows
 
