@@ -1,6 +1,13 @@
 # VGMPlay [![Build Status](https://travis-ci.org/vgmrips/vgmplay.svg?branch=master)](https://travis-ci.org/vgmrips/vgmplay)
 
-The official and always up-to-date player for all VGM files.
+The official and always up-to-date player for all [VGM](https://en.wikipedia.org/wiki/VGM_(file_format)) files.
+
+In the future, the existing VGMPlay will be replaced by [libvgm](https://github.com/ValleyBell/libvgm), which is currently in development.
+
+## Contact
+
+* [VGMRips Forums](http://vgmrips.net/forum/index.php)
+* IRC: irc.digibase.ca #vgmrips
 
 ## Compile VGMPlay under Windows
 
@@ -18,9 +25,8 @@ The official and always up-to-date player for all VGM files.
 
 ### Using MinGW/MSYS:
 
-1. edit the Makefile and enable the line `WINDOWS = 1` (remove the #)
-2. open MSYS and run the `make` command in VGMPlay's folder.
-3. Done.
+1. open MSYS and run `make WINDOWS=1` in VGMPlay's folder.
+2. Done.
 
 Note: You can compile it without MSYS, but you need to manually create
 the OBJDIRS paths (or make them use the backslash '\'), because mkdir fails
@@ -31,7 +37,7 @@ at paths with a forward slash.
 1. [optional step] If you have libao installed, you can edit the 
 Makefile to make VGMPlay use `libao` instead of `OSS`.
 2. run `make` in VGMPlay's folder
-3. Done.
+3. Done. Optionally `sudo make install` and `sudo make play_install`.
 
 ### Building on Ubuntu (16.04)
 
