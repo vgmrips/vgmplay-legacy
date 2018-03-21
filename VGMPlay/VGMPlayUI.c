@@ -214,8 +214,8 @@ extern bool ResetPBTimer;
 #ifndef WIN32
 static struct termios oldterm;
 static bool termmode;
-static volatile bool sigint = false;
 #endif
+static volatile bool sigint = false;
 
 UINT8 CmdList[0x100];
 
@@ -227,12 +227,27 @@ extern UINT32 Last95Freq;	// for optvgm debugging
 
 static bool PrintMSHours;
 
-#ifndef WIN32
-// SIGINT handler
-void signal_handler(int signal)
+#ifdef WIN32
+static BOOL WINAPI signal_handler(DWORD dwCtrlType)
+{
+	switch(dwCtrlType)
+	{
+	case CTRL_C_EVENT:		// Ctrl + C
+	case CTRL_CLOSE_EVENT:	// close console window via X button
+	case CTRL_BREAK_EVENT:	// Ctrl + Break
+		sigint = true;
+		return TRUE;
+	case CTRL_LOGOFF_EVENT:
+	case CTRL_SHUTDOWN_EVENT:
+		return FALSE;
+	}
+	return FALSE;
+}
+#else
+static void signal_handler(int signal)
 {
 	if(signal == SIGINT)
-	    sigint = true;
+		sigint = true;
 }
 #endif
 
@@ -259,6 +274,8 @@ int main(int argc, char* argv[])
 	tcgetattr(STDIN_FILENO, &oldterm);
 	termmode = false;
 	signal(SIGINT, signal_handler);
+#else
+	SetConsoleCtrlHandler(signal_handler, TRUE);
 #endif
 	
 	if (argc > 1)
@@ -2225,15 +2242,12 @@ static void PlayVGM_UI(void)
 	QuitPlay = false;
 	while(! QuitPlay)
 	{
-
-#ifndef WIN32
 		if(sigint)
 		{
 			QuitPlay = true;
 			NextPLCmd = 0xFF;
 		}
-#endif
-
+		
 		if (! PausePlay || PosPrint)
 		{
 			PosPrint = false;
