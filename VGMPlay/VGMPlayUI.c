@@ -71,7 +71,7 @@ static void RemoveNewLines(char* String);
 static void RemoveQuotationMarks(char* String);
 static char* GetLastDirSeparator(const char* FilePath);
 static bool IsAbsolutePath(const char* FilePath);
-static char* GetFileExtention(const char* FilePath);
+static char* GetFileExtension(const char* FilePath);
 static void StandardizeDirSeparators(char* FilePath);
 #ifdef WIN32
 static void WinNT_Check(void);
@@ -473,7 +473,7 @@ int main(int argc, char* argv[])
 	
 	FirstInit = true;
 	StreamStarted = false;
-	FileExt = GetFileExtention(VgmFileName);
+	FileExt = GetFileExtension(VgmFileName);
 	if (FileExt == NULL || stricmp_u(FileExt, "m3u"))
 		PLMode = 0x00;
 	else
@@ -518,16 +518,13 @@ int main(int argc, char* argv[])
 		
 		for (CurPLFile = 0x00; CurPLFile < PLFileCount; CurPLFile ++)
 		{
-			if (PLMode)
-			{
-				cls();
-				printf(APP_NAME);
-				printf("\n----------\n");
-				printf("\nPlaylist File:\t%s\n", PLFileName);
-				printf("Playlist Entry:\t%u / %u\n", CurPLFile + 1, PLFileCount);
-				printf("File Name:\t%s\n", PlayListFile[CurPLFile]);
-			}
-			
+			cls();
+			printf(APP_NAME);
+			printf("\n----------\n");
+			printf("\nPlaylist File:\t%s\n", PLFileName);
+			printf("Playlist Entry:\t%u / %u\n", CurPLFile + 1, PLFileCount);
+			printf("File Name:\t%s\n", PlayListFile[CurPLFile]);
+
 			if (IsAbsolutePath(PlayListFile[CurPLFile]))
 			{
 				strcpy(VgmFileName, PlayListFile[CurPLFile]);
@@ -558,7 +555,6 @@ int main(int argc, char* argv[])
 			ShowVGMTag();
 			NextPLCmd = 0x00;
 			PlayVGM_UI();
-			
 			CloseVGMFile();
 			
 			if (ErrorHappened)
@@ -664,7 +660,7 @@ static bool IsAbsolutePath(const char* FilePath)
 	return false;
 }
 
-static char* GetFileExtention(const char* FilePath)
+static char* GetFileExtension(const char* FilePath)
 {
 	char* DirSepPos;
 	char* ExtDotPos;
@@ -974,7 +970,7 @@ static void ReadOptions(const char* AppName)
 	strcpy(FileName, RStr);
 	// FileName: "VGMPlay.exe"
 	
-	RStr = GetFileExtention(FileName);
+	RStr = GetFileExtension(FileName);
 	if (RStr == NULL)
 	{
 		RStr = FileName + strlen(FileName);
@@ -1669,9 +1665,9 @@ static void ConvertCP1252toUTF8(char** DstStr, const char* SrcStr)
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
 	char* DstPtr;
-	const char* SrcPtr;
+	const unsigned char* SrcPtr;
 	
-	SrcPtr = SrcStr;
+	SrcPtr = (const unsigned char*)SrcStr;
 	StrLen = 0x00;
 	while(*SrcPtr != '\0')
 	{
@@ -1689,7 +1685,7 @@ static void ConvertCP1252toUTF8(char** DstStr, const char* SrcStr)
 	}
 	
 	*DstStr = (char*)malloc((StrLen + 0x01) * sizeof(char));
-	SrcPtr = SrcStr;
+	SrcPtr = (const unsigned char*)SrcStr;
 	DstPtr = *DstStr;
 	while(*SrcPtr != '\0')
 	{
@@ -2161,7 +2157,7 @@ static void PlayVGM_UI(void)
 		if (LogToWave)
 		{
 			strcpy(WavFileName, VgmFileName);
-			TempStr = GetFileExtention(WavFileName);
+			TempStr = GetFileExtension(WavFileName);
 			if (TempStr == NULL)
 				TempStr = WavFileName + strlen(WavFileName);
 			else
