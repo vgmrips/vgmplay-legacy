@@ -63,7 +63,12 @@ void device_reset_qsound(UINT8 ChipID)
 		device_reset_qsoundm(ChipID); return;
 #endif
 	case EC_CTR:
-		device_reset_qsound_ctr(ChipID); return;
+		device_reset_qsound_ctr(ChipID);
+		
+		// need to wait until the chip is ready before we start writing to it ...
+		// we do this by time travel.
+		qsoundc_wait_busy(ChipID);
+		return;
 	}
 }
 
@@ -104,7 +109,14 @@ void qsound_w(UINT8 ChipID, offs_t offset, UINT8 data)
 					break;
 			}
 		}
-		qsoundc_w(ChipID, offset, data); return;
+		qsoundc_w(ChipID, offset, data);
+		
+		// need to wait until the chip is ready before we start writing to it ...
+		// we do this by time travel.
+		if(offset == 2 && data == 0xe3)
+			qsoundc_wait_busy(ChipID);
+		
+		return;
 	}
 }
 

@@ -78,7 +78,7 @@ struct qsound_chip {
 
 	UINT8* romData;
 	UINT32 romSize;
-//	UINT32 romMask;
+	UINT32 romMask;
 	UINT32 muteMask;
 	
 	// ==================================================== //
@@ -144,7 +144,7 @@ int device_start_qsound_ctr(UINT8 ChipID, int clock)
 	
 	chip->romData = NULL;
 	chip->romSize = 0x00;
-//	chip->romMask = 0x00;
+	chip->romMask = 0x00;
 	
 	qsoundc_set_mute_mask(ChipID, 0x00000);
 	
@@ -244,6 +244,7 @@ void qsoundc_write_rom(UINT8 ChipID, offs_t ROMSize, offs_t DataStart, offs_t Da
 		chip->romData = (UINT8*)realloc(chip->romData, ROMSize);
 		chip->romSize = ROMSize;
 		memset(chip->romData, 0xFF, ROMSize);
+		chip->romMask = -1;
 	}
 	if (DataStart > ROMSize)
 		return;
@@ -262,6 +263,16 @@ void qsoundc_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 	chip->muteMask = MuteMask;
 	
 	return;
+}
+
+void qsoundc_wait_busy(UINT8 ChipID)
+{
+	struct qsound_chip* chip = &QSoundData[ChipID];
+	
+	while(chip->ready_flag == 0)
+	{
+		update_sample(chip);
+	}
 }
 
 // ============================================================================
@@ -445,8 +456,8 @@ INLINE INT16 get_sample(struct qsound_chip *chip, UINT16 bank,UINT16 address)
 	UINT32 rom_addr;
 	UINT8 sample_data;
 
-//	if (! chip->romMask)
-//		return 0;	// no ROM loaded
+	if (! chip->romMask)
+		return 0;	// no ROM loaded
 	if (! (bank & 0x8000))
 		return 0;	// ignore attempts to read from DSP program ROM
 
