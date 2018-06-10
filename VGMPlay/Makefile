@@ -196,7 +196,9 @@ EMUOBJS = \
 	$(EMUOBJ)/panning.o \
 	$(EMUOBJ)/pokey.o \
 	$(EMUOBJ)/pwm.o \
-	$(EMUOBJ)/qsound.o \
+	$(EMUOBJ)/qsound_ctr.o \
+	$(EMUOBJ)/qsound_mame.o \
+	$(EMUOBJ)/qsound_intf.o \
 	$(EMUOBJ)/rf5c68.o \
 	$(EMUOBJ)/saa1099.o \
 	$(EMUOBJ)/segapcm.o \

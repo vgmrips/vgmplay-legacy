@@ -32,7 +32,7 @@
 #include "c140.h"
 #include "k053260.h"
 #include "pokey.h"
-#include "qsound.h"
+#include "qsound_intf.h"
 #include "scsp.h"
 #include "ws_audio.h"
 #include "vsu.h"
