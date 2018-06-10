@@ -3345,6 +3345,9 @@ static void Chips_GeneralActions(UINT8 Mode)
 		}
 		if (VGMHead.lngHzQSound)
 		{
+			qsound_set_emu_core(ChipOpts[0x00].QSound.EmuCore);
+			ChipOpts[0x01].QSound.EmuCore = ChipOpts[0x00].QSound.EmuCore;
+			
 			//ChipVol = 0x100;
 			ChipCnt = (VGMHead.lngHzQSound & 0x40000000) ? 0x02 : 0x01;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
