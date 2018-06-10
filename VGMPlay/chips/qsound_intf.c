@@ -97,6 +97,9 @@ void qsound_w(UINT8 ChipID, offs_t offset, UINT8 data)
 					// Phase (old HLE assumed this was Key On)
 					else if((data & 7) == 3)
 						qsoundc_write_data(ChipID, (ch << 3) + 1, start_addr_cache[ChipID][ch]);
+					// Bank
+					else if((data & 7) == 0)
+						qsoundc_write_data(ChipID, (((ch+1)&15) << 3) + 1, start_addr_cache[ChipID][(ch+1)&15]);
 					
 					break;
 			}
