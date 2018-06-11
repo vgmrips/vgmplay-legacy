@@ -20,11 +20,13 @@ static UINT8 EMU_CORE = 0x00;
 // fix broken optimization of old VGMs causing problems with the new core
 static UINT8 key_on_hack = 0x00;
 static UINT16 start_addr_cache[2][16];
+static UINT16 pitch_cache[2][16];
 static UINT16 data_latch[2];
 
 int device_start_qsound(UINT8 ChipID, int clock)
 {
 	memset(start_addr_cache[ChipID], 0, sizeof(UINT16)*16);
+	memset(pitch_cache[ChipID], 0, sizeof(UINT16)*16);
 	switch(EMU_CORE)
 	{
 #ifdef ENABLE_ALL_CORES
@@ -85,6 +87,11 @@ void qsound_w(UINT8 ChipID, offs_t offset, UINT8 data)
 		{
 			switch (offset)
 			{
+				// need to handle three cases, as vgm_cmp can remove writes to both phase and bank
+				// registers, depending on version.
+				// - start address was written before end/loop, but phase register is written
+				// - as above, but phase is not written (we use bank as a backup then)
+				// - voice parameters are written during a note (we can't rewrite the address then)
 				case 0:
 					data_latch[ChipID] = (data_latch[ChipID] & 0x00ff) | (data << 8);
 					break;
@@ -99,11 +106,14 @@ void qsound_w(UINT8 ChipID, offs_t offset, UINT8 data)
 					// Start addr. write
 					if((data & 7) == 1)
 						start_addr_cache[ChipID][ch] = data_latch[ChipID];
+					// Pitch write
+					else if((data & 7) == 2)
+						pitch_cache[ChipID][ch] = data_latch[ChipID];
 					// Phase (old HLE assumed this was Key On)
 					else if((data & 7) == 3)
 						qsoundc_write_data(ChipID, (ch << 3) + 1, start_addr_cache[ChipID][ch]);
-					// Bank
-					else if((data & 7) == 0)
+					// Bank (Only handle this if pitch is currently 0).
+					else if((data & 7) == 0 && pitch_cache[ChipID][(ch+1)&15] == 0)
 						qsoundc_write_data(ChipID, (((ch+1)&15) << 3) + 1, start_addr_cache[ChipID][(ch+1)&15]);
 					
 					break;
