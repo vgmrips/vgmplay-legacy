@@ -103,20 +103,22 @@ void qsound_w(UINT8 ChipID, offs_t offset, UINT8 data)
 						break;
 					int ch = data>>3;
 					
-					// Start addr. write
-					if((data & 7) == 1)
-						start_addr_cache[ChipID][ch] = data_latch[ChipID];
-					// Pitch write
-					else if((data & 7) == 2)
-						pitch_cache[ChipID][ch] = data_latch[ChipID];
-					// Phase (old HLE assumed this was Key On)
-					else if((data & 7) == 3)
-						qsoundc_write_data(ChipID, (ch << 3) + 1, start_addr_cache[ChipID][ch]);
-					// Bank (Only handle this if pitch is currently 0).
-					else if((data & 7) == 0 && pitch_cache[ChipID][(ch+1)&15] == 0)
-						qsoundc_write_data(ChipID, (((ch+1)&15) << 3) + 1, start_addr_cache[ChipID][(ch+1)&15]);
-					
-					break;
+					switch(data & 7)
+					{
+						case 1:	// Start addr. write
+							start_addr_cache[ChipID][ch] = data_latch[ChipID];
+							break;
+						case 2:	// Pitch write
+							// (old HLE assumed writing a non-zero value after a zero value was Key On)
+							if(pitch_cache[ChipID][ch] == 0 && data_latch[ChipID] != 0)
+								qsoundc_write_data(ChipID, (ch << 3) + 1, start_addr_cache[ChipID][ch]);
+							pitch_cache[ChipID][ch] = data_latch[ChipID];
+							break;
+						case 3: // Phase (old HLE also assumed this was Key On)
+							qsoundc_write_data(ChipID, (ch << 3) + 1, start_addr_cache[ChipID][ch]);
+						default:
+							break;
+					}
 			}
 		}
 		qsoundc_w(ChipID, offset, data);
