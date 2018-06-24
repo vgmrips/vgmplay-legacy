@@ -645,11 +645,27 @@ SOURCE=.\chips\pwm.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\chips\qsound.c
+SOURCE=.\chips\qsound_ctr.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\chips\qsound.h
+SOURCE=.\chips\qsound_ctr.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\qsound_intf.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\qsound_intf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\qsound_mame.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\qsound_mame.h
 # End Source File
 # Begin Source File
 

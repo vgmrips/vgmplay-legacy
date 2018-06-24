@@ -149,6 +149,9 @@
     <ClInclude Include="chips\ym2612.h">
       <Filter>SoundCore\FM OPN Chips</Filter>
     </ClInclude>
+    <ClInclude Include="chips\ym3438.h">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClInclude>
     <ClInclude Include="chips\2151intf.h">
       <Filter>SoundCore\FM OPx Chips</Filter>
     </ClInclude>
@@ -197,7 +200,13 @@
     <ClInclude Include="chips\pwm.h">
       <Filter>SoundCore\PCM Chips</Filter>
     </ClInclude>
-    <ClInclude Include="chips\qsound.h">
+    <ClInclude Include="chips\qsound_ctr.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\qsound_intf.h">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClInclude>
+    <ClInclude Include="chips\qsound_mame.h">
       <Filter>SoundCore\PCM Chips</Filter>
     </ClInclude>
     <ClInclude Include="chips\rf5c68.h">
@@ -376,6 +385,9 @@
     <ClCompile Include="chips\ym2612.c">
       <Filter>SoundCore\FM OPN Chips</Filter>
     </ClCompile>
+    <ClCompile Include="chips\ym3438.c">
+      <Filter>SoundCore\FM OPN Chips</Filter>
+    </ClCompile>
     <ClCompile Include="chips\2151intf.c">
       <Filter>SoundCore\FM OPx Chips</Filter>
     </ClCompile>
@@ -427,7 +439,13 @@
     <ClCompile Include="chips\pwm.c">
       <Filter>SoundCore\PCM Chips</Filter>
     </ClCompile>
-    <ClCompile Include="chips\qsound.c">
+    <ClCompile Include="chips\qsound_ctr.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\qsound_intf.c">
+      <Filter>SoundCore\PCM Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\qsound_mame.c">
       <Filter>SoundCore\PCM Chips</Filter>
     </ClCompile>
     <ClCompile Include="chips\rf5c68.c">

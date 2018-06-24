@@ -41,6 +41,7 @@ int device_start_qsound(UINT8 ChipID, int clock)
 		}
 		return device_start_qsound_ctr(ChipID, clock);
 	}
+	return 0;
 }
 
 void device_stop_qsound(UINT8 ChipID)
@@ -85,6 +86,7 @@ void qsound_w(UINT8 ChipID, offs_t offset, UINT8 data)
 	case EC_CTR:
 		if(key_on_hack)
 		{
+			int ch;
 			switch (offset)
 			{
 				// need to handle three cases, as vgm_cmp can remove writes to both phase and bank
@@ -101,7 +103,7 @@ void qsound_w(UINT8 ChipID, offs_t offset, UINT8 data)
 				case 2:
 					if(data > 0x7f)
 						break;
-					int ch = data>>3;
+					ch = data>>3;
 					
 					switch(data & 7)
 					{
@@ -143,6 +145,7 @@ UINT8 qsound_r(UINT8 ChipID, offs_t offset)
 	case EC_CTR:
 		return qsoundc_r(ChipID, offset);
 	}
+	return 0;
 }
 
 void qsound_update(UINT8 ChipID, stream_sample_t **outputs, int samples)

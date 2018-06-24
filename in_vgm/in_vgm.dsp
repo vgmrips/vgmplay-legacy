@@ -592,11 +592,27 @@ SOURCE=..\VGMPlay\chips\pwm.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\VGMPlay\chips\qsound.c
+SOURCE=..\VGMPlay\chips\qsound_ctr.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VGMPlay\chips\qsound.h
+SOURCE=..\VGMPlay\chips\qsound_ctr.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\qsound_intf.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\qsound_intf.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\qsound_mame.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\qsound_mame.h
 # End Source File
 # Begin Source File
 
@@ -738,6 +754,14 @@ SOURCE=..\VGMPlay\chips\ym2612.c
 # Begin Source File
 
 SOURCE=..\VGMPlay\chips\ym2612.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\ym3438.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\ym3438.h
 # End Source File
 # Begin Source File
 
