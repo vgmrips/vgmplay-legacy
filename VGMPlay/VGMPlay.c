@@ -5666,7 +5666,7 @@ static void InterpretVGM(UINT32 SampleCount)
 #ifdef CONSOLE_MODE
 				if (! CmdList[Command])
 				{
-					fprintf(stderr, "Unknown command: %02hX\n", Command);
+					fprintf(stderr, "Unknown command: %02hhX\n", Command);
 					CmdList[Command] = true;
 				}
 #endif

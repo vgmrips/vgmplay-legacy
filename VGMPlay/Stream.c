@@ -16,7 +16,7 @@
 #include <fcntl.h>
 #ifdef __NetBSD__
 #include <sys/audioio.h>
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) || defined(__OpenBSD__)
 // nothing
 #else
 #include <linux/soundcard.h>
