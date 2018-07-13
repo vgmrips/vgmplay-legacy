@@ -167,10 +167,10 @@ char* FindFile(const char* FileName);	// from VGMPlay_Intf.h/VGMPlay.c
 #define EG_TIMER_OVERFLOW	(1 << EG_SH)
 
 // envelope output entries
-#define ENV_BITS	10
+#define ENV_BITS	11	// -VB
 #define ENV_LEN		(1 << ENV_BITS)
 #define ENV_STEP	(128.0 / ENV_LEN)
-#define MAX_ATT_INDEX	((1 << (ENV_BITS - 1)) - 1)	// 511
+#define MAX_ATT_INDEX	511
 #define MIN_ATT_INDEX	0
 
 // Envelope Generator phases
@@ -337,7 +337,12 @@ INLINE int ymf278b_slot_compute_rate(YMF278BSlot* slot, int val)
 		{
 			oct |= -8;
 		}
-		res = (oct + slot->RC) * 2 + (slot->FN & 0x200 ? 1 : 0) + val * 4;
+		res = (oct + slot->RC);
+		if (res < 0)
+			res = 0;
+		else if (res > 15)
+			res = 15;
+		res = res * 2 + ((slot->FN & 0x200) ? 1 : 0) + val * 4;
 	}
 	else
 	{
@@ -419,7 +424,7 @@ INLINE void ymf278b_advance(YMF278BChip* chip)
 			if (! (chip->eg_cnt & ((1 << shift) - 1)))
 			{
 				select = eg_rate_select[rate];
-				op->env_vol += (~op->env_vol * eg_inc[select + ((chip->eg_cnt >> shift) & 7)]) >> 3;
+				op->env_vol += (~op->env_vol * eg_inc[select + ((chip->eg_cnt >> shift) & 7)]) >> 4;	// -VB
 				if (op->env_vol <= MIN_ATT_INDEX)
 				{
 					op->env_vol = MIN_ATT_INDEX;
@@ -713,16 +718,15 @@ void ymf278b_pcm_update(UINT8 ChipID, stream_sample_t** outputs, int samples)
 			else
 				sl->stepptr += sl->step;
 
-			while (sl->stepptr >= 0x10000)
+			if (sl->stepptr >= 0x10000)
 			{
-				sl->stepptr -= 0x10000;
 				sl->sample1 = sl->sample2;
 				
 				sl->sample2 = ymf278b_getSample(chip, sl);
-				if (sl->pos >= sl->endaddr)
-					sl->pos = sl->pos - sl->endaddr + sl->loopaddr;
-				else
-					sl->pos ++;
+				sl->pos += (sl->stepptr >> 16);
+				sl->stepptr &= 0xFFFF;
+				if (sl->pos > sl->endaddr)
+					sl->pos = sl->pos - sl->endaddr + sl->loopaddr - 1;
 			}
 		}
 		ymf278b_advance(chip);
@@ -1206,7 +1210,11 @@ int device_start_ymf278b(UINT8 ChipID, int clock)
 
 	// Volume table, 1 = -0.375dB, 8 = -3dB, 256 = -96dB
 	for (i = 0; i < 256; i ++)
-		chip->volume[i] = 32768 * pow(2.0, (-0.375 / 6) * i);
+	{
+		int vol_mul = 0x20 - (i & 0x0F);	// 0x10 values per 6 db
+		int vol_shift = 5 + (i >> 4);		// approximation: -6 dB == divide by two (shift right)
+		chip->volume[i] = (0x8000 * vol_mul) >> vol_shift;
+	}
 	for (i = 256; i < 256 * 4; i ++)
 		chip->volume[i] = 0;
 	for (i = 0; i < 24; i ++)
