@@ -349,7 +349,7 @@ static void WriteSlot(MultiPCM *ptChip,struct _SLOT *slot,int reg,unsigned char 
 			//according to YMF278 sample write causes some base params written to the regs (envelope+lfos)
 			//the game should never change the sample while playing.
 			{
-				struct _Sample *Sample=ptChip->Samples+slot->Regs[1];
+				struct _Sample *Sample=ptChip->Samples+slot->Regs[1]+((slot->Regs[2]&1)<<8);
 				WriteSlot(ptChip,slot,6,Sample->LFOVIB);
 				WriteSlot(ptChip,slot,7,Sample->AM);
 			}

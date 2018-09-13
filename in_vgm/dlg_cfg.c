@@ -1193,7 +1193,7 @@ static void ShowOptPanBoxes(UINT8 ChipID, UINT8 ChipSet)
 		break;
 	case 0x02:	// YM2612
 		MultiCore = true;
-		CoreName[0x01] = "Gens";
+		CoreName[0x01] = "Nuked OPN2";
 		break;
 	case 0x06:	// YM2203
 	case 0x07:	// YM2608

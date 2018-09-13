@@ -28,8 +28,8 @@
 
 #define EC_MAME		0x00	// YM2612 core from MAME (now fixed, so it isn't worse than Gens anymore)
 #ifdef ENABLE_ALL_CORES
-#define EC_GENS		0x01	// Gens YM2612 core from in_vgm
-#define EC_NUKED	0x02	// Nuked YM3438/YM2612 core
+#define EC_GENS		0x02	// Gens YM2612 core from in_vgm
+#define EC_NUKED	0x01	// Nuked YM3438/YM2612 core
 #endif
 
 typedef struct _ym2612_state ym2612_state;

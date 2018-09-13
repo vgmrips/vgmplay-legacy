@@ -2259,7 +2259,7 @@ UINT32 GetChipClock(VGM_HEADER* FileHead, UINT8 ChipID, UINT8* RetSubType)
 					SubType = 0x06;	// SEGA PSG
 				else if (FileHead->shtPSG_Feedback == 0x0022)
 				{
-					if (0)	// if Tandy noise mode enabled
+					if (FileHead->bytPSG_Flags & 0x10)	// if Tandy noise mode enabled
 						SubType = (FileHead->bytPSG_Flags & 0x02) ? 0x07 : 0x08;	// NCR7496 / PSSJ-3
 					else
 						SubType = 0x07;	// NCR7496
