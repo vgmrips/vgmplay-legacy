@@ -29,6 +29,11 @@
 #include <string.h>
 #include "ym3438.h"
 
+#define OUTPUT_FACTOR 11
+#define OUTPUT_FACTOR_F 12
+#define FILTER_CUTOFF 0.512331301282628 // 5894Hz  single pole IIR low pass
+#define FILTER_CUTOFF_I (1-FILTER_CUTOFF)
+
 enum {
     eg_num_attack = 0,
     eg_num_decay = 1,
@@ -217,6 +222,7 @@ static const Bit32u fm_algorithm[4][6][8] = {
 };
 
 static Bit32u chip_type = ym3438_type_discrete;
+static Bit32u use_filter = 0;
 
 void OPN2_DoIO(ym3438_t *chip)
 {
@@ -1212,6 +1218,11 @@ void OPN2_Reset(ym3438_t *chip, Bit32u rate, Bit32u clock)
 
 void OPN2_SetChipType(Bit32u type)
 {
+    use_filter = 0;
+    if(type == ym3438_type_ym2612)
+        use_filter = 1;
+    if(type == ym3438_type_ym2612_u)
+        type = ym3438_type_ym2612;
     chip_type = type;
 }
 
@@ -1511,8 +1522,16 @@ void OPN2_GenerateResampled(ym3438_t *chip, Bit32s *buf)
             }
             chip->writebuf_samplecnt++;
         }
-        chip->samples[0] *= 11;
-        chip->samples[1] *= 11;
+        if(!use_filter)
+        {
+            chip->samples[0] *= OUTPUT_FACTOR;
+            chip->samples[1] *= OUTPUT_FACTOR;
+        }
+        else
+        {
+            chip->samples[0] = chip->oldsamples[0] + FILTER_CUTOFF_I * (chip->samples[0]*OUTPUT_FACTOR_F - chip->oldsamples[0]);
+            chip->samples[1] = chip->oldsamples[1] + FILTER_CUTOFF_I * (chip->samples[1]*OUTPUT_FACTOR_F - chip->oldsamples[1]);
+        }
         chip->samplecnt -= chip->rateratio;
     }
     buf[0] = (Bit32s)((chip->oldsamples[0] * (chip->rateratio - chip->samplecnt)
@@ -1551,6 +1570,9 @@ void OPN2_SetOptions(Bit8u flags)
         break;
     case 0x02: // Discrete YM3438
         OPN2_SetChipType(ym3438_type_discrete);
+        break;
+    case 0x03: // YM2612 without filter emulation
+        OPN2_SetChipType(ym3438_type_ym2612_u);
         break;
     }
 }

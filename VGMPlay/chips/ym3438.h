@@ -36,7 +36,8 @@
 enum {
     ym3438_type_discrete = 0,   /* Discrete YM3438 (Teradrive)          */
     ym3438_type_asic = 1,       /* ASIC YM3438 (MD1 VA7, MD2, MD3, etc) */
-    ym3438_type_ym2612 = 2      /* YM2612 (MD1, MD2 VA2)                */
+    ym3438_type_ym2612 = 2,     /* YM2612 (MD1, MD2 VA2)                */
+    ym3438_type_ym2612_u = 3	/* YM2612 without lowpass filter 		*/
 };
 
 #include "mamedef.h"
