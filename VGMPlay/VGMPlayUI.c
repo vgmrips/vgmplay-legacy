@@ -217,6 +217,8 @@ static bool termmode;
 #endif
 static volatile bool sigint = false;
 
+int DeviceId = 0;
+
 UINT8 CmdList[0x100];
 
 //extern UINT8 DISABLE_YMZ_FIX;
@@ -384,6 +386,11 @@ int main(int argc, char* argv[])
 		if (! strnicmp_u(argv[argbase], "-LogSound:", 10))
 		{
 			LogToWave = (UINT8)strtoul(argv[argbase] + 10, NULL, 0);
+			argbase ++;
+		}
+		if (! strnicmp_u(argv[argbase], "-DeviceId:", 10))
+		{
+			DeviceId = (UINT8)strtoul(argv[argbase] + 10, NULL, 0);
 			argbase ++;
 		}
 	}
@@ -2193,7 +2200,7 @@ static void PlayVGM_UI(void)
 			if (FirstInit || ! StreamStarted)
 			{
 				// support smooth transistions between songs
-				RetVal = StartStream(0x00);
+				RetVal = StartStream(DeviceId);
 				if (RetVal)
 				{
 					printf("Error openning Sound Device!\n");
