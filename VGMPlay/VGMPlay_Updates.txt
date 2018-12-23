@@ -170,3 +170,4 @@ Updates since 0.4.0u8 (16.04.2017)
 - fixed SN76496 variant being incorrectly called NCR7496 instead of NCR8496
 - [in_vgm] made "Tag fallback" option work (finally, after 5 years!)
 - [in_vgm] made "disable file information cache" option selectable via configuration
+- [in_vgm] fix VGM information dialog using cached data even if file was changed
