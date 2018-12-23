@@ -168,3 +168,5 @@ Updates since 0.4.0u8 (16.04.2017)
 - swapped YM2612 emulator type IDs 1 and 2, so that Nuked OPN2 is selectable in in_vgm
 - [VGMPlay] added "OutputDevice" configuration option (thanks ctr for the "-DeviceId" commandline option)
 - fixed SN76496 variant being incorrectly called NCR7496 instead of NCR8496
+- [in_vgm] made "Tag fallback" option work (finally, after 5 years!)
+- [in_vgm] made "disable file information cache" option selectable via configuration

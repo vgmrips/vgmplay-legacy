@@ -324,6 +324,7 @@ static int LoadConfigDialogInfo(HWND hWndDlg)
 	CheckDlgButton(CfgTags, TrimWhitespcCheck, Options.TrimWhitespc);
 	CheckDlgButton(CfgTags, StdSeparatorsCheck, Options.StdSeparators);
 	CheckDlgButton(CfgTags, TagFallbackCheck, Options.TagFallback);
+	CheckDlgButton(CfgTags, NoInfoCacheCheck, Options.NoInfoCache);
 	//CheckDlgButton(CfgTags, cbTagsStandardiseDates, TagsStandardiseDates);
 	
 	SetDlgItemInt(CfgTags, MLTypeText, Options.MLFileType, FALSE);
@@ -628,6 +629,9 @@ BOOL CALLBACK CfgDlgTagsProc(HWND hWndDlg, UINT wMessage, WPARAM wParam, LPARAM 
 			break;
 		case TagFallbackCheck:
 			Options.TagFallback = CHECK2BOOL(CfgTags, TagFallbackCheck);
+			break;
+		case NoInfoCacheCheck:
+			Options.NoInfoCache = CHECK2BOOL(CfgTags, NoInfoCacheCheck);
 			break;
 		}
 		break;

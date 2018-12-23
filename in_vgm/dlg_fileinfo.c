@@ -1220,8 +1220,10 @@ void DisplayTagString(HWND hWndDlg, int DlgItem, const wchar_t* TextEng,
 	const wchar_t* Text;
 	BOOL RetVal;
 	
-	//Text = GetTagStringEngJap(TextEng, TextJap, LangMode);
-	Text = LangMode ? TextJap : TextEng;
+	if (Options.TagFallback)
+		Text = GetTagStringEngJap(TextEng, TextJap, LangMode);
+	else
+		Text = LangMode ? TextJap : TextEng;
 	if (Text == NULL)
 	{
 		RetVal = SetDlgItemTextA(hWndDlg, DlgItem, "");

@@ -42,6 +42,7 @@
 #define StdSeparatorsCheck              1205
 #define MLTypeText                      1206
 #define TagFallbackCheck                1207
+#define NoInfoCacheCheck                1208
 #define MutingChipList                  1301
 #define MutingChipNumList               1302
 #define MuteChn1Check                   1303

@@ -110,7 +110,7 @@ BEGIN
                     WS_GROUP
     LTEXT           "Note: this has no effect when Advanced Title Formatting is enabled in Winamp.",
                     IDC_STATIC,10,120,85,37,NOT WS_GROUP
-    GROUPBOX        "Data formatting",IDC_STATIC,110,5,150,85
+    GROUPBOX        "Data formatting",IDC_STATIC,110,5,150,99
     CONTROL         "Prefer &Japanese text",PreferJapCheck,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,115,15,140,15
     CONTROL         "Append ""(&FM)"" to YM2413 game titles",FM2413Check,
@@ -127,6 +127,8 @@ BEGIN
                     IDC_STATIC,115,135,140,20,NOT WS_GROUP
     CONTROL         "Tag fallb&ack in File Info Dialog",TagFallbackCheck,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,115,72,140,10
+    CONTROL         "Don't &cache file information",NoInfoCacheCheck,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,115,86,140,10
 END
 
 DlgConfigMain DIALOG DISCARDABLE  0, 0, 286, 210
