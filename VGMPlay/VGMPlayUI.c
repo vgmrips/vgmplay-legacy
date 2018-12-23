@@ -134,6 +134,7 @@ static UINT8 LogToWave;
 extern bool PauseEmulate;
 extern bool DoubleSSGVol;
 static UINT16 ForceAudioBuf;
+static UINT8 OutputDevID;
 
 extern UINT8 ResampleMode;	// 00 - HQ both, 01 - LQ downsampling, 02 - LQ both
 extern UINT8 CHIP_SAMPLING_MODE;
@@ -216,8 +217,6 @@ static struct termios oldterm;
 static bool termmode;
 #endif
 static volatile bool sigint = false;
-
-int DeviceId = 0;
 
 UINT8 CmdList[0x100];
 
@@ -381,17 +380,21 @@ int main(int argc, char* argv[])
 	
 	ErrRet = 0;
 	argbase = 0x01;
-	if (argc >= argbase + 0x01)
+	while(argbase < argc)
 	{
 		if (! strnicmp_u(argv[argbase], "-LogSound:", 10))
 		{
 			LogToWave = (UINT8)strtoul(argv[argbase] + 10, NULL, 0);
 			argbase ++;
 		}
-		if (! strnicmp_u(argv[argbase], "-DeviceId:", 10))
+		else if (! strnicmp_u(argv[argbase], "-DeviceId:", 10))
 		{
-			DeviceId = (UINT8)strtoul(argv[argbase] + 10, NULL, 0);
+			OutputDevID = (UINT8)strtoul(argv[argbase] + 10, NULL, 0);
 			argbase ++;
+		}
+		else
+		{
+			break;
 		}
 	}
 	
@@ -975,6 +978,7 @@ static void ReadOptions(const char* AppName)
 	PauseTimeL = 0;
 	Show95Cmds = 0x00;
 	LogToWave = 0x00;
+	OutputDevID = 0;
 	ForceAudioBuf = 0x00;
 	PreferJapTag = false;
 	
@@ -1175,6 +1179,10 @@ static void ReadOptions(const char* AppName)
 				else if (! stricmp_u(LStr, "ChipSmplRate"))
 				{
 					CHIP_SAMPLE_RATE = strtol(RStr, NULL, 0);
+				}
+				else if (! stricmp_u(LStr, "OutputDevice"))
+				{
+					OutputDevID = (UINT8)strtol(RStr, NULL, 0);
 				}
 				else if (! stricmp_u(LStr, "AudioBuffers"))
 				{
@@ -2200,7 +2208,7 @@ static void PlayVGM_UI(void)
 			if (FirstInit || ! StreamStarted)
 			{
 				// support smooth transistions between songs
-				RetVal = StartStream(DeviceId);
+				RetVal = StartStream(OutputDevID);
 				if (RetVal)
 				{
 					printf("Error openning Sound Device!\n");

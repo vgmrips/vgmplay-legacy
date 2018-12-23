@@ -1194,6 +1194,7 @@ static void ShowOptPanBoxes(UINT8 ChipID, UINT8 ChipSet)
 	case 0x02:	// YM2612
 		MultiCore = true;
 		CoreName[0x01] = "Nuked OPN2";
+		//CoreName[0x02] = "Gens";
 		break;
 	case 0x06:	// YM2203
 	case 0x07:	// YM2608
@@ -1238,8 +1239,13 @@ static void ShowOptPanBoxes(UINT8 ChipID, UINT8 ChipSet)
 		CoreName[0x00] = "Ootake";
 		CoreName[0x01] = "MAME";
 		break;
-	case 0x27:
-		CoreName[0x00] = "VGMPlay";
+	case 0x1F:	// QSound
+		MultiCore = true;
+		CoreName[0x00] = "superctr";
+		CoreName[0x01] = "MAME";
+		break;
+	case 0x27:	// C352
+		CoreName[0x00] = "superctr";
 		break;
 	default:
 		ChnCount = 0;

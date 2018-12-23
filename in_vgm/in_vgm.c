@@ -409,6 +409,9 @@ void LoadConfigurationFile(void)
 	sprintf(TempStr, "%s PseudoStereo", ChipName);
 	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 2, 1);
 	
+	sprintf(TempStr, "%s NukedType", ChipName);
+	ReadIntoBitfield2("ChipOpts", TempStr, &TempCOpt->SpecialFlags, 3, 2);
+	
 	// YM2203
 	ChipName = GetChipName(0x06);	TempCOpt = &ChipOpts[0x00].YM2203;
 	sprintf(TempStr, "%s Disable AY", ChipName);
@@ -575,6 +578,9 @@ void SaveConfigurationFile(void)
 	
 	sprintf(TempStr, "%s PseudoStereo", ChipName);
 	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 2, 1);
+	
+	sprintf(TempStr, "%s NukedType", ChipName);
+	WriteFromBitfield("ChipOpts", TempStr, TempCOpt->SpecialFlags, 3, 2);
 	
 	// YM2203
 	ChipName = GetChipName(0x06);	TempCOpt = &ChipOpts[0x00].YM2203;

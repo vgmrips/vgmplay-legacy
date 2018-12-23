@@ -112,7 +112,8 @@ The format starts with a 256 byte header:
         bit 1   output negate flag
         bit 2   stereo on/off (on when bit clear)
         bit 3   /8 Clock Divider on/off (on when bit clear)
-        bit 4-7 reserved (must be zero)
+        bit 4   XNOR noise feedback (used by NCR8496)
+        bit 5-7 reserved (must be zero)
         For version 1.51 and earlier files, all the flags should not be set.
         If the PSG is not used then this may be omitted (left at zero).
 [VGM 1.10 additions:]
@@ -219,10 +220,10 @@ The format starts with a 256 byte header:
         from -63 to 192 (-63 = 0xC1, 0 = 0x00, 192 = 0xC0). Also the value -63
         gets replaced with -64 in order to make factor of 0.25 possible.
         Therefore the volume can reach levels between 0.25 and 64.
-        Default is 0, which is equal to a factor of 1 or 100%.
+        Default is 0, which is equal to a factor of 1.0 or 100%.
         Note: Players should support the Volume Modifier in v1.50 files and
-        higher. This way MegaDrive VGMs can use the Volume Modifier without
-        breaking compatibility with old players.
+        higher despite their late addition. This way MegaDrive VGMs can use
+        the Volume Modifier without breaking compatibility with old players.
 0x7D: reserved
         Reserved byte for future use. It must be 0.
 0x7E: Loop Base (8 bits)
@@ -234,6 +235,7 @@ The format starts with a 256 byte header:
         The resulting number of loops that are played is calculated as
         following: NumLoops = NumLoopsModified - LoopBase
         Default is 0. Negative numbers are possible (80h...FFh = -128...-1)
+        Note: Players should support the Volume Modifier in v1.51 files.
 [VGM 1.51 additions:]
 0x7F: Loop Modifier (8 bits)
         Modifies the number of loops that are played before the playback ends.
@@ -711,6 +713,12 @@ GA20.
 Dual chip support is activated by setting bit 30 (0x40000000) in the chip's
 clock value. (Note: The PSG needs this bit set for T6W28 mode.)
 
+Note: For the YM3812 only, setting bit 31 (0x80000000) in the chip's clock
+value hard-pans the first chip on the left and the second chip on the right.
+This replicates the pan configuration of the Sound Blaster Pro 1 and Pro
+Audio Spectrum sound cards on the IBM PC.
+
+
 Dual Chip Support #1:
 The second chip instance is controlled via separate commands.
 
@@ -726,10 +734,10 @@ between the 1st and 2nd chip. (0x00-7F = Chip 1, 0x80-0xFF = chip 2)
 Note: The SegaPCM chip has the 2nd-chip-bit in the high byte of the address
 parameter. This is the second parameter byte.
 
-Note: For the YM3812 only, setting bit 31 (0x80000000) in the chip's clock
-value hard-pans the first chip on the left and the second chip on the right.
-This replicates the pan configuration of the Sound Blaster Pro 1 and Pro
-Audio Spectrum sound cards on the IBM PC.
+Dual Chip Support #3:
+Data block commands have bit 31 set for ROM/RAM dumps that go to the second
+chip.
+
 
 Extra Header
 ------------
@@ -855,12 +863,12 @@ All changes done by Valley Bell.
 
 [1.71]
 SCSP, WonderSwan, Virtual Boy VSU, SAA1099, ES5503, ES5506, Seta X1-010,
-Namco C352, Irem GA20 added.
-(including necessary ROM data blocks)
+Namco C352, Irem GA20 added. (including necessary ROM data blocks)
+[Valley Bell]
 
 Data blocks (type 0x) for OKIM6258, HuC6280, SCSP and NES added.
 VGM v1.61 players should support the data block of their respective chips
-despite their late addition.
+despite their late addition. [Valley Bell]
 
 Added bit 31 flags to change chip types for YM2612, YM2151 and K051649. These
 changes should be considered backwards compatible with VGM 1.51. [grauw, ctr]
@@ -870,4 +878,5 @@ Added command 0x31 to set AY8910 stereo mask. [NewRisingSun]
 Documented some chip flags that have been present since earlier versions of
 VGMPlay. [NewRisingSun]
 
-All other changes done by Valley Bell.
+Added "XNOR noise feedback" bit to SN76489 flags. The new flag should be
+supported by VGM v1.51 players where possible. [Valley Bell]

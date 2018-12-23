@@ -166,3 +166,5 @@ Updates since 0.4.0u8 (16.04.2017)
 - added new and accurate QSound sound core (thanks ctr)
 - slightly improved YMF278B emulation
 - swapped YM2612 emulator type IDs 1 and 2, so that Nuked OPN2 is selectable in in_vgm
+- [VGMPlay] added "OutputDevice" configuration option (thanks ctr for the "-DeviceId" commandline option)
+- fixed SN76496 variant being incorrectly called NCR7496 instead of NCR8496
