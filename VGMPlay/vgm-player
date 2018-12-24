@@ -154,7 +154,7 @@ while :; do
         --help )
             _help ;;
         -v | --version )
-            echo "VGMPlay 0.40.8 player script"
+            echo "VGMPlay 0.40.9 player script"
             exit 0 ;;
         -a | --alsa )
             _set_output alsa

@@ -2,7 +2,7 @@
 
 #include "VGMFile.h"
 
-#define VGMPLAY_VER_STR	"0.40.8"
+#define VGMPLAY_VER_STR	"0.40.9"
 //#define APLHA
 //#define BETA
 #define VGM_VER_STR		"1.71b"
