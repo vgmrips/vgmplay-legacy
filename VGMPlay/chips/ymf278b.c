@@ -1230,6 +1230,7 @@ void device_stop_ymf278b(UINT8 ChipID)
 	
 	ymf262_shutdown(chip->fmchip);
 	free(chip->rom);	chip->rom = NULL;
+	free(chip->ram);	chip->ram = NULL;
 	
 	return;
 }

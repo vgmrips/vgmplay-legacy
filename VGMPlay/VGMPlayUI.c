@@ -2304,12 +2304,13 @@ static void PlayVGM_UI(void)
 			printf(" seconds");
 			if (Show95Cmds && Last95Max != 0xFFFF)
 			{
+				UINT16 drumID = 1 + Last95Drum;	// 0-based -> 1-based, 0xFFFF = 0
 				if (Show95Cmds == 0x01)
-					printf("  %02X / %02hX", 1 + Last95Drum, Last95Max);
+					printf("  %02hX / %02hX", drumID , Last95Max);
 				else if (Show95Cmds == 0x02)
-					printf("  %02X / %02hX at %5u Hz", 1 + Last95Drum, Last95Max, Last95Freq);
+					printf("  %02hX / %02hX at %5u Hz", drumID, Last95Max, Last95Freq);
 				else if (Show95Cmds == 0x03)
-					printf("  %02X / %02hX at %4.1f KHz", 1 + Last95Drum, Last95Max,
+					printf("  %02hX / %02hX at %4.1f KHz", drumID, Last95Max,
 							Last95Freq / 1000.0);
 			}
 			//printf("  %u / %u", multipcm_get_channels(0, NULL), 28);

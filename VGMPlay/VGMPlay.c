@@ -658,7 +658,8 @@ char* FindFile(const char* FileName)
 	FullLen = PathLen + NameLen;
 	FullName = (char*)malloc(FullLen + 1);
 	
-	while(CurPath >= AppPaths)
+	hFile = NULL;
+	for (; CurPath >= AppPaths; CurPath --)
 	{
 		strcpy(FullName, *CurPath);
 		strcat(FullName, FileName);
@@ -667,8 +668,6 @@ char* FindFile(const char* FileName)
 		hFile = fopen(FullName, "r");
 		if (hFile != NULL)
 			break;
-		
-		CurPath --;
 	}
 	
 	if (hFile != NULL)
