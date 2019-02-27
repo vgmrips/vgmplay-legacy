@@ -757,17 +757,12 @@ static void WinNT_Check(void)
 static char* GetAppFileName(void)
 {
 	char* AppPath;
-	int RetVal;
 	
-	AppPath = (char*)malloc(MAX_PATH * sizeof(char));
+	AppPath = calloc(MAX_PATH, sizeof(char));
 #ifdef WIN32
-	RetVal = GetModuleFileName(NULL, AppPath, MAX_PATH);
-	if (! RetVal)
-		AppPath[0] = '\0';
+	GetModuleFileName(NULL, AppPath, MAX_PATH - 1);
 #else
-	RetVal = readlink("/proc/self/exe", AppPath, MAX_PATH);
-	if (RetVal == -1)
-		AppPath[0] = '\0';
+	readlink("/proc/self/exe", AppPath, MAX_PATH - 1);
 #endif
 	
 	return AppPath;
