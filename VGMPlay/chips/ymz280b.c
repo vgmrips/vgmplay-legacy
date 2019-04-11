@@ -356,6 +356,7 @@ static int generate_adpcm(struct YMZ280BVoice *voice, UINT8 *base, UINT32 size, 
 			/* compute the new amplitude and update the current step */
 			//val = base[position / 2] >> ((~position & 1) << 2);
 			val = ymz280b_read_memory(base, size, position / 2) >> ((~position & 1) << 2);
+			signal = (signal * 254) / 256;
 			signal += (step * diff_lookup[val & 15]) / 8;
 
 			/* clamp to the maximum */
@@ -396,6 +397,7 @@ static int generate_adpcm(struct YMZ280BVoice *voice, UINT8 *base, UINT32 size, 
 			/* compute the new amplitude and update the current step */
 			//val = base[position / 2] >> ((~position & 1) << 2);
 			val = ymz280b_read_memory(base, size, position / 2) >> ((~position & 1) << 2);
+			signal = (signal * 254) / 256;
 			signal += (step * diff_lookup[val & 15]) / 8;
 
 			/* clamp to the maximum */
