@@ -12,15 +12,14 @@ LDFLAGS=$(pkg-config --libs dbus-1)
 They weren't lying when they said that using libdbus directly signs you up for some pain...
 */
 
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <dbus/dbus.h>
-#include <pthread.h>
 #include "chips/mamedef.h"          // for UINT8
 #include "mmkeys.h"
 #include "dbus.h"
