@@ -46,7 +46,7 @@ Makefile to make VGMPlay use `libao` instead of `OSS`.
 The following packages are needed in order to compile the binaries
 
 ```sh
-sudo apt-get install make gcc zlib1g-dev libao-dev
+sudo apt-get install make gcc zlib1g-dev libao-dev libdbus-1-dev
 ```
 
 #### Building

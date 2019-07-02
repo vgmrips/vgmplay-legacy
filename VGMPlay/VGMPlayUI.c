@@ -23,6 +23,7 @@
 #include <unistd.h>	// for STDIN_FILENO and usleep()
 #include <sys/time.h>	// for struct timeval in _kbhit()
 #include <signal.h> // for signal()
+#include <sys/select.h> // for select()
 
 #define	Sleep(msec)	usleep(msec * 1000)
 #define _vsnwprintf	vswprintf
@@ -35,6 +36,8 @@
 #include "Stream.h"
 #include "VGMPlay.h"
 #include "VGMPlay_Intf.h"
+#include "mmkeys.h"
+#include "dbus.h"
 
 #ifdef XMAS_EXTRA
 #include "XMasFiles/XMasBonus.h"
@@ -69,7 +72,7 @@ void WaveOutLinuxCallBack(void);
 int main(int argc, char* argv[]);
 static void RemoveNewLines(char* String);
 static void RemoveQuotationMarks(char* String);
-static char* GetLastDirSeparator(const char* FilePath);
+char* GetLastDirSeparator(const char* FilePath);
 static bool IsAbsolutePath(const char* FilePath);
 static char* GetFileExtension(const char* FilePath);
 static void StandardizeDirSeparators(char* FilePath);
@@ -100,9 +103,10 @@ extern bool OpenOtherFile(const char* FileName);
 
 static void wprintc(const wchar_t* format, ...);
 static void PrintChipStr(UINT8 ChipID, UINT8 SubType, UINT32 Clock);
-static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag);
+const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag);
 static void ShowVGMTag(void);
 
+static void MMKey_Event(UINT8 event);
 static void PlayVGM_UI(void);
 INLINE INT8 sign(double Value);
 INLINE long int Round(double Value);
@@ -167,16 +171,18 @@ extern char* AppPaths[8];
 static char AppPathBuffer[MAX_PATH * 2];
 
 static char PLFileBase[MAX_PATH];
-static char PLFileName[MAX_PATH];
-static UINT32 PLFileCount;
+char PLFileName[MAX_PATH];
+UINT32 PLFileCount;
 static char** PlayListFile;
-static UINT32 CurPLFile;
+UINT32 CurPLFile;
 static UINT8 NextPLCmd;
-static UINT8 PLMode;	// set to 1 to show Playlist text
+UINT8 PLMode;	// set to 1 to show Playlist text
 static bool FirstInit;
 extern bool AutoStopSkip;
 
-static char VgmFileName[MAX_PATH];
+static UINT8 lastMMEvent = 0x00;
+
+char VgmFileName[MAX_PATH];
 static UINT8 FileMode;
 extern VGM_HEADER VGMHead;
 extern UINT32 VGMDataLen;
@@ -377,6 +383,9 @@ int main(int argc, char* argv[])
 	
 	ReadOptions(AppName);
 	VGMPlay_Init2();
+
+	MultimediaKeyHook_Init();
+	MultimediaKeyHook_SetCallback(&MMKey_Event);
 	
 	ErrRet = 0;
 	argbase = 0x01;
@@ -443,7 +452,32 @@ int main(int argc, char* argv[])
 		//	Debug build:	Dynamite D³x [tag display wrong]
 		//	Release build:	Dynamite D³x [tag display wrong]
 #else
-		StrPtr = fgets(VgmFileName, MAX_PATH, stdin);
+		fflush(stdout);
+		while(1)
+		{
+			fd_set fds;
+			FD_ZERO(&fds);
+			FD_SET(fileno(stdin), &fds);
+			struct timeval tv = {0, 10};
+			int sel_ret = select(1, &fds, NULL, NULL, &tv);
+			if(sel_ret == -1)
+				break;
+			else if(!sel_ret)
+			{
+				DBus_ReadWriteDispatch();
+				// If ^C has been pressed, quit immediately
+				if(sigint)
+				{
+					printf("\n");
+					break;
+				}
+			}
+			else
+			{
+				StrPtr = fgets(VgmFileName, MAX_PATH, stdin);
+				break;
+			}
+		}
 		if (StrPtr == NULL)
 			VgmFileName[0] = '\0';
 #endif
@@ -505,7 +539,8 @@ int main(int argc, char* argv[])
 		PLMode = 0x00;
 	else
 		PLMode = 0x01;
-	
+
+	lastMMEvent = 0x00;
 	if (! PLMode)
 	{
 		PLFileCount = 0x00;
@@ -583,7 +618,6 @@ int main(int argc, char* argv[])
 			NextPLCmd = 0x00;
 			PlayVGM_UI();
 			CloseVGMFile();
-			
 			if (ErrorHappened)
 			{
 				if (_kbhit())
@@ -621,6 +655,7 @@ ExitProgram:
 //	printf("\x1B]0;${USER}@${HOSTNAME}: ${PWD/$HOME/~}\x07", APP_NAME);	// Reset xterm/rxvt Terminal Title
 #endif
 #endif
+	MultimediaKeyHook_Deinit();
 	VGMPlay_Deinit();
 	free(AppName);
 	
@@ -658,7 +693,7 @@ static void RemoveQuotationMarks(char* String)
 	return;
 }
 
-static char* GetLastDirSeparator(const char* FilePath)
+char* GetLastDirSeparator(const char* FilePath)
 {
 	char* SepPos1;
 	char* SepPos2;
@@ -1949,7 +1984,7 @@ static void PrintChipStr(UINT8 ChipID, UINT8 SubType, UINT32 Clock)
 	return;
 }
 
-static const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag)
+const wchar_t* GetTagStrEJ(const wchar_t* EngTag, const wchar_t* JapTag)
 {
 	const wchar_t* RetTag;
 	
@@ -2103,6 +2138,12 @@ static void ShowVGMTag(void)
 	return;
 }
 
+static void MMKey_Event(UINT8 event)
+{
+	lastMMEvent = event;
+
+	return;
+}
 
 #define LOG_SAMPLES	(SampleRate / 5)
 static void PlayVGM_UI(void)
@@ -2125,7 +2166,7 @@ static void PlayVGM_UI(void)
 	printf("Initializing ...\r");
 	
 	PlayVGM();
-	
+	DBus_EmitSignal(SIGNAL_SEEK | SIGNAL_METADATA | SIGNAL_PLAYSTATUS | SIGNAL_CONTROLS);
 	/*switch(LogToWave)
 	{
 	case 0x00:
@@ -2252,6 +2293,7 @@ static void PlayVGM_UI(void)
 	QuitPlay = false;
 	while(! QuitPlay)
 	{
+		DBus_ReadWriteDispatch();
 		if(sigint)
 		{
 			QuitPlay = true;
@@ -2264,6 +2306,7 @@ static void PlayVGM_UI(void)
 			
 			VGMPbSmplCount = SampleVGM2Playback(VGMHead.lngTotalSamples);
 			PlaySmpl = VGMPos - VGMPlaySt;
+
 #ifdef WIN32
 			printf("Playing %01.2f%%\t", 100.0 * PlaySmpl / VGMPlayEnd);
 #else
@@ -2287,6 +2330,7 @@ static void PlayVGM_UI(void)
 			}
 			else
 			{
+				//printf("%i", VGMSmplPos);
 				while(PlaySmpl < SampleVGM2Playback(VGMHead.lngTotalSamples -
 					VGMHead.lngLoopSamples))
 					PlaySmpl += SampleVGM2Playback(VGMHead.lngLoopSamples);
@@ -2339,7 +2383,7 @@ static void PlayVGM_UI(void)
 		if (! PausePlay && PlayingMode != 0x01)
 			WaveOutLinuxCallBack();
 		else
-			Sleep(100);
+			Sleep(50);
 #endif
 		
 		if (EndPlay)
@@ -2360,9 +2404,22 @@ static void PlayVGM_UI(void)
 			if (PlayingTime >= PlayTimeEnd)
 				QuitPlay = true;
 		}
-		if (_kbhit())
-		{
-			KeyCode = _getch();
+		if (_kbhit() || lastMMEvent)
+ 		{
+			if (lastMMEvent)
+			{
+				if (lastMMEvent == MMKEY_PLAY)
+					KeyCode = ' ';
+				else if (lastMMEvent == MMKEY_PREV)
+					KeyCode = 'B';
+				else if (lastMMEvent == MMKEY_NEXT)
+					KeyCode = 'N';
+				lastMMEvent = 0x00;
+			}
+			else
+			{
+				KeyCode = _getch();
+			}
 			if (KeyCode < 0x80)
 				KeyCode = toupper(KeyCode);
 			switch(KeyCode)
@@ -2505,6 +2562,7 @@ static void PlayVGM_UI(void)
 				{
 					SeekVGM(true, PlaySmpl * SampleRate);
 					PosPrint = true;
+					DBus_EmitSignal(SIGNAL_SEEK);
 				}
 				break;
 #ifdef WIN32
@@ -2517,12 +2575,14 @@ static void PlayVGM_UI(void)
 			case ' ':
 				PauseVGM(! PausePlay);
 				PosPrint = true;
+				DBus_EmitSignal(SIGNAL_PLAYSTATUS); // Emit status change signal
 				break;
 			case 'F':	// Fading
 				FadeTime = FadeTimeN;
 				FadePlay = true;
 				break;
 			case 'R':	// Restart
+				DBus_EmitSignal(SIGNAL_SEEK);
 				RestartVGM();
 				PosPrint = true;
 				break;

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+    <mime-type type="audio/x-vgm">
+        <comment>VGM Audio File</comment>
+        <glob pattern="*.vgm"/>
+    </mime-type>
+    <mime-type type="audio/x-vgz">
+        <comment>Compressed VGM Audio File</comment>
+        <glob pattern="*.vgz"/>
+    </mime-type>
+</mime-info>

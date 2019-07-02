@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=VGMPlay
+GenericName=VGMPlay
+Comment=VGM File Player
+Exec=@BIN_PATH@vgmplay %f
+Terminal=true
+Icon=vgmplay
+Type=Application
+StartupNotify=false
+Version=1.0
+Categories=AudioVideo;
+MimeType=audio/x-vgm;audio/x-vgz;application/mpegurl;application/x-mpegurl;audio/mpegurl;audio/x-mpegurl;
+Keywords=Audio;Music;VGM;Player;Video Game Music;Sound Chip; OKI; SN; YM; OPL; PCM; AY;
