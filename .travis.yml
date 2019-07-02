@@ -23,6 +23,7 @@ addons:
       - gcc 
       - zlib1g-dev 
       - libao-dev
+      - libdbus-1-dev
 
 script:
   - make
