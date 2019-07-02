@@ -132,7 +132,7 @@ LDFLAGS += -lrt -lpthread -pthread
 
 #DBus
 ifeq ($(USE_DBUS), 1)
-CFLAGS += $(shell pkg-config --cflags dbus-1)
+CFLAGS += $(shell pkg-config --cflags dbus-1) -std=c99
 LDFLAGS += $(shell pkg-config --libs dbus-1)
 MAINFLAGS += -DUSE_DBUS
 endif
