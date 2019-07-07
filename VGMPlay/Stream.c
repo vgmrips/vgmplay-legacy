@@ -2,7 +2,7 @@
 //
 
 // Thanks to nextvolume for NetBSD support
-
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include "stdbool.h"
 #include <stdlib.h>

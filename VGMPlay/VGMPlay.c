@@ -25,6 +25,7 @@
 //#define VGM_LITTLE_ENDIAN	// enable optimizations for Little Endian systems
 //#define VGM_BIG_ENDIAN	// enable optimizations for Big Endian systems
 
+#define _DEFAULT_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -2019,6 +2020,7 @@ UINT32 CalcSampleMSecExt(UINT64 Value, UINT8 Mode, VGM_HEADER* FileHead)
 	return RetVal;
 }
 
+#if 0
 static UINT32 EncryptChipName(void* DstBuf, const void* SrcBuf, UINT32 Length)
 {
 	// using nineko's awesome encryption algorithm
@@ -2050,6 +2052,7 @@ static UINT32 EncryptChipName(void* DstBuf, const void* SrcBuf, UINT32 Length)
 	
 	return Length;
 }
+#endif
 
 const char* GetChipName(UINT8 ChipID)
 {
