@@ -96,6 +96,8 @@
     <ClInclude Include="chips\ymf271.h" />
     <ClInclude Include="chips\ymf278b.h" />
     <ClInclude Include="chips\ymz280b.h" />
+    <ClInclude Include="dbus.h" />
+    <ClInclude Include="mmkeys.h" />
     <ClInclude Include="PortTalk_IOCTL.h" />
     <ClInclude Include="Stream.h" />
     <ClInclude Include="VGMFile.h" />
@@ -190,6 +192,8 @@
     <ClCompile Include="chips\ymf271.c" />
     <ClCompile Include="chips\ymf278b.c" />
     <ClCompile Include="chips\ymz280b.c" />
+    <ClCompile Include="dbus_stub.c" />
+    <ClCompile Include="mmkeys_Win.c" />
     <ClCompile Include="pt_ioctl.c" />
     <ClCompile Include="Stream.c" />
     <ClCompile Include="VGMPlay.c" />

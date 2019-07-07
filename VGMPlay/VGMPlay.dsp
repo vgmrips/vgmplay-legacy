@@ -94,6 +94,14 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=.\dbus_stub.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\mmkeys_Win.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\pt_ioctl.c
 # End Source File
 # Begin Source File
@@ -152,6 +160,14 @@ SOURCE=.\VGMPlayUI.c
 # Begin Group "Header-Dateien"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\dbus.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\mmkeys.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\PortTalk_IOCTL.h

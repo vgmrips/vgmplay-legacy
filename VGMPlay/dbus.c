@@ -1227,7 +1227,7 @@ void MultimediaKeyHook_SetCallback(mmkey_cbfunc callbackFunc)
     evtCallback = callbackFunc;
 }
 
-void DBus_ReadWriteDispatch()
+void DBus_ReadWriteDispatch(void)
 {
     if(connection == NULL)
         return;

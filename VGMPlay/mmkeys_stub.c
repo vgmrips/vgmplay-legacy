@@ -1,4 +1,5 @@
 #include "chips/mamedef.h"
+#include "mmkeys.h"
 
 UINT8 MultimediaKeyHook_Init(void)
 {
@@ -10,8 +11,7 @@ void MultimediaKeyHook_Deinit(void)
     
 }
 
-void MultimediaKeyHook_SetCallback(void* callbackFunc)
+void MultimediaKeyHook_SetCallback(mmkey_cbfunc callbackFunc)
 {
     
 }
-

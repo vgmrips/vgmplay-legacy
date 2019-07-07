@@ -299,6 +299,12 @@
     <ClInclude Include="chips\np_nes_fds.h">
       <Filter>SoundCore\NES Chips</Filter>
     </ClInclude>
+    <ClInclude Include="dbus.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="mmkeys.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pt_ioctl.c">
@@ -540,6 +546,12 @@
     </ClCompile>
     <ClCompile Include="chips\np_nes_fds.c">
       <Filter>SoundCore\NES Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="dbus_stub.c">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="mmkeys_Win.c">
+      <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

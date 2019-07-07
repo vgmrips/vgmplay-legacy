@@ -246,6 +246,8 @@ VGMPLAY_OBJS = \
  
 ifeq ($(USE_DBUS), 1)
 	VGMPLAY_OBJS += $(OBJ)/dbus.o
+else ifeq ($(WINDOWS), 1)
+	VGMPLAY_OBJS += $(OBJ)/mmkeys_Win.o $(OBJ)/dbus_stub.o
 else
 	VGMPLAY_OBJS += $(OBJ)/mmkeys_stub.o $(OBJ)/dbus_stub.o
 endif

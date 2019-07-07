@@ -1,6 +1,6 @@
 #include "chips/mamedef.h"
 
-void DBus_ReadWriteDispatch()
+void DBus_ReadWriteDispatch(void)
 {
 
 }
