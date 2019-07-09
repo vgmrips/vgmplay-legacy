@@ -1161,6 +1161,12 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
 
         return DBUS_HANDLER_RESULT_HANDLED;
     }
+    // Stop is currently a stub
+    else if(dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "Stop"))
+    {
+        DBusEmptyMethodResponse(connection, message);
+        return DBUS_HANDLER_RESULT_HANDLED;
+    }
     //Respond to Previous
     else if(dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "Previous"))
     {
