@@ -1153,8 +1153,8 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
 
         return DBUS_HANDLER_RESULT_HANDLED;
     }
-    //Respond to Play/PlayPause
-    else if(dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "Play") || dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "PlayPause"))
+    //Respond to Play/PlayPause/Pause
+    else if(dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "Play") || dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "PlayPause") || dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "Pause"))
     {
         DBusEmptyMethodResponse(connection, message);
         evtCallback(MMKEY_PLAY);
