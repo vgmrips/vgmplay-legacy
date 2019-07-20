@@ -1182,6 +1182,20 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         evtCallback(MMKEY_NEXT);
         return DBUS_HANDLER_RESULT_HANDLED;
     }
+    else if(dbus_message_is_method_call(message, DBUS_MPRIS_PLAYER, "SetPosition"))
+    {
+        int64_t pos;
+        const char* path;
+        if(!dbus_message_get_args(message, NULL, DBUS_TYPE_OBJECT_PATH, &path, DBUS_TYPE_INT64, &pos, DBUS_TYPE_INVALID))
+            return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+        INT32 seek_pos = ReturnSamplePos(pos, SampleRate);
+        SeekVGM(false, seek_pos);
+
+        DBusEmptyMethodResponse(connection, message);
+        DBus_EmitSignal(SIGNAL_SEEK);
+        return DBUS_HANDLER_RESULT_HANDLED;
+    }
     else if(dbus_message_is_method_call(message, DBUS_INTERFACE_PROPERTIES, "Set"))
     {
         // Dummy Set to send a signal to revert Volume change attempts
