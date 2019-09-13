@@ -318,7 +318,7 @@ if [ "$_unpack" = true ]; then
     _m3u_stub=$(command find . -iname '*.m3u' -print 2> /dev/null | head -n 1 | sed -e 's/^.\///')
     if [ -z "$_m3u_stub" ]; then
         _m3u_stub="List.m3u"
-        command find . -iname '*.vgm' -o -iname '*.vgz' -print | sed -e 's/^.\///' > "$_m3u_stub" 2> /dev/null
+        command find . -iname '*.vg[mz]' -print | sort | sed -e 's/^.\///' > "$_m3u_stub" 2> /dev/null
     fi
     _music_file="$PWD/$_m3u_stub"
 fi
