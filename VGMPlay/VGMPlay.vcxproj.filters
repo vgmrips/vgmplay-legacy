@@ -86,13 +86,7 @@
     <ClInclude Include="chips\2413intf.h">
       <Filter>SoundCore\FM OPL Chips</Filter>
     </ClInclude>
-    <ClInclude Include="chips\2413tone.h">
-      <Filter>SoundCore\FM OPL Chips</Filter>
-    </ClInclude>
     <ClInclude Include="chips\262intf.h">
-      <Filter>SoundCore\FM OPL Chips</Filter>
-    </ClInclude>
-    <ClInclude Include="chips\281btone.h">
       <Filter>SoundCore\FM OPL Chips</Filter>
     </ClInclude>
     <ClInclude Include="chips\adlibemu.h">

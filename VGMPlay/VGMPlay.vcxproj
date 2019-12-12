@@ -23,12 +23,10 @@
     <ClInclude Include="chips\2151intf.h" />
     <ClInclude Include="chips\2203intf.h" />
     <ClInclude Include="chips\2413intf.h" />
-    <ClInclude Include="chips\2413tone.h" />
     <ClInclude Include="chips\2608intf.h" />
     <ClInclude Include="chips\2610intf.h" />
     <ClInclude Include="chips\2612intf.h" />
     <ClInclude Include="chips\262intf.h" />
-    <ClInclude Include="chips\281btone.h" />
     <ClInclude Include="chips\3526intf.h" />
     <ClInclude Include="chips\3812intf.h" />
     <ClInclude Include="chips\8950intf.h" />

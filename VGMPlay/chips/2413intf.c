@@ -66,6 +66,74 @@ void YM2413DAC_update(int chip,stream_sample_t **inputs, stream_sample_t **_buff
 }
 #endif
 
+static void _emu2413_calc_stereo(OPLL *opll, INT32 **out, int samples)
+{
+	INT32 *bufL = out[0];
+	INT32 *bufR = out[1];
+	INT32 buffers[2];
+	int i;
+
+	for (i = 0; i < samples; i++)
+	{
+		OPLL_calcStereo(opll, buffers);
+		bufL[i] = buffers[0];
+		bufR[i] = buffers[1];
+	}
+}
+
+static INT8 _emu2413_make_pan(INT16 pan) {
+	if (pan<0)
+		return 2;
+	else if (pan>0)
+		return 1;
+	else
+		return 3;
+}
+
+static void _emu2413_set_mute_mask(OPLL *opll, UINT32 MuteMask)
+{
+	unsigned char CurChn;
+	UINT32 ChnMsk;
+
+	for (CurChn = 0; CurChn < 14; CurChn++)
+	{
+		if (CurChn < 9)
+		{
+			ChnMsk = OPLL_MASK_CH(CurChn);
+		}
+		else
+		{
+			switch (CurChn)
+			{
+			case 9:
+				ChnMsk = OPLL_MASK_BD;
+				break;
+			case 10:
+				ChnMsk = OPLL_MASK_SD;
+				break;
+			case 11:
+				ChnMsk = OPLL_MASK_TOM;
+				break;
+			case 12:
+				ChnMsk = OPLL_MASK_CYM;
+				break;
+			case 13:
+				ChnMsk = OPLL_MASK_HH;
+				break;
+			default:
+				ChnMsk = 0;
+				break;
+			}
+		}
+		if ((MuteMask >> CurChn) & 0x01)
+			opll->mask |= ChnMsk;
+		else
+			opll->mask &= ~ChnMsk;
+	}
+
+	return;
+}
+
 //static STREAM_UPDATE( ym2413_stream_update )
 void ym2413_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 {
@@ -81,7 +149,7 @@ void ym2413_stream_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 		break;
 #endif
 	case EC_EMU2413:
-		OPLL_calc_stereo(info->chip, outputs, samples);
+		_emu2413_calc_stereo(info->chip, outputs, samples);
 		break;
 	}
 }
@@ -102,7 +170,7 @@ static void _stream_update(void *param, int interval)
 		break;
 #endif
 	case EC_EMU2413:
-		OPLL_calc_stereo(info->chip, DUMMYBUF, 0);
+		_emu2413_calc_stereo(info->chip, DUMMYBUF, 0);
 		break;
 	}
 }
@@ -155,7 +223,7 @@ int device_start_ym2413(UINT8 ChipID, int clock)
 		if (info->chip == NULL)
 			return 0;
 		
-		OPLL_SetChipMode(info->chip, info->Mode);
+		OPLL_setChipMode(info->chip, info->Mode);
 		if (info->Mode)
 			OPLL_setPatch(info->chip, vrc7_inst);
 		break;
@@ -296,7 +364,7 @@ void ym2413_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 		break;
 #endif
 	case EC_EMU2413:
-		OPLL_SetMuteMask(info->chip, MuteMask);
+		_emu2413_set_mute_mask(info->chip, MuteMask);
 		break;
 	}
 	
@@ -315,7 +383,7 @@ void ym2413_set_panning(UINT8 ChipID, INT16* PanVals)
 #endif
 	case EC_EMU2413:
 		for (CurChn = 0x00; CurChn < 0x0E; CurChn ++)
-			OPLL_set_pan(info->chip, CurChn, PanVals[CurChn]);
+			OPLL_setPan(info->chip, CurChn, _emu2413_make_pan(PanVals[CurChn]));
 		break;
 	}
 	
