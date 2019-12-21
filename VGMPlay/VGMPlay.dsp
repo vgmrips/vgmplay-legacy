@@ -350,6 +350,14 @@ SOURCE=.\chips\opl.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\chips\opll.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\opll.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\chips\vrc7tone.h
 # End Source File
 # Begin Source File

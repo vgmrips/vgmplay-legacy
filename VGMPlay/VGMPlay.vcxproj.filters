@@ -305,6 +305,9 @@
     <ClInclude Include="mmkeys.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="chips\opll.h">
+      <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pt_ioctl.c">
@@ -552,6 +555,9 @@
     </ClCompile>
     <ClCompile Include="mmkeys_Win.c">
       <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\opll.c">
+      <Filter>SoundCore\FM OPL Chips</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

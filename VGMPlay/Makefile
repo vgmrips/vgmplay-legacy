@@ -209,6 +209,7 @@ EMUOBJS = \
 	$(EMUOBJ)/okim6258.o \
 	$(EMUOBJ)/okim6295.o \
 	$(EMUOBJ)/Ootake_PSG.o \
+	$(EMUOBJ)/opll.o \
 	$(EMUOBJ)/panning.o \
 	$(EMUOBJ)/pokey.o \
 	$(EMUOBJ)/pwm.o \
