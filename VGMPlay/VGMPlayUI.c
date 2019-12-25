@@ -272,6 +272,7 @@ int main(int argc, char* argv[])
 	const char* FileExt;
 	UINT8 CurPath;
 	UINT32 ChrPos;
+	char* DispFileName;
 	
 	// set locale to "current system locale"
 	// (makes Unicode characters (like umlauts) work under Linux and fixes some
@@ -490,7 +491,12 @@ int main(int argc, char* argv[])
 	{
 		// The argument should already use the ANSI codepage.
 		strcpy(VgmFileName, argv[argbase]);
-		printf("%s\n", VgmFileName);
+		DispFileName = GetLastDirSeparator(VgmFileName);
+		if(DispFileName && strlen(DispFileName) > 2)
+			DispFileName++;
+		else
+			DispFileName = VgmFileName;
+		printf("%s\n", DispFileName);
 	}
 	if (! strlen(VgmFileName))
 		goto ExitProgram;
