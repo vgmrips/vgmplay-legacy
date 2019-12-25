@@ -48,13 +48,14 @@ They weren't lying when they said that using libdbus directly signs you up for s
 #else
 #define ART_EXISTS_PRINTF(x)
 #endif
+
 #define ART_EXISTS(path)        ART_EXISTS_PRINTF(path) \
                                 if(FileExists((path))) \
-                                    return (path)
+                                    return
 
 #define RETURN_EMPTY_ART(x)     { \
                                     *(x) = '\0'; \
-                                    return (x); \
+                                    return; \
                                 }
 
 static mmkey_cbfunc evtCallback = NULL;
@@ -103,7 +104,16 @@ typedef struct DBusMetadata_
     size_t childLen;
 } DBusMetadata;
 
+// Cached art path
+static char* artpath = NULL;
+
 // Misc Helper Functions
+
+static inline void invalidateArtCache()
+{
+    if(artpath != NULL)
+        *artpath = '\0';
+}
 
 static char* wcharToUTF8(wchar_t* GD3)
 {
@@ -341,10 +351,8 @@ static void DBusSendMetadataArray(DBusMessageIter* dict_root, DBusMetadata meta[
     dbus_message_iter_close_container(dict_root, &root_variant);
 }
 
-static char* getBasePath(char** ls)
+static void getBasePath(char** ls, char* basepath)
 {
-    char* basepath = calloc(MAX_PATH, sizeof(char));
-
     // Pick the appropriate pointer
     char* fileptr = VgmFileName;
     if(PLMode == 0x01)
@@ -358,7 +366,7 @@ static char* getBasePath(char** ls)
         // Add cwd to the base path if needed
         // -1 so that there's enough room to append the trailing /
 
-        // If getcwd fails, there's most likely no way to find the image
+        // If getcwd fails, there's most likely no way to get the base path
         if(!getcwd(basepath, MAX_PATH - 1))
             RETURN_EMPTY_ART(basepath);
 
@@ -385,16 +393,18 @@ static char* getBasePath(char** ls)
     printf("\nBase Path %s\n", basepath);
 #endif
     *ls = lastsep;
-    return basepath;
 }
 
-static inline char* getArtPath(char* utf8album)
+static inline void getArtPath(char* utf8album, char* basepath)
 {
     char* lastsep = NULL;
-    char* basepath = getBasePath(&lastsep);
+    getBasePath(&lastsep, basepath);
 
     // Store a pointer to the end of the base path so that we can easily append to it, as well as the length of the base path
     size_t basepathlen = strlen(basepath);
+    // No point trying to find the art if we couldn't get the base path
+    if(!basepathlen)
+        return;
     char* basepathend = basepath + basepathlen;
 
     // Now that we have the base path, we start looking for art
@@ -411,7 +421,7 @@ static inline char* getArtPath(char* utf8album)
 
         strncpy(basepathend, filenameptr, filenamelen - 3);
         // Append the png extension
-        strcat(basepath, "png");
+        strcpy(basepathend + filenamelen - 3, "png");
 
         ART_EXISTS(basepath);
     }
@@ -442,7 +452,7 @@ static inline char* getArtPath(char* utf8album)
         {
             strcpy(basepath, result.gl_pathv[0]);
             globfree(&result);
-            return basepath;
+            return;
         }
     }
     globfree(&result);
@@ -484,7 +494,8 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
         tracknum = (int32_t)(CurPLFile + 0x01);
 
     // Try to get the cover art url
-    char* artpath = getArtPath(utf8album);
+    if(*artpath == '\0')
+        getArtPath(utf8album, artpath);
 
 #ifdef DBUS_DEBUG
     printf("\nFinal art path %s\n", artpath);
@@ -492,7 +503,6 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
 
     // URL encode the path to the png
     char* arturlescaped = urlencode(artpath);
-    free(artpath);
 
     // Game release date
     wchar_t* release = VGMTag.strReleaseDate;
@@ -578,7 +588,9 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
     // URL encoded Filename
     // First get the base path, then append the last separator
     char* lastsep = NULL;
-    char* pathurl = getBasePath(&lastsep);
+    char* pathurl = malloc(MAX_PATH);
+    *pathurl = '\0';
+    getBasePath(&lastsep, pathurl);
     // Skip the actual separator if it exists
     if(lastsep && *lastsep != '\0')
         lastsep++;
@@ -708,6 +720,10 @@ void DBus_EmitSignal(UINT8 type)
     dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
         if(type & SIGNAL_METADATA)
         {
+            // It is possible for the art to change if the playlist contains tracks from multiple games
+            // since art can be found by the "Game Name".png field
+            // Invalidate it on track change, as it will be populated later on demand
+            invalidateArtCache();
             dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry);
                 char* title = "Metadata";
                 dbus_message_iter_append_basic(&dict_entry, DBUS_TYPE_STRING, &title);
@@ -1233,6 +1249,10 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
 
 UINT8 MultimediaKeyHook_Init(void)
 {
+    // Allocate memory for the art path cache
+    artpath = malloc(MAX_PATH);
+    *artpath = '\0';
+
     connection = dbus_bus_get(DBUS_BUS_SESSION, NULL);
     if(!connection)
         return 0x00;
@@ -1260,6 +1280,7 @@ void MultimediaKeyHook_Deinit(void)
 {
     if(connection != NULL)
         dbus_connection_unref(connection);
+    invalidateArtCache();
 }
 
 void MultimediaKeyHook_SetCallback(mmkey_cbfunc callbackFunc)
