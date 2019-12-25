@@ -341,7 +341,7 @@ static void DBusSendMetadataArray(DBusMessageIter* dict_root, DBusMetadata meta[
     dbus_message_iter_close_container(dict_root, &root_variant);
 }
 
-static inline char* getArtPath(char* utf8album)
+static char* getBasePath(char** ls)
 {
     char* basepath = calloc(MAX_PATH, sizeof(char));
 
@@ -384,6 +384,14 @@ static inline char* getArtPath(char* utf8album)
 #ifdef DBUS_DEBUG
     printf("\nBase Path %s\n", basepath);
 #endif
+    *ls = lastsep;
+    return basepath;
+}
+
+static inline char* getArtPath(char* utf8album)
+{
+    char* lastsep = NULL;
+    char* basepath = getBasePath(&lastsep);
 
     // Store a pointer to the end of the base path so that we can easily append to it, as well as the length of the base path
     size_t basepathlen = strlen(basepath);
@@ -549,7 +557,6 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
                 CurChip |= 0x80;
             }
             const char* chip = GetAccurateChipName(CurChip, ChpType);
-            // Because you need to malloc() the malloc()
             chips[chipslen].content = malloc(sizeof(char*));
             *(char**)chips[chipslen].content = strdup(chip);
             // Set the type
@@ -569,7 +576,20 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
     }
 
     // URL encoded Filename
-    char* url = urlencode(VgmFileName);
+    // First get the base path, then append the last separator
+    char* lastsep = NULL;
+    char* pathurl = getBasePath(&lastsep);
+    // Skip the actual separator if it exists
+    if(lastsep && *lastsep != '\0')
+        lastsep++;
+    else
+        lastsep = VgmFileName;
+
+    if(strlen(pathurl) + strlen(lastsep) < MAX_PATH)
+        strcat(pathurl, lastsep);
+
+    char* url = urlencode(pathurl);
+    free(pathurl);
 
     // Stubs
     char* trackid = "/org/mpris/MediaPlayer2/CurrentTrack";
