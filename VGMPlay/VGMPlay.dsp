@@ -226,10 +226,6 @@ SOURCE=.\chips\2413intf.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\chips\2413tone.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\chips\262intf.c
 
 !IF  "$(CFG)" == "VGMPlay - Win32 Release"
@@ -244,10 +240,6 @@ SOURCE=.\chips\262intf.c
 # Begin Source File
 
 SOURCE=.\chips\262intf.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\chips\281btone.h
 # End Source File
 # Begin Source File
 

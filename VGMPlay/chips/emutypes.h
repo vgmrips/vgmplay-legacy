@@ -28,4 +28,19 @@ typedef signed short e_int16 ;
 typedef unsigned int e_uint32 ;
 typedef signed int e_int32 ;
 
+
+typedef e_uint8 uint8_t;
+typedef e_int8 int8_t;
+typedef e_uint16 uint16_t;
+typedef e_int16 int16_t;
+typedef e_uint32 uint32_t;
+typedef e_int32 int32_t;
+#ifdef _MSC_VER
+typedef unsigned __int64					uint64_t;
+typedef signed __int64						int64_t;
+#else
+__extension__ typedef unsigned long long	uint64_t;
+__extension__ typedef signed long long		int64_t;
+#endif
+
 #endif

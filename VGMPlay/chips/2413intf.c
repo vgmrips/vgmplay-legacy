@@ -380,6 +380,8 @@ void ym2413_set_panning(UINT8 ChipID, INT16* PanVals)
 #ifdef ENABLE_ALL_CORES
 	case EC_MAME:
 		break;
+	case EC_NUKED:
+		break;
 #endif
 	case EC_EMU2413:
 		for (CurChn = 0x00; CurChn < 0x0E; CurChn ++)

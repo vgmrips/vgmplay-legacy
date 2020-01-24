@@ -23,7 +23,7 @@
 #ifndef OPLL_H
 #define OPLL_H
 
-#include <stdint.h>
+#include "emutypes.h"
 
 #define RSM_FRAC 10
 #define OPLL_WRITEBUF_SIZE 2048

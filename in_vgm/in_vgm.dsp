@@ -239,10 +239,6 @@ SOURCE=..\VGMPlay\chips\2413intf.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\VGMPlay\chips\2413tone.h
-# End Source File
-# Begin Source File
-
 SOURCE=..\VGMPlay\chips\2608intf.c
 # End Source File
 # Begin Source File
@@ -272,10 +268,6 @@ SOURCE=..\VGMPlay\chips\262intf.c
 # Begin Source File
 
 SOURCE=..\VGMPlay\chips\262intf.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\VGMPlay\chips\281btone.h
 # End Source File
 # Begin Source File
 
@@ -565,6 +557,14 @@ SOURCE=..\VGMPlay\chips\opl.c
 # Begin Source File
 
 SOURCE=..\VGMPlay\chips\opl.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\opll.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\opll.h
 # End Source File
 # Begin Source File
 

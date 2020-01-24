@@ -1,7 +1,7 @@
 #ifndef _EMU2413_H_
 #define _EMU2413_H_
 
-#include <stdint.h>
+#include "emutypes.h"
 
 #ifdef __cplusplus
 extern "C" {
