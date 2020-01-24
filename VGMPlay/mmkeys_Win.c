@@ -25,9 +25,9 @@ static DWORD WINAPI KeyMessageThread(void* args)
 	// enforce creation of message queue
 	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
 	
-	retValB = RegisterHotKey(NULL, MMKEY_PLAY, MOD_CONTROL, VK_MEDIA_PLAY_PAUSE);
-	retValB = RegisterHotKey(NULL, MMKEY_PREV, MOD_CONTROL, VK_MEDIA_PREV_TRACK);
-	retValB = RegisterHotKey(NULL, MMKEY_NEXT, MOD_CONTROL, VK_MEDIA_NEXT_TRACK);
+	retValB = RegisterHotKey(NULL, MMKEY_PLAY, 0, VK_MEDIA_PLAY_PAUSE);
+	retValB = RegisterHotKey(NULL, MMKEY_PREV, 0, VK_MEDIA_PREV_TRACK);
+	retValB = RegisterHotKey(NULL, MMKEY_NEXT, 0, VK_MEDIA_NEXT_TRACK);
 	
 	SetEvent(hEvent);
 	
@@ -52,7 +52,6 @@ UINT8 MultimediaKeyHook_Init(void)
 	if (hThread != NULL)
 		return 0x01;
 	
-	printf("Starting Media Event Thread ...\n");
 	hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	hThread = CreateThread(NULL, 0x00, &KeyMessageThread, NULL, 0x00, &idThread);
 	if (hThread == NULL)
