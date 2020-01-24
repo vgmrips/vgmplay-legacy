@@ -120,7 +120,7 @@ typedef struct __OPLL {
   OPLL_PATCH patch[19 * 2];
   int32_t patch_update[2];
 
-  uint8_t pan[16];
+  float pan[16][2];
   uint32_t mask;
 
   /* channel output */
@@ -160,7 +160,8 @@ void OPLL_setQuality(OPLL *opll, uint8_t q);
  *            +-- bit 0: enable Right output
  * ```
  */
-void OPLL_setPan(OPLL *opll, uint32_t ch, uint8_t pan);
+// Note: Modified to use smooth panning (-256..+256 range)
+void OPLL_setPan(OPLL *opll, uint32_t ch, int16_t pan);
 
 /**
  * Set chip mode. If vrc7 is selected, r#14 is ignored.

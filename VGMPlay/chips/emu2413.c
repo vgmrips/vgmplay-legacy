@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "panning.h" // Maxim
 
 #ifndef INLINE
 #if defined(_MSC_VER)
@@ -1101,10 +1102,9 @@ INLINE static void mix_output_stereo(OPLL *opll) {
   int i;
   out[0] = out[1] = 0;
   for (i = 0; i < 14; i++) {
-    if (opll->pan[i] & 1)
-      out[1] += opll->ch_out[i];
-    if (opll->pan[i] & 2)
-      out[0] += opll->ch_out[i];
+    /* Maxim/Valley Bell: added stereo control (multiply each side by a float in opll->pan[ch][side]) */
+    out[0] += (int16_t)(opll->ch_out[i] * opll->pan[i][0]);
+    out[1] += (int16_t)(opll->ch_out[i] * opll->pan[i][1]);
   }
   if (opll->conv) {
     OPLL_RateConv_putData(opll->conv, 0, out[0]);
@@ -1132,6 +1132,8 @@ OPLL *OPLL_new(uint32_t clk, uint32_t rate) {
 
   for (i = 0; i < 19 * 2; i++)
     memcpy(&opll->patch[i], &null_patch, sizeof(OPLL_PATCH));
+  for (i = 0; i < 14; i++)
+    centre_panning(opll->pan[i]);
 
   opll->clk = clk;
   opll->rate = rate;
@@ -1207,9 +1209,6 @@ void OPLL_reset(OPLL *opll) {
     OPLL_writeReg(opll, i, 0);
 
   opll->pm_dphase = PM_DP_WIDTH / (1024 * 8);
-
-  for (i = 0; i < 15; i++)
-    opll->pan[i] = 3;
 
   for (i = 0; i < 14; i++) {
     opll->ch_out[i] = 0;
@@ -1424,7 +1423,10 @@ void OPLL_writeIO(OPLL *opll, uint32_t adr, uint8_t val) {
     opll->adr = val;
 }
 
-void OPLL_setPan(OPLL *opll, uint32_t ch, uint8_t pan) { opll->pan[ch & 15] = pan & 3; }
+void OPLL_setPan(OPLL *opll, uint32_t ch, int16_t pan)
+{
+  calc_panning(opll->pan[ch & 15], pan); // Maxim/Valley Bell
+}
 
 void OPLL_dumpToPatch(const uint8_t *dump, OPLL_PATCH *patch) {
   patch[0].AM = (dump[0] >> 7) & 1;
