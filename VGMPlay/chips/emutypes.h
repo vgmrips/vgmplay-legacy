@@ -29,6 +29,10 @@ typedef unsigned int e_uint32 ;
 typedef signed int e_int32 ;
 
 
+#if !defined(__int8_t_defined) && !defined(_STDINT)
+#define __int8_t_defined	// for GCC
+#define _STDINT	// for MSVC
+
 typedef e_uint8 uint8_t;
 typedef e_int8 int8_t;
 typedef e_uint16 uint16_t;
@@ -42,5 +46,8 @@ typedef signed __int64						int64_t;
 __extension__ typedef unsigned long long	uint64_t;
 __extension__ typedef signed long long		int64_t;
 #endif
+
+#endif
+
 
 #endif
