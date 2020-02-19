@@ -12,7 +12,7 @@ LDFLAGS=$(pkg-config --libs dbus-1)
 They weren't lying when they said that using libdbus directly signs you up for some pain...
 */
 
-#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>

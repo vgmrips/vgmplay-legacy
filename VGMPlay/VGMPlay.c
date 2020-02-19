@@ -25,7 +25,7 @@
 //#define VGM_LITTLE_ENDIAN	// enable optimizations for Little Endian systems
 //#define VGM_BIG_ENDIAN	// enable optimizations for Big Endian systems
 
-#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

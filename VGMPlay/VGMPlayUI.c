@@ -4,7 +4,7 @@
 //		 if linked to msvcrt.lib, the following project setting is important:
 //		 C/C++ -> Code Generation -> Runtime libraries: Multithreaded DLL
 
-#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
