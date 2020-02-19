@@ -43,8 +43,7 @@ typedef e_int32 int32_t;
 typedef unsigned __int64					uint64_t;
 typedef signed __int64						int64_t;
 #else
-__extension__ typedef unsigned long long	uint64_t;
-__extension__ typedef signed long long		int64_t;
+#include <stdint.h>
 #endif
 
 #endif
