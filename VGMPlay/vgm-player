@@ -108,7 +108,7 @@ _die () {
             _to_stderr 69 "vgmplay binary not found" ;;
         no_unpacker )
             _to_stderr 69 "no suitable unpacker found" ;;
-        tmpdir_failed )
+        tmpdir_fail )
             _to_stderr 70 "unable to create/use temporary working directory" ;;
         no_output )
             _to_stderr 69 "no usable otuput detected" ;;
