@@ -266,8 +266,7 @@ vgmplay:	$(EMUOBJS) $(MAINOBJS) $(VGMPLAY_OBJS)
 ifneq ($(WINDOWS), 1)
 ifneq ($(MACOSX), 1)
 	@echo Generating xdg desktop entry
-	@cp xdg/vgmplay.desktop.in xdg/vgmplay.desktop
-	@sed -i "s/@BIN_PATH@/$(subst /,\/,$(DESTDIR)$(PREFIX)/bin/)/" xdg/vgmplay.desktop
+	@sed "s/@BIN_PATH@/$(subst /,\/,$(DESTDIR)$(PREFIX)/bin/)/" xdg/vgmplay.desktop.in > xdg/vgmplay.desktop
 endif
 endif
 	@echo Linking vgmplay ...
