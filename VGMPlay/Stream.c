@@ -9,28 +9,26 @@
 
 #ifdef WIN32
 #include <windows.h>
+#ifdef USE_LIBAO
+#error "Sorry, but this doesn't work yet!"
+#endif // USE_LIBAO
 #else
+#include <unistd.h>
 #include <limits.h>
-
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#ifdef __NetBSD__
-#include <sys/audioio.h>
-#elif defined(__APPLE__) || defined(__OpenBSD__)
-// nothing
-#else
-#include <linux/soundcard.h>
-#endif
-#include <unistd.h>
-
-#endif
 
 #ifdef USE_LIBAO
-#ifdef WIN32
-#error "Sorry, but this doesn't work yet!"
-#endif
 #include <ao/ao.h>
-#endif
+#else
+#ifdef __NetBSD__
+#include <sys/audioio.h>
+#elif defined(__linux__)
+#include <linux/soundcard.h>
+#endif // __NETBSD__
+#endif // USE_LIBAO
+
+#endif // WIN32
 
 #include "chips/mamedef.h"	// for UINT8 etc.
 #include "VGMPlay.h"	// neccessary for VGMPlay_Intf.h
