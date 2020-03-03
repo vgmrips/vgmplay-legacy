@@ -386,7 +386,7 @@ void ym2413_set_panning(UINT8 ChipID, INT16* PanVals)
 				EmuChn = CurChn + 1;
 			else
 				EmuChn = 10;
-			OPLL_setPan(info->chip, EmuChn, PanVals[CurChn]);
+			OPLL_setPanEx(info->chip, EmuChn, PanVals[CurChn]);
 		}
 		break;
 	}
