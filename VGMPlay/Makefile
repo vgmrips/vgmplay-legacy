@@ -244,7 +244,7 @@ EMUOBJS = \
 	$(EMUOBJ)/ym2413_opl.o
 VGMPLAY_OBJS = \
 	$(OBJ)/VGMPlayUI.o
- 
+
 ifeq ($(USE_DBUS), 1)
 	VGMPLAY_OBJS += $(OBJ)/dbus.o
 else ifeq ($(WINDOWS), 1)
@@ -304,7 +304,7 @@ clean:
 	@echo Done.
 
 # Thanks to ZekeSulastin and nextvolume for the install and uninstall routines.
-install:	vgmplay
+install:	all
 	install -m 755 vgmplay $(DESTDIR)$(PREFIX)/bin/vgmplay
 	install -m 755 vgm2pcm $(DESTDIR)$(PREFIX)/bin/vgm2pcm
 	install -m 755 vgm2wav $(DESTDIR)$(PREFIX)/bin/vgm2wav
