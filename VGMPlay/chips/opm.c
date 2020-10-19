@@ -398,8 +398,8 @@ static int32_t OPM_CalcKCode(int32_t kcf, int32_t lfo, int32_t lfo_sign, int32_t
 
 static void OPM_PhaseCalcFNumBlock(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 7) % 32;
-    uint32_t channel = slot % 8;
+    uint32_t slot = (chip->cycles + 7) & 31;
+    uint32_t channel = slot & 7;
     uint32_t kcf = (chip->ch_kc[channel] << 6) + chip->ch_kf[channel];
     uint32_t lfo = chip->lfo_pmd ? chip->lfo_pm_lock : 0;
     uint32_t pms = chip->ch_pms[channel];
@@ -415,7 +415,7 @@ static void OPM_PhaseCalcFNumBlock(opm_t *chip)
 static void OPM_PhaseCalcIncrement(opm_t *chip)
 {
     uint32_t slot = chip->cycles;
-    uint32_t channel = slot % 8;
+    uint32_t channel = slot & 7;
     uint32_t dt = chip->sl_dt1[slot];
     uint32_t dt_l = dt & 3;
     uint32_t detune = 0;
@@ -462,16 +462,16 @@ static void OPM_PhaseCalcIncrement(opm_t *chip)
 
 static void OPM_PhaseGenerate(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 27) % 32;
+    uint32_t slot = (chip->cycles + 27) & 31;
     chip->pg_reset_latch[slot] = chip->pg_reset[slot];
-    slot = (chip->cycles + 25) % 32;
+    slot = (chip->cycles + 25) & 31;
     /* Mask increment */
     if (chip->pg_reset_latch[slot])
     {
         chip->pg_inc[slot] = 0;
     }
     /* Phase step */
-    slot = (chip->cycles + 24) % 32;
+    slot = (chip->cycles + 24) & 31;
     if (chip->pg_reset_latch[slot] || chip->mode_test[3])
     {
         chip->pg_phase[slot] = 0;
@@ -491,7 +491,7 @@ static void OPM_PhaseDebug(opm_t *chip)
 
 static void OPM_KeyOn1(opm_t *chip)
 {
-    uint32_t cycles = (chip->cycles + 1) % 32;
+    uint32_t cycles = (chip->cycles + 1) & 31;
     chip->kon_chanmatch = 0;
     if (chip->mode_kon_channel + 24 == cycles)
     {
@@ -501,19 +501,19 @@ static void OPM_KeyOn1(opm_t *chip)
 
 static void OPM_KeyOn2(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 8) % 32;
+    uint32_t slot = (chip->cycles + 8) & 31;
     if (chip->kon_chanmatch)
     {
-        chip->mode_kon[(slot + 0) % 32] = chip->mode_kon_operator[0];
-        chip->mode_kon[(slot + 8) % 32] = chip->mode_kon_operator[2];
-        chip->mode_kon[(slot + 16) % 32] = chip->mode_kon_operator[1];
-        chip->mode_kon[(slot + 24) % 32] = chip->mode_kon_operator[3];
+        chip->mode_kon[(slot + 0) & 31] = chip->mode_kon_operator[0];
+        chip->mode_kon[(slot + 8) & 31] = chip->mode_kon_operator[2];
+        chip->mode_kon[(slot + 16) & 31] = chip->mode_kon_operator[1];
+        chip->mode_kon[(slot + 24) & 31] = chip->mode_kon_operator[3];
     }
 }
 
 static void OPM_EnvelopePhase1(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 2) % 32;
+    uint32_t slot = (chip->cycles + 2) & 31;
     uint32_t kon = chip->mode_kon[slot] | chip->kon_csm;
     uint32_t konevent = !chip->kon[slot] && kon;
     if (konevent)
@@ -528,7 +528,7 @@ static void OPM_EnvelopePhase1(opm_t *chip)
 static void OPM_EnvelopePhase2(opm_t *chip)
 {
     uint32_t slot = chip->cycles;
-    uint32_t chan = slot % 8;
+    uint32_t chan = slot & 7;
     uint8_t rate = 0, ksv, zr, ams;
     switch (chip->eg_state[slot])
     {
@@ -601,7 +601,7 @@ static void OPM_EnvelopePhase2(opm_t *chip)
 
 static void OPM_EnvelopePhase3(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 31) % 32;
+    uint32_t slot = (chip->cycles + 31) & 31;
     chip->eg_shift = (chip->eg_timershift_lock + (chip->eg_rate[0] >> 2)) & 15;
     chip->eg_inchi = eg_stephi[chip->eg_rate[0] & 3][chip->eg_timer_lock & 3];
 
@@ -615,7 +615,7 @@ static void OPM_EnvelopePhase3(opm_t *chip)
 
 static void OPM_EnvelopePhase4(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 30) % 32;
+    uint32_t slot = (chip->cycles + 30) & 31;
     uint8_t inc = 0;
     uint8_t kon, eg_off, eg_zero, slreach;
     if (chip->eg_clock & 2)
@@ -721,7 +721,7 @@ static void OPM_EnvelopePhase4(opm_t *chip)
 
 static void OPM_EnvelopePhase5(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 29) % 32;
+    uint32_t slot = (chip->cycles + 29) & 31;
     uint32_t level = chip->eg_level[slot];
     uint32_t step = 0;
     if (chip->eg_instantattack)
@@ -762,7 +762,7 @@ static void OPM_EnvelopePhase5(opm_t *chip)
 
 static void OPM_EnvelopePhase6(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 28) % 32;
+    uint32_t slot = (chip->cycles + 28) & 31;
     chip->eg_serial_bit = (chip->eg_serial >> 9) & 1;
     if (chip->cycles == 3)
     {
@@ -795,16 +795,16 @@ static void OPM_EnvelopeClock(opm_t *chip)
 
 static void OPM_EnvelopeTimer(opm_t *chip)
 {
-    uint32_t cycle = (chip->cycles + 31) % 16;
+    uint32_t cycle = (chip->cycles + 31) & 15;
     uint32_t cycle2;
-    uint8_t inc = ((chip->cycles + 31) % 32) < 16 && (chip->eg_clock & 1) != 0 && (cycle == 0 || chip->eg_timercarry);
+    uint8_t inc = ((chip->cycles + 31) & 31) < 16 && (chip->eg_clock & 1) != 0 && (cycle == 0 || chip->eg_timercarry);
     uint8_t timerbit = (chip->eg_timer >> cycle) & 1;
     uint8_t sum = timerbit + inc;
     uint8_t sum0 = (sum & 1) && !chip->ic;
     chip->eg_timercarry = sum >> 1;
     chip->eg_timer = (chip->eg_timer & (~(1 << cycle))) | (sum0 << cycle);
 
-    cycle2 = (chip->cycles + 30) % 16;
+    cycle2 = (chip->cycles + 30) & 15;
 
     chip->eg_timer2 <<= 1;
     if ((chip->eg_timer & (1 << cycle2)) != 0 && !chip->eg_timerbstop)
@@ -866,13 +866,13 @@ static void OPM_OperatorPhase1(opm_t *chip)
 
 static void OPM_OperatorPhase2(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 31) % 32;
+    uint32_t slot = (chip->cycles + 31) & 31;
     chip->op_phase = (chip->op_phase_in + chip->op_mod_in) & 1023;
 }
 
 static void OPM_OperatorPhase3(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 30) % 32;
+    uint32_t slot = (chip->cycles + 30) & 31;
     uint16_t phase = chip->op_phase & 255;
     if (chip->op_phase & 256)
     {
@@ -885,19 +885,19 @@ static void OPM_OperatorPhase3(opm_t *chip)
 
 static void OPM_OperatorPhase4(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 29) % 32;
+    uint32_t slot = (chip->cycles + 29) & 31;
     chip->op_logsin[1] = chip->op_logsin[0];
 }
 
 static void OPM_OperatorPhase5(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 28) % 32;
+    uint32_t slot = (chip->cycles + 28) & 31;
     chip->op_logsin[2] = chip->op_logsin[1];
 }
 
 static void OPM_OperatorPhase6(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 27) % 32;
+    uint32_t slot = (chip->cycles + 27) & 31;
     chip->op_atten = chip->op_logsin[2] + (chip->eg_out[1] << 2);
     if (chip->op_atten & 4096)
     {
@@ -907,21 +907,21 @@ static void OPM_OperatorPhase6(opm_t *chip)
 
 static void OPM_OperatorPhase7(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 26) % 32;
+    uint32_t slot = (chip->cycles + 26) & 31;
     chip->op_exp[0] = exprom[chip->op_atten & 255];
     chip->op_pow[0] = chip->op_atten >> 8;
 }
 
 static void OPM_OperatorPhase8(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 25) % 32;
+    uint32_t slot = (chip->cycles + 25) & 31;
     chip->op_exp[1] = chip->op_exp[0];
     chip->op_pow[1] = chip->op_pow[0];
 }
 
 static void OPM_OperatorPhase9(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 24) % 32;
+    uint32_t slot = (chip->cycles + 24) & 31;
     int16_t out = (chip->op_exp[1] << 2) >> (chip->op_pow[1]);
     if (chip->op_sign & 32)
     {
@@ -932,44 +932,44 @@ static void OPM_OperatorPhase9(opm_t *chip)
 
 static void OPM_OperatorPhase10(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 23) % 32;
+    uint32_t slot = (chip->cycles + 23) & 31;
     chip->op_out[1] = chip->op_out[0];
 }
 
 static void OPM_OperatorPhase11(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 22) % 32;
+    uint32_t slot = (chip->cycles + 22) & 31;
     chip->op_out[2] = chip->op_out[1];
 }
 
 static void OPM_OperatorPhase12(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 21) % 32;
+    uint32_t slot = (chip->cycles + 21) & 31;
     chip->op_out[3] = chip->op_out[2];
 }
 
 static void OPM_OperatorPhase13(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 20) % 32;
+    uint32_t slot = (chip->cycles + 20) & 31;
     chip->op_out[4] = chip->op_out[3];
-    chip->op_connect = chip->ch_connect[slot % 8];
+    chip->op_connect = chip->ch_connect[slot & 7];
 }
 
 static void OPM_OperatorPhase14(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 19) % 32;
-    uint32_t channel = slot % 8;
+    uint32_t slot = (chip->cycles + 19) & 31;
+    uint32_t channel = slot & 7;
     chip->op_mix = chip->op_out[5] = chip->op_out[4];
     chip->op_fbupdate = (chip->op_counter == 0);
     chip->op_c1update = (chip->op_counter == 2);
     chip->op_fbshift <<= 1;
     chip->op_fbshift |= (chip->op_counter == 2);
 
-    chip->op_modtable[0] = fm_algorithm[(chip->op_counter+2)%4][0][chip->op_connect];
-    chip->op_modtable[1] = fm_algorithm[(chip->op_counter+2)%4][1][chip->op_connect];
-    chip->op_modtable[2] = fm_algorithm[(chip->op_counter+2)%4][2][chip->op_connect];
-    chip->op_modtable[3] = fm_algorithm[(chip->op_counter+2)%4][3][chip->op_connect];
-    chip->op_modtable[4] = fm_algorithm[(chip->op_counter+2)%4][4][chip->op_connect];
+    chip->op_modtable[0] = fm_algorithm[(chip->op_counter + 2) & 3][0][chip->op_connect];
+    chip->op_modtable[1] = fm_algorithm[(chip->op_counter + 2) & 3][1][chip->op_connect];
+    chip->op_modtable[2] = fm_algorithm[(chip->op_counter + 2) & 3][2][chip->op_connect];
+    chip->op_modtable[3] = fm_algorithm[(chip->op_counter + 2) & 3][3][chip->op_connect];
+    chip->op_modtable[4] = fm_algorithm[(chip->op_counter + 2) & 3][4][chip->op_connect];
     chip->op_mixl = fm_algorithm[chip->op_counter][5][chip->op_connect] && (chip->ch_rl[channel] & 1) != 0;
     chip->op_mixr = fm_algorithm[chip->op_counter][5][chip->op_connect] && (chip->ch_rl[channel] & 2) != 0;
     if (chip->mute[channel])
@@ -980,19 +980,19 @@ static void OPM_OperatorPhase14(opm_t *chip)
 
 static void OPM_OperatorPhase15(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 18) % 32;
+    uint32_t slot = (chip->cycles + 18) & 31;
     int16_t mod, mod1 = 0, mod2 = 0;
     if (chip->op_modtable[0])
     {
-        mod2 |= chip->op_m1[slot % 8][0];
+        mod2 |= chip->op_m1[slot & 7][0];
     }
     if (chip->op_modtable[1])
     {
-        mod1 |= chip->op_m1[slot % 8][1];
+        mod1 |= chip->op_m1[slot & 7][1];
     }
     if (chip->op_modtable[2])
     {
-        mod1 |= chip->op_c1[slot % 8];
+        mod1 |= chip->op_c1[slot & 7];
     }
     if (chip->op_modtable[3])
     {
@@ -1006,29 +1006,29 @@ static void OPM_OperatorPhase15(opm_t *chip)
     chip->op_mod[0] = mod;
     if (chip->op_fbupdate)
     {
-        chip->op_m1[slot % 8][1] = chip->op_m1[slot % 8][0];
-        chip->op_m1[slot % 8][0] = chip->op_out[5];
+        chip->op_m1[slot & 7][1] = chip->op_m1[slot & 7][0];
+        chip->op_m1[slot & 7][0] = chip->op_out[5];
     }
     if (chip->op_c1update)
     {
-        chip->op_c1[slot % 8] = chip->op_out[5];
+        chip->op_c1[slot & 7] = chip->op_out[5];
     }
 }
 
 static void OPM_OperatorPhase16(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 17) % 32;
+    uint32_t slot = (chip->cycles + 17) & 31;
     // hack
     chip->op_mod[2] = chip->op_mod[1];
     chip->op_fb[1] = chip->op_fb[0];
 
     chip->op_mod[1] = chip->op_mod[0];
-    chip->op_fb[0] = chip->ch_fb[slot % 8];
+    chip->op_fb[0] = chip->ch_fb[slot & 7];
 }
 
 static void OPM_OperatorCounter(opm_t *chip)
 {
-    if ((chip->cycles % 8) == 4)
+    if ((chip->cycles & 7) == 4)
     {
         chip->op_counter++;
     }
@@ -1040,7 +1040,7 @@ static void OPM_OperatorCounter(opm_t *chip)
 
 static void OPM_Mixer2(opm_t *chip)
 {
-    uint32_t cycles = (chip->cycles + 30) % 32;
+    uint32_t cycles = (chip->cycles + 30) & 31;
     uint8_t bit;
     uint8_t top, ex;
     if (cycles < 16)
@@ -1051,14 +1051,14 @@ static void OPM_Mixer2(opm_t *chip)
     {
         bit = chip->mix_serial[1] & 1;
     }
-    if (chip->cycles % 16 == 1)
+    if ((chip->cycles & 15) == 1)
     {
         chip->mix_sign_lock = bit ^ 1;
         chip->mix_top_bits_lock = (chip->mix_bits >> 15) & 63;
     }
     chip->mix_bits >>= 1;
     chip->mix_bits |= bit << 20;
-    if (chip->cycles % 16 == 10)
+    if ((chip->cycles & 15) == 10)
     {
         top = chip->mix_top_bits_lock;
         if (chip->mix_sign_lock)
@@ -1097,7 +1097,7 @@ static void OPM_Mixer2(opm_t *chip)
         chip->mix_exp_lock = ex;
     }
     chip->mix_out_bit <<= 1;
-    switch ((chip->cycles + 1) % 16)
+    switch ((chip->cycles + 1) & 15)
     {
     case 0:
         chip->mix_out_bit |= chip->mix_sign_lock2 ^ 1;
@@ -1122,7 +1122,7 @@ static void OPM_Mixer2(opm_t *chip)
 
 static void OPM_Output(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 27) % 32;
+    uint32_t slot = (chip->cycles + 27) & 31;
     chip->smp_so = (chip->mix_out_bit & 4) != 0;
     chip->smp_sh1 = (slot & 24) == 8 && !chip->ic;
     chip->smp_sh2 = (slot & 24) == 24 && !chip->ic;
@@ -1153,8 +1153,8 @@ static void OPM_DAC(opm_t *chip)
 
 static void OPM_Mixer(opm_t *chip)
 {
-    uint32_t slot = (chip->cycles + 18) % 32;
-    uint32_t channel = (slot % 8);
+    uint32_t slot = (chip->cycles + 18) & 31;
+    uint32_t channel = (slot & 7);
     // Right channel
     chip->mix_serial[1] >>= 1;
     if (chip->cycles == 13)
@@ -1285,12 +1285,12 @@ static void OPM_NoiseTimer(opm_t *chip)
 
     chip->noise_update = chip->noise_timer_of;
 
-    if (chip->cycles % 16 == 15)
+    if ((chip->cycles & 15) == 15)
     {
         timer++;
         timer &= 31;
     }
-    if (chip->ic || (chip->noise_timer_of && (chip->cycles % 16 == 15)))
+    if (chip->ic || (chip->noise_timer_of && ((chip->cycles & 15) == 15)))
     {
         timer = 0;
     }
@@ -1428,7 +1428,7 @@ static void OPM_DoLFOMult(opm_t *chip)
         b1 = 0;
     }
     b2 = chip->lfo_mult_carry;
-    if (chip->cycles % 16 == 15)
+    if ((chip->cycles & 15) == 15)
     {
         b2 = 0;
     }
@@ -1458,7 +1458,7 @@ static void OPM_DoLFO1(opm_t *chip)
     chip->lfo_counter2 = counter2 & 32767;
     chip->lfo_counter2_load = chip->lfo_frq_update || of_old;
     chip->lfo_frq_update = 0;
-    if ((chip->cycles % 16) == 12)
+    if ((chip->cycles & 15) == 12)
     {
         chip->lfo_counter1++;
     }
@@ -1498,11 +1498,11 @@ static void OPM_DoLFO1(opm_t *chip)
     w[4] = chip->lfo_clock_lock && chip->lfo_wave == 3;
     w[3] = !chip->ic && !chip->mode_test[1] && !w[4] && (chip->lfo_val & 0x8000) != 0;
 
-    w[7] = ((chip->cycles + 1) % 16) < 8;
+    w[7] = ((chip->cycles + 1) & 15) < 8;
 
     w[6] = w[5] ^ w[3];
     
-    w[9] = ampm_sel ? ((chip->cycles % 16) == 6) : !chip->lfo_saw_sign;
+    w[9] = ampm_sel ? ((chip->cycles & 15) == 6) : !chip->lfo_saw_sign;
 
     w[8] = chip->lfo_wave == 1 ? w[9] : w[6];
 
@@ -1521,7 +1521,7 @@ static void OPM_DoLFO1(opm_t *chip)
     chip->lfo_val |= lfo_bit;
     
 
-    if (chip->cycles % 16 == 15 && (chip->lfo_bit_counter & 7) == 7)
+    if ((chip->cycles & 15) == 15 && (chip->lfo_bit_counter & 7) == 7)
     {
         if (ampm_sel)
         {
@@ -1638,7 +1638,7 @@ static void OPM_DoIO(opm_t *chip)
 static void OPM_DoRegWrite(opm_t *chip)
 {
     int32_t i;
-    uint32_t channel = chip->cycles % 8;
+    uint32_t channel = chip->cycles & 7;
     uint32_t slot = chip->cycles;
 
     // Register write
@@ -1790,7 +1790,7 @@ static void OPM_DoRegWrite(opm_t *chip)
 
 static void OPM_DoIC(opm_t *chip)
 {
-    uint32_t channel = chip->cycles % 8;
+    uint32_t channel = chip->cycles & 7;
     uint32_t slot = chip->cycles;
     if (chip->ic)
     {
@@ -1838,7 +1838,7 @@ static void OPM_DoIC(opm_t *chip)
         chip->mode_kon_operator[1] = 0;
         chip->mode_kon_operator[2] = 0;
         chip->mode_kon_operator[3] = 0;
-        chip->mode_kon[(slot + 8) % 32] = 0;
+        chip->mode_kon[(slot + 8) & 31] = 0;
 
         chip->lfo_pmd = 0;
         chip->lfo_amd = 0;
@@ -1928,7 +1928,7 @@ void OPM_Clock(opm_t *chip, int32_t *output, uint8_t *sh1, uint8_t *sh2, uint8_t
         output[0] = chip->dac_output[0];
         output[1] = chip->dac_output[1];
     }
-    chip->cycles = (chip->cycles + 1) % 32;
+    chip->cycles = (chip->cycles + 1) & 31;
 }
 
 void OPM_Write(opm_t *chip, uint32_t port, uint8_t data)
