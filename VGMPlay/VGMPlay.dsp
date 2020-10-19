@@ -503,6 +503,14 @@ SOURCE=.\chips\2151intf.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\chips\opm.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\chips\opm.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\chips\scsp.c
 # End Source File
 # Begin Source File

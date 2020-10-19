@@ -2740,6 +2740,7 @@ static void Chips_GeneralActions(UINT8 Mode)
 		if (VGMHead.lngHzYM2151)
 		{
 			//ChipVol = 0x100;
+			ym2151_set_emu_core(ChipOpts[0x00].YM2151.EmuCore);
 			ChipCnt = (VGMHead.lngHzYM2151 & 0x40000000) ? 0x02 : 0x01;
 			for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 			{

@@ -7,13 +7,19 @@
 ***************************************************************************/
 
 #include "mamedef.h"
+#include <stdlib.h>
 #include <stddef.h>	// for NULL
 //#include "sndintrf.h"
 //#include "streams.h"
 #include "fm.h"
 #include "2151intf.h"
 #include "ym2151.h"
+#include "opm.h"
 
+#define EC_MAME		0x00
+#ifdef ENABLE_ALL_CORES
+#define EC_NUKED	0x01
+#endif
 
 typedef struct _ym2151_state ym2151_state;
 struct _ym2151_state
@@ -28,6 +34,7 @@ struct _ym2151_state
 
 extern UINT8 CHIP_SAMPLING_MODE;
 extern INT32 CHIP_SAMPLE_RATE;
+static UINT8 EMU_CORE = 0x00;
 #define MAX_CHIPS	0x02
 static ym2151_state YM2151Data[MAX_CHIPS];
 
@@ -46,7 +53,18 @@ void ym2151_update(UINT8 ChipID, stream_sample_t **outputs, int samples)
 {
 	//ym2151_state *info = (ym2151_state *)param;
 	ym2151_state *info = &YM2151Data[ChipID];
-	ym2151_update_one(info->chip, outputs, samples);
+
+	switch (EMU_CORE)
+	{
+	case EC_MAME:
+		ym2151_update_one(info->chip, outputs, samples);
+		break;
+#ifdef ENABLE_ALL_CORES
+	case EC_NUKED:
+		OPM_GenerateStream(info->chip, outputs, samples);
+		break;
+#endif
+	}
 	//YM2151UpdateOne(0x00, outputs, samples);
 }
 
@@ -83,7 +101,18 @@ int device_start_ym2151(UINT8 ChipID, int clock)
 	/* stream setup */
 	//info->stream = stream_create(device,0,2,rate,info,ym2151_update);
 
-	info->chip = ym2151_init(clock,rate);
+	switch (EMU_CORE)
+	{
+	case EC_MAME:
+		info->chip = ym2151_init(clock, rate);
+		break;
+#ifdef ENABLE_ALL_CORES
+	case EC_NUKED:
+		info->chip = malloc(sizeof(opm_t));
+		OPM_Reset(info->chip, rate, clock);
+		break;
+#endif
+	}
 	//assert_always(info->chip != NULL, "Error creating YM2151 chip");
 
 	//state_save_register_postload(device->machine, ym2151intf_postload, info);
@@ -100,7 +129,17 @@ void device_stop_ym2151(UINT8 ChipID)
 {
 	//ym2151_state *info = get_safe_token(device);
 	ym2151_state *info = &YM2151Data[ChipID];
-	ym2151_shutdown(info->chip);
+	switch (EMU_CORE)
+	{
+	case EC_MAME:
+		ym2151_shutdown(info->chip);
+		break;
+#ifdef ENABLE_ALL_CORES
+	case EC_NUKED:
+		free(info->chip);
+		break;
+#endif
+	}
 	//YM2151Shutdown();
 }
 
@@ -109,7 +148,17 @@ void device_reset_ym2151(UINT8 ChipID)
 {
 	//ym2151_state *info = get_safe_token(device);
 	ym2151_state *info = &YM2151Data[ChipID];
-	ym2151_reset_chip(info->chip);
+	switch (EMU_CORE)
+	{
+	case EC_MAME:
+		ym2151_reset_chip(info->chip);
+		break;
+#ifdef ENABLE_ALL_CORES
+	case EC_NUKED:
+		OPM_Reset(info->chip, 0, 0);
+		break;
+#endif
+	}
 	//YM2151ResetChip(0x00);
 }
 
@@ -120,14 +169,19 @@ UINT8 ym2151_r(UINT8 ChipID, offs_t offset)
 	//ym2151_state *token = get_safe_token(device);
 	ym2151_state *token = &YM2151Data[ChipID];
 
-	if (offset & 1)
+	switch (EMU_CORE)
 	{
-		//stream_update(token->stream);
-		return ym2151_read_status(token->chip);
-		//return YM2151ReadStatus(0x00);
+	case EC_MAME:
+		if (offset & 1)
+		{
+			//stream_update(token->stream);
+			return ym2151_read_status(token->chip);
+			//return YM2151ReadStatus(0x00);
+		}
+		else
+			return 0xff;	/* confirmed on a real YM2151 */
 	}
-	else
-		return 0xff;	/* confirmed on a real YM2151 */
+	return 0x00;
 }
 
 //WRITE8_DEVICE_HANDLER( ym2151_w )
@@ -135,15 +189,24 @@ void ym2151_w(UINT8 ChipID, offs_t offset, UINT8 data)
 {
 	//ym2151_state *token = get_safe_token(device);
 	ym2151_state *token = &YM2151Data[ChipID];
-
-	if (offset & 1)
+	switch (EMU_CORE)
 	{
-		//stream_update(token->stream);
-		ym2151_write_reg(token->chip, token->lastreg, data);
-		//YM2151WriteReg(0x00, token->lastreg, data);
+	case EC_MAME:
+		if (offset & 1)
+		{
+			//stream_update(token->stream);
+			ym2151_write_reg(token->chip, token->lastreg, data);
+			//YM2151WriteReg(0x00, token->lastreg, data);
+		}
+		else
+			token->lastreg = data;
+		break;
+#ifdef ENABLE_ALL_CORES
+	case EC_NUKED:
+		OPM_WriteBuffered(token->chip, offset, data);
+		break;
+#endif
 	}
-	else
-		token->lastreg = data;
 }
 
 
@@ -166,10 +229,32 @@ void ym2151_data_port_w(UINT8 ChipID, offs_t offset, UINT8 data)
 }
 
 
+void ym2151_set_emu_core(UINT8 Emulator)
+{
+#ifdef ENABLE_ALL_CORES
+	EMU_CORE = (Emulator < 0x02) ? Emulator : 0x00;
+#else
+	EMU_CORE = EC_MAME;
+#endif
+
+	return;
+}
+
+
 void ym2151_set_mute_mask(UINT8 ChipID, UINT32 MuteMask)
 {
 	ym2151_state *info = &YM2151Data[ChipID];
-	ym2151_set_mutemask(info->chip, MuteMask);
+	switch (EMU_CORE)
+	{
+	case EC_MAME:
+		ym2151_set_mutemask(info->chip, MuteMask);
+		break;
+#ifdef ENABLE_ALL_CORES
+	case EC_NUKED:
+		OPM_SetMute(info->chip, MuteMask);
+		break;
+#endif
+	}
 }
 
 

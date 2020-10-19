@@ -32,7 +32,11 @@
 enum {
     opll_type_ym2413 = 0x00,    /* Yamaha YM2413  */
     opll_type_ds1001,           /* Konami VRC VII */
-    opll_type_ym2413b           /* Yamaha YM2413B */
+    opll_type_ym2413b,          /* Yamaha YM2413B */
+    opll_type_ymf281,           /* Yamaha YMF281  */
+    opll_type_ymf281b,          /* Yamaha YMF281B */
+    opll_type_ym2420,           /* Yamaha YM2420  */
+    opll_type_ym2423,           /* Yamaha YM2423  */
 };
 
 enum {
