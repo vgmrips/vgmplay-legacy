@@ -30,4 +30,5 @@ UINT8 ym2151_status_port_r(UINT8 ChipID, offs_t offset);
 void ym2151_register_port_w(UINT8 ChipID, offs_t offset, UINT8 data);
 void ym2151_data_port_w(UINT8 ChipID, offs_t offset, UINT8 data);
 
+void ym2151_set_emu_core(UINT8 Emulator);
 void ym2151_set_mute_mask(UINT8 ChipID, UINT32 MuteMask);

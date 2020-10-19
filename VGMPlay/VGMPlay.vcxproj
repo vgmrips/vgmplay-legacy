@@ -64,6 +64,7 @@
     <ClInclude Include="chips\Ootake_PSG.h" />
     <ClInclude Include="chips\opl.h" />
     <ClInclude Include="chips\opll.h" />
+    <ClInclude Include="chips\opm.h" />
     <ClInclude Include="chips\panning.h" />
     <ClInclude Include="chips\pokey.h" />
     <ClInclude Include="chips\pwm.h" />
@@ -155,6 +156,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="chips\opll.c" />
+    <ClCompile Include="chips\opm.c" />
     <ClCompile Include="chips\panning.c" />
     <ClCompile Include="chips\pokey.c" />
     <ClCompile Include="chips\pwm.c" />

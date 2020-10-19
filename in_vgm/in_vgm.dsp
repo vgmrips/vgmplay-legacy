@@ -568,6 +568,14 @@ SOURCE=..\VGMPlay\chips\opll.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\VGMPlay\chips\opm.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\VGMPlay\chips\opm.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\VGMPlay\chips\panning.c
 # End Source File
 # Begin Source File

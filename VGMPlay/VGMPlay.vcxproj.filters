@@ -302,6 +302,9 @@
     <ClInclude Include="chips\opll.h">
       <Filter>SoundCore\FM OPL Chips</Filter>
     </ClInclude>
+    <ClInclude Include="chips\opm.h">
+      <Filter>SoundCore\FM OPx Chips</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pt_ioctl.c">
@@ -552,6 +555,9 @@
     </ClCompile>
     <ClCompile Include="chips\opll.c">
       <Filter>SoundCore\FM OPL Chips</Filter>
+    </ClCompile>
+    <ClCompile Include="chips\opm.c">
+      <Filter>SoundCore\FM OPx Chips</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
