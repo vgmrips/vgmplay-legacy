@@ -40,8 +40,7 @@ The format starts with a 256 byte header:
   has at least 64 bytes. If the VGM data starts at an offset that is lower
   than 0x100, all overlapping header bytes have to be handled as they were
   zero.
-- VGMs run with a rate of 44100 samples per second. All sample values use this
-  unit.
+- VGMs run with a rate of 44100 Hz. The unit of time is called "sample".
 
 0x00: "Vgm " (0x56 0x67 0x6d 0x20) file identification (32 bits)
 0x04: Eof offset (32 bits)
@@ -372,6 +371,7 @@ Starting at the location specified by the VGM data offset (or, offset 0x40 for
 file versions below 1.50) is found a sequence of commands containing data
 written to the chips or timing information. A command is one of:
 
+  0x00       : no-operation, no file should contain these, but players should just skip them
   0x30 dd    : Used for dual chip support: see below
   0x31 dd    : Set AY8910 stereo mask
                Bit 0-1: Channel A mask (00=off, 01=left, 10=right, 11=center)
@@ -470,6 +470,9 @@ Some ranges are reserved for future use, with different numbers of operands:
   0xE2..0xFF dd dd dd dd : four operands, reserved for future use
 
 On encountering these, the correct number of bytes should be skipped.
+
+When encountering undefined commands, the processing the file should be stopped
+instantly.
 
 
 Data blocks
