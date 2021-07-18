@@ -381,12 +381,14 @@ static void getBasePath(char** ls, char* basepath)
     // Append everything before (and including) the last dir separator, if one exists
     if(lastsep)
     {
+        // Copy up to and including separator
         size_t len = strlen(fileptr) - strlen(lastsep) + 1;
-        // Check that there's enough free space in the string
-        if(strlen(basepath) + len + 1 > MAX_PATH)
+        size_t left = MAX_PATH - strlen(basepath);
+        int written = snprintf(basepath + strlen(basepath), left, "%.*s", len, fileptr);
+        // Check that we didn't truncate
+        if (written < 0 || written >= left) {
             RETURN_EMPTY_ART(basepath);
-
-        strncat(basepath, fileptr, len);
+        }
     }
 
 #ifdef DBUS_DEBUG
