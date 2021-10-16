@@ -442,17 +442,17 @@ int main(int argc, char* argv[])
 		// Debug and Release were tested by dropping a file on it and via Visual Studio.
 		//
 		// Input CP 850, Output CP 850
-		//	Debug build:	Dynamite D³x
-		//	Release build:	Dynamite Düx
+		//	Debug build:	Dynamite DÂ³x
+		//	Release build:	Dynamite DÃ¼x
 		// Input CP 1252, Output CP 850
-		//	Debug build:	Dynamite D³x
-		//	Release build:	Dynamite D³x
+		//	Debug build:	Dynamite DÂ³x
+		//	Release build:	Dynamite DÂ³x
 		// Input CP 850, Output CP 1252
-		//	Debug build:	Dynamite D³x [tag display wrong]
-		//	Release build:	Dynamite Düx [tag display wrong]
+		//	Debug build:	Dynamite DÂ³x [tag display wrong]
+		//	Release build:	Dynamite DÃ¼x [tag display wrong]
 		// Input CP 1252, Output CP 1252
-		//	Debug build:	Dynamite D³x [tag display wrong]
-		//	Release build:	Dynamite D³x [tag display wrong]
+		//	Debug build:	Dynamite DÂ³x [tag display wrong]
+		//	Release build:	Dynamite DÂ³x [tag display wrong]
 #else
 		fflush(stdout);
 		while(1)
@@ -1011,6 +1011,7 @@ static void ReadOptions(const char* AppName)
 	
 	// most defaults are set by VGMPlay_Init()
 	FadeTimeN = FadeTime;
+	FadeTimePL = 2000;
 	PauseTimeJ = PauseTime;
 	PauseTimeL = 0;
 	Show95Cmds = 0x00;
