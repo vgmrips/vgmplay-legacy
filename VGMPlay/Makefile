@@ -321,6 +321,9 @@ ifneq ($(MACOSX), 1)
 	xdg-icon-resource install --novendor --size 16 xdg/icons/vgmplay-16.png vgmplay
 	xdg-mime install --novendor xdg/vgmplay-mime.xml
 	xdg-desktop-menu install --novendor xdg/vgmplay.desktop
+ifeq ($(DISABLE_HWOPL_SUPPORT), 0)
+	setcap CAP_SYS_RAWIO+ep $(DESTDIR)$(PREFIX)/bin/vgmplay || true
+endif
 endif
 endif
 
