@@ -254,7 +254,7 @@ static BOOL WINAPI signal_handler(DWORD dwCtrlType)
 #else
 static void signal_handler(int signal)
 {
-	if(signal == SIGINT)
+	if(signal == SIGINT || signal == SIGTERM || signal == SIGHUP)
 		sigint = true;
 }
 #endif
@@ -283,6 +283,8 @@ int main(int argc, char* argv[])
 	tcgetattr(STDIN_FILENO, &oldterm);
 	termmode = false;
 	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+	signal(SIGHUP, signal_handler);
 #else
 	SetConsoleCtrlHandler(signal_handler, TRUE);
 #endif
