@@ -171,3 +171,11 @@ Updates since 0.4.0u8 (16.04.2017)
 - [in_vgm] made "Tag fallback" option work (finally, after 5 years!)
 - [in_vgm] made "disable file information cache" option selectable via configuration
 - [in_vgm] fix VGM information dialog using cached data even if file was changed
+
+Updates since 0.4.0u9 (24.12.2018)
+- improved VRC7 preset instruments (thanks Nuke.YKT)
+- [VGMPlay Linux] added support for DBus MPRIS and XDG integration (thanks Tasos Sahanidis)
+- [VGMPlay Windows] added support for Media Keys
+- added NukedOPLL (thanks Nuke.YKT)
+- updated EMU2413 core (thanks Mitsutaka Okazaki)
+- added NukedOPM (thanks Nuke.YKT)
