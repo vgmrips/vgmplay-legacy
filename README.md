@@ -65,7 +65,7 @@ make
 Thanks to grauw for macOS compilation instructions.
 
 ## Compile VGMPlay under Android
-1. Install [Termux](https://github.com/termux/termux-app) on [F-Droid](https://f-droid.org/en/packages/com.termux/) or [GitHub](https://github.com/termux/termux-app/releases). Do not download Termux from the Play Store for security and depreciation reasons
+1. Install [Termux](https://github.com/termux/termux-app) on [F-Droid](https://f-droid.org/en/packages/com.termux/) or [GitHub](https://github.com/termux/termux-app/releases). Do not download Termux from Play Store for security and depreciation reasons
 2. Open Termux and do `pkg update`
 3. When you do pkg update, do `pkg install clang dbus git libao make pkg-config -y`
 4. After the installation is done, do `git clone https://github.com/vgmrips/vgmplay`
