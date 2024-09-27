@@ -22,6 +22,7 @@ They weren't lying when they said that using libdbus directly signs you up for s
 #include <dbus/dbus.h>
 #include "chips/mamedef.h"          // for UINT8
 #include "mmkeys.h"
+#include <inttypes.h>
 #include "dbus.h"
 #include "stdbool.h"
 #include "VGMPlay.h"                // For VGMFile.h and CHIP_COUNT
@@ -97,9 +98,9 @@ extern UINT32 VGMCurLoop;
 // MPRIS Metadata Struct
 typedef struct DBusMetadata_
 {
-    void* title;
-    char* dbusType;
-    void* content;
+    const void* title;
+    const char* dbusType;
+    const void* content;
     int contentType;
     size_t childLen;
 } DBusMetadata;
@@ -280,7 +281,7 @@ static void DBusReplyToIntrospect(DBusConnection* connection, DBusMessage* reque
     dbus_message_unref(reply);
 }
 
-static void DBusReplyWithVariant(DBusMessageIter* args, int type, char* type_as_string, void* response)
+static void DBusReplyWithVariant(DBusMessageIter* args, int type, char* type_as_string, const void* response)
 {
     DBusMessageIter subargs;
     dbus_message_iter_open_container(args, DBUS_TYPE_VARIANT, type_as_string, &subargs);
@@ -333,7 +334,7 @@ static void DBusSendMetadataArray(DBusMessageIter* dict_root, DBusMetadata meta[
 
                                 for(size_t len = 0; len < meta[i].childLen; len++)
                                 {
-                                    DBusMetadata* content = meta[i].content;
+                                    const DBusMetadata* content = meta[i].content;
                                     dbus_message_iter_append_basic(&array_root, content[len].contentType, content[len].content);
                                 }
 
@@ -386,7 +387,7 @@ static void getBasePath(char** ls, char* basepath)
         size_t left = MAX_PATH - strlen(basepath);
         int written = snprintf(basepath + strlen(basepath), left, "%.*s", len, fileptr);
         // Check that we didn't truncate
-        if (written < 0 || written >= left) {
+        if (written < 0 || (size_t)written >= left) {
             RETURN_EMPTY_ART(basepath);
         }
     }
@@ -536,14 +537,14 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
 
     // Encapsulate some data in DBusMetadata Arrays
     // Artist Array
-    DBusMetadata dbusartist[1] =
+    DBusMetadata dbusartist[] =
     {
         { "", DBUS_TYPE_STRING_AS_STRING, &utf8artist, DBUS_TYPE_STRING, 0 },
     };
 
     // Genre Array
-    char* genre = "Video Game Music";
-    DBusMetadata dbusgenre[1] =
+    const char* genre = "Video Game Music";
+    DBusMetadata dbusgenre[] =
     {
         { "", DBUS_TYPE_STRING_AS_STRING, &genre, DBUS_TYPE_STRING, 0 },
     };
@@ -569,8 +570,9 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
                 CurChip |= 0x80;
             }
             const char* chip = GetAccurateChipName(CurChip, ChpType);
-            chips[chipslen].content = malloc(sizeof(char*));
-            *(char**)chips[chipslen].content = strdup(chip);
+            char** charptr = malloc(sizeof(char*));
+            chips[chipslen].content = charptr;
+            *charptr = strdup(chip);
             // Set the type
             chips[chipslen].dbusType = DBUS_TYPE_STRING_AS_STRING;
             chips[chipslen].contentType = DBUS_TYPE_STRING;
@@ -606,8 +608,8 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
     free(pathurl);
 
     // Stubs
-    char* trackid = "/org/mpris/MediaPlayer2/CurrentTrack";
-    char* lastused = "2018-01-04T12:21:32Z";
+    const char* trackid = "/org/mpris/MediaPlayer2/CurrentTrack";
+    const char* lastused = "2018-01-04T12:21:32Z";
     int32_t discnum = 1;
     int32_t usecnt = 0;
     double userrating = 0;
@@ -652,8 +654,9 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
     for(size_t i = 0; i < chipslen; i++)
     {
         // If the next pointer is the same as the current one, don't free it.
-        char** ptr = chips[i].content;
-        if(ptr == chips[i+1].content)
+        // We also discard const here since we know we manually allocated these above.
+        char** ptr = (char**)chips[i].content;
+        if(chips[i].content == chips[i+1].content)
             continue;
         char* ch = *ptr;
         free(ptr);
@@ -664,7 +667,7 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
 
 static void DBusSendPlaybackStatus(DBusMessageIter* args)
 {
-    char* response;
+    const char* response;
 
     if(PlayingMode == 0xFF)
         response = "Stopped";
@@ -714,7 +717,7 @@ void DBus_EmitSignal(UINT8 type)
     dbus_message_iter_init_append(msg, &args);
     // The interface in which the properties were changed must be sent first
     // Thankfully the only properties changing are in the same interface
-    char* player = DBUS_MPRIS_PLAYER;
+    const char* player = DBUS_MPRIS_PLAYER;
     dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &player);
     // Wrap everything inside an a{sv}
     DBusMessageIter dict, dict_entry;
@@ -727,7 +730,7 @@ void DBus_EmitSignal(UINT8 type)
             // Invalidate it on track change, as it will be populated later on demand
             invalidateArtCache();
             dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry);
-                char* title = "Metadata";
+                const char* title = "Metadata";
                 dbus_message_iter_append_basic(&dict_entry, DBUS_TYPE_STRING, &title);
                     DBusSendMetadata(&dict_entry);
             dbus_message_iter_close_container(&dict, &dict_entry);
@@ -735,7 +738,7 @@ void DBus_EmitSignal(UINT8 type)
         if(type & SIGNAL_CONTROLS)
         {
             dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry);
-                char* title = "CanGoPrevious";
+                const char* title = "CanGoPrevious";
                 dbus_message_iter_append_basic(&dict_entry, DBUS_TYPE_STRING, &title);
                 DBusAppendCanGoPrevious(&dict_entry);
             dbus_message_iter_close_container(&dict, &dict_entry);
@@ -748,7 +751,7 @@ void DBus_EmitSignal(UINT8 type)
         if(type & SIGNAL_PLAYSTATUS)
         {
             dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry);
-                char* playing = "PlaybackStatus";
+                const char* playing = "PlaybackStatus";
                 dbus_message_iter_append_basic(&dict_entry, DBUS_TYPE_STRING, &playing);
                 DBusSendPlaybackStatus(&dict_entry);
 
@@ -757,7 +760,7 @@ void DBus_EmitSignal(UINT8 type)
         if((type & SIGNAL_SEEK) || (type & SIGNAL_PLAYSTATUS))
         {
             dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry);
-                char* playing = "Position";
+                const char* playing = "Position";
                 dbus_message_iter_append_basic(&dict_entry, DBUS_TYPE_STRING, &playing);
                 int64_t response = ReturnPosMsec(VGMSmplPlayed, SampleRate);
                 DBusReplyWithVariant(&dict_entry, DBUS_TYPE_INT64, DBUS_TYPE_INT64_AS_STRING, &response);
@@ -766,9 +769,9 @@ void DBus_EmitSignal(UINT8 type)
         if((type & SIGNAL_VOLUME))
         {
             dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry);
-                char* playing = "Volume";
+                const char* playing = "Volume";
                 dbus_message_iter_append_basic(&dict_entry, DBUS_TYPE_STRING, &playing);
-                double response = 1.0;
+                const double response = 1.0;
                 DBusReplyWithVariant(&dict_entry, DBUS_TYPE_DOUBLE, DBUS_TYPE_DOUBLE_AS_STRING, &response);
             dbus_message_iter_close_container(&dict, &dict_entry);
         }
@@ -879,27 +882,27 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
             }
             else if(!strcmp(method_property_arg, "CanQuit"))
             {
-                dbus_bool_t response = TRUE;
+                const dbus_bool_t response = TRUE;
                 DBusReplyWithVariant(&args, DBUS_TYPE_BOOLEAN, DBUS_TYPE_BOOLEAN_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "CanRaise"))
             {
-                dbus_bool_t response = TRUE;
+                const dbus_bool_t response = TRUE;
                 DBusReplyWithVariant(&args, DBUS_TYPE_BOOLEAN, DBUS_TYPE_BOOLEAN_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "HasTrackList"))
             {
-                dbus_bool_t response = FALSE;
+                const dbus_bool_t response = FALSE;
                 DBusReplyWithVariant(&args, DBUS_TYPE_BOOLEAN, DBUS_TYPE_BOOLEAN_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "DesktopEntry"))
             {
-                char* response = "vgmplay";
+                const char* response = "vgmplay";
                 DBusReplyWithVariant(&args, DBUS_TYPE_STRING, DBUS_TYPE_STRING_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "Identity"))
             {
-                char* response = "VGMPlay";
+                const char* response = "VGMPlay";
                 DBusReplyWithVariant(&args, DBUS_TYPE_STRING, DBUS_TYPE_STRING_AS_STRING, &response);
             }
             else
@@ -909,12 +912,12 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         {
             if(!strcmp(method_property_arg, "CanPlay"))
             {
-                dbus_bool_t response = TRUE;
+                const dbus_bool_t response = TRUE;
                 DBusReplyWithVariant(&args, DBUS_TYPE_BOOLEAN, DBUS_TYPE_BOOLEAN_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "CanPause"))
             {
-                dbus_bool_t response = TRUE;
+                const dbus_bool_t response = TRUE;
                 DBusReplyWithVariant(&args, DBUS_TYPE_BOOLEAN, DBUS_TYPE_BOOLEAN_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "CanGoNext"))
@@ -927,7 +930,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
             }
             else if(!strcmp(method_property_arg, "CanSeek"))
             {
-                dbus_bool_t response = TRUE;
+                const dbus_bool_t response = TRUE;
                 DBusReplyWithVariant(&args, DBUS_TYPE_BOOLEAN, DBUS_TYPE_BOOLEAN_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "PlaybackStatus"))
@@ -942,13 +945,13 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
             //Dummy volume
             else if(!strcmp(method_property_arg, "Volume") || !strcmp(method_property_arg, "MaximumRate") || !strcmp(method_property_arg, "MinimumRate") || !strcmp(method_property_arg, "Rate"))
             {
-                double response = 1.0;
+                const double response = 1.0;
                 DBusReplyWithVariant(&args, DBUS_TYPE_DOUBLE, DBUS_TYPE_DOUBLE_AS_STRING, &response);
 
             }
             else if(!strcmp(method_property_arg, "CanControl"))
             {
-                dbus_bool_t response = TRUE;
+                const dbus_bool_t response = TRUE;
                 DBusReplyWithVariant(&args, DBUS_TYPE_BOOLEAN, DBUS_TYPE_BOOLEAN_AS_STRING, &response);
             }
             else if(!strcmp(method_property_arg, "Metadata"))
@@ -990,10 +993,10 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         DBusMessageIter args;
         dbus_message_iter_init_append(reply, &args);
 
-        dbus_bool_t dbustrue = TRUE;
-        dbus_bool_t dbusfalse = FALSE;
-        char* title;
-        char* strresponse;
+        const dbus_bool_t dbustrue = TRUE;
+        const dbus_bool_t dbusfalse = FALSE;
+        const char* title;
+        const char* strresponse;
 
         if(!strcmp(method_interface_arg, "org.mpris.MediaPlayer2"))
         {
@@ -1057,7 +1060,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         }
         else if(!strcmp(method_interface_arg, DBUS_MPRIS_PLAYER))
         {
-            double doubleresponse = 1.0;
+            const double doubleresponse = 1.0;
             // a{sv}
             DBusMessageIter dict, dict_entry;
             dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
@@ -1179,7 +1182,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
             return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 #ifdef DBUS_DEBUG
-        printf("Seek called with %lld\n", (long long)offset);
+        printf("Seek called with %"PRId64"\n", offset);
 #endif
         INT32 TargetSeekPos = ReturnSamplePos(offset, SampleRate);
         SeekVGM(true, TargetSeekPos);
