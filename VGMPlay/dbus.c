@@ -45,7 +45,7 @@ They weren't lying when they said that using libdbus directly signs you up for s
 //#define DBUS_DEBUG
 
 #ifdef DBUS_DEBUG
-#define ART_EXISTS_PRINTF(x)    printf("\nTrying %s\n", (x));
+#define ART_EXISTS_PRINTF(x)    fprintf(stderr, "\nTrying %s\n", (x));
 #else
 #define ART_EXISTS_PRINTF(x)
 #endif
@@ -374,7 +374,7 @@ static void getBasePath(char** ls, char* basepath)
         strcat(basepath, "/");
 
 #ifdef DBUS_DEBUG
-        puts("Relative path detected");
+        fputs("Relative path detected\n", stderr);
 #endif
     }
 
@@ -393,7 +393,7 @@ static void getBasePath(char** ls, char* basepath)
     }
 
 #ifdef DBUS_DEBUG
-    printf("\nBase Path %s\n", basepath);
+    fprintf(stderr, "\nBase Path %s\n", basepath);
 #endif
     *ls = lastsep;
 }
@@ -446,7 +446,7 @@ static inline void getArtPath(char* utf8album, char* basepath)
     strcpy(basepathend, "*.[pP][nN][gG]");
 
 #ifdef DBUS_DEBUG
-    printf("Using glob %s\n", basepath);
+    fprintf(stderr, "Using glob %s\n", basepath);
 #endif
     glob_t result;
     if(glob(basepath, GLOB_NOSORT, NULL, &result) == 0)
@@ -501,7 +501,7 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
         getArtPath(utf8album, artpath);
 
 #ifdef DBUS_DEBUG
-    printf("\nFinal art path %s\n", artpath);
+    fprintf(stderr, "\nFinal art path %s\n", artpath);
 #endif
 
     // URL encode the path to the png
@@ -682,7 +682,7 @@ static void DBusSendPlaybackStatus(DBusMessageIter* args)
 void DBus_EmitSignal(UINT8 type)
 {
 #ifdef DBUS_DEBUG
-    printf("Emitting signal type 0x%x\n", type);
+    fprintf(stderr, "Emitting signal type 0x%x\n", type);
 #endif
     if(connection == NULL)
         return;
@@ -832,7 +832,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
     const char* path_name = dbus_message_get_path(message);
     const char* sender = dbus_message_get_sender(message);
 
-    printf("Interface: %s; Member: %s; Path: %s; Sender: %s;\n", interface_name, member_name, path_name, sender);
+    fprintf(stderr, "Interface: %s; Member: %s; Path: %s; Sender: %s;\n", interface_name, member_name, path_name, sender);
 #endif
     if(!dbus_message_has_path(message, DBUS_MPRIS_PATH))
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -964,7 +964,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         else
         {
 #ifdef DBUS_DEBUG
-            printf("Unimplemented interface %s passed to Get()\n", method_interface_arg);
+            fprintf(stderr, "Unimplemented interface %s passed to Get()\n", method_interface_arg);
 #endif
             dbus_message_unref(reply);
             reply = dbus_message_new_error(message, "org.freedesktop.DBus.Error.InvalidArgs", "No such interface");
@@ -1162,7 +1162,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         else
         {
 #ifdef DBUS_DEBUG
-            printf("Unimplemented interface %s passed to GetAll\n", method_interface_arg);
+            fprintf(stderr, "Unimplemented interface %s passed to GetAll\n", method_interface_arg);
 #endif
             dbus_message_unref(reply);
             reply = dbus_message_new_error(message, "org.freedesktop.DBus.Error.InvalidArgs", "No such interface");
@@ -1182,7 +1182,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
             return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 #ifdef DBUS_DEBUG
-        printf("Seek called with %"PRId64"\n", offset);
+        fprintf(stderr, "Seek called with %"PRId64"\n", offset);
 #endif
         INT32 TargetSeekPos = ReturnSamplePos(offset, SampleRate);
         SeekVGM(true, TargetSeekPos);
@@ -1246,7 +1246,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
     else
     {
 #ifdef DBUS_DEBUG
-        printf("Method %s for interface %s not implemented", member_name, interface_name);
+        fprintf(stderr, "Method %s for interface %s not implemented", member_name, interface_name);
 #endif
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
