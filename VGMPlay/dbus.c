@@ -33,8 +33,6 @@ They weren't lying when they said that using libdbus directly signs you up for s
 #include <glob.h>
 #include "VGMPlay_Intf.h"
 
-#define MAX_PATH PATH_MAX
-
 // DBus MPRIS Constants
 #define DBUS_MPRIS_PATH             "/org/mpris/MediaPlayer2"
 #define DBUS_MPRIS_MEDIAPLAYER2     "org.mpris.MediaPlayer2"
@@ -51,11 +49,8 @@ They weren't lying when they said that using libdbus directly signs you up for s
 #endif
 
 #define ART_EXISTS(path)        ART_EXISTS_PRINTF(path) \
-                                if(FileExists((path))) \
-                                    return
-
-#define RETURN_EMPTY_ART(x)     { \
-                                    *(x) = '\0'; \
+                                if(FileExists((path))) { \
+                                    free(basepath); \
                                     return; \
                                 }
 
@@ -75,7 +70,7 @@ extern UINT32 CurPLFile;
 extern UINT8 PLMode;
 
 // Playlist Vars
-extern char PLFileName[MAX_PATH];
+extern char PLFileName[];
 
 // Playback Status
 extern UINT8 PlayingMode;
@@ -87,7 +82,7 @@ DBusConnection* connection = NULL;
 extern void SeekVGM(bool Relative, INT32 PlayBkSamples);
 
 // Filename
-extern char VgmFileName[MAX_PATH];
+extern char VgmFileName[];
 
 extern char* GetLastDirSeparator(const char* FilePath);
 
@@ -107,13 +102,14 @@ typedef struct DBusMetadata_
 
 // Cached art path
 static char* artpath = NULL;
+// Effectively the allocation size of artpath, including the terminator
+static size_t pathmax = 0;
 
 // Misc Helper Functions
 
 static inline void invalidateArtCache()
 {
-    if(artpath != NULL)
-        *artpath = '\0';
+    *artpath = '\0';
 }
 
 static char* wcharToUTF8(wchar_t* GD3)
@@ -124,7 +120,7 @@ static char* wcharToUTF8(wchar_t* GD3)
     return out;
 }
 
-static char* urlencode(char* str)
+static char* urlencode(const char* str)
 {
     size_t len = strlen(str);
     // Don't try to encode blank strings
@@ -352,116 +348,79 @@ static void DBusSendMetadataArray(DBusMessageIter* dict_root, DBusMetadata meta[
     dbus_message_iter_close_container(dict_root, &root_variant);
 }
 
-static void getBasePath(char** ls, char* basepath)
+static inline char* getAbsBasePath()
 {
     // Pick the appropriate pointer
-    char* fileptr = VgmFileName;
+    const char* fileptr = VgmFileName;
     if(PLMode == 0x01)
         fileptr = PLFileName;
 
-    // Get the base path
-    // If the filename is absolute, then the base path is everything up to the last dir separator
-    // If relative, base path is cwd + everything before the last separator in the filename
-    if(!(PLFileName[0] == '/' || VgmFileName[0] == '/'))
-    {
-        // Add cwd to the base path if needed
-        // -1 so that there's enough room to append the trailing /
-
-        // If getcwd fails, there's most likely no way to get the base path
-        if(!getcwd(basepath, MAX_PATH - 1))
-            RETURN_EMPTY_ART(basepath);
-
-        strcat(basepath, "/");
-
+    char* basepath = realpath(fileptr, NULL);
+    if(basepath) {
+        char* sep = GetLastDirSeparator(basepath);
+        // It's okay to + 1 because sep points to a character before the terminator
+        if(sep)
+            sep[1] = '\0';
 #ifdef DBUS_DEBUG
-        fputs("Relative path detected\n", stderr);
+        fprintf(stderr, "\nBase Path %s\n", basepath);
 #endif
     }
-
-    char* lastsep = GetLastDirSeparator(fileptr);
-    // Append everything before (and including) the last dir separator, if one exists
-    if(lastsep)
-    {
-        // Copy up to and including separator
-        size_t len = strlen(fileptr) - strlen(lastsep) + 1;
-        size_t left = MAX_PATH - strlen(basepath);
-        int written = snprintf(basepath + strlen(basepath), left, "%.*s", len, fileptr);
-        // Check that we didn't truncate
-        if (written < 0 || (size_t)written >= left) {
-            RETURN_EMPTY_ART(basepath);
-        }
-    }
-
-#ifdef DBUS_DEBUG
-    fprintf(stderr, "\nBase Path %s\n", basepath);
-#endif
-    *ls = lastsep;
+    return basepath;
 }
 
-static inline void getArtPath(char* utf8album, char* basepath)
+static inline void getArtPath(const char* utf8album, char* artpath, const size_t artpath_size)
 {
-    char* lastsep = NULL;
-    getBasePath(&lastsep, basepath);
-
-    // Store a pointer to the end of the base path so that we can easily append to it, as well as the length of the base path
-    size_t basepathlen = strlen(basepath);
-    // No point trying to find the art if we couldn't get the base path
-    if(!basepathlen)
+    char* basepath = getAbsBasePath();
+    if(basepath == NULL || basepath[0] == '\0') {
+        free(basepath);
         return;
-    char* basepathend = basepath + basepathlen;
+    }
 
     // Now that we have the base path, we start looking for art
     // If we are reading a playlist, append everything after the separator to the path and replace its m3u extension with png
     if(PLMode == 0x01)
     {
-        // Copy the whole string after the separator (if one exists), excluding the file extension
-        // Otherwise take the filename as-is
-        char* filenameptr = lastsep ? lastsep + 1 : PLFileName;
-        size_t filenamelen =  strlen(filenameptr);
-        // Make sure there's enough free space in the buffer
-        if(basepathlen + filenamelen + 1 > MAX_PATH)
-            RETURN_EMPTY_ART(basepath);
+        // Using the GNU version of basename which doesn't modify the argument
+        char* plname = basename(PLFileName);
+        char* plname_ext = strrchr(plname, '.');
 
-        strncpy(basepathend, filenameptr, filenamelen - 3);
-        // Append the png extension
-        strcpy(basepathend + filenamelen - 3, "png");
+        // Find out how many characters we need to print until the file extension
+        // We use int because that's what the precision specifier accepts
+        // The filename is really not going to be more than INT_MAX characters
+        int plname_len = (plname_ext == NULL ? (int)strlen(plname) : (int)(plname_ext - plname));
 
-        ART_EXISTS(basepath);
+        snprintf(artpath, artpath_size, "%s%.*s.png", basepath, plname_len, plname);
+
+        ART_EXISTS(artpath);
     }
 
     // If we get here, we're probably in single track mode, or the playlist is named differently
     // check base path + album + .png
-
-    // Make sure there's enough space in the string
-    if(basepathlen + strlen(utf8album) + 4 + 1 > MAX_PATH)
-        RETURN_EMPTY_ART(basepath);
-    sprintf(basepathend, "%s.png", utf8album);
-    ART_EXISTS(basepath);
+    snprintf(artpath, artpath_size, "%s%s.png", basepath, utf8album);
+    ART_EXISTS(artpath);
 
     // As a last resort, pick the first image glob can find in the base path
     // Append the case insensitive extension to the base path
-    if(basepathlen + 14 + 1 > MAX_PATH)
-        RETURN_EMPTY_ART(basepath);
-
-    strcpy(basepathend, "*.[pP][nN][gG]");
+    snprintf(artpath, artpath_size, "%s*.[pP][nN][gG]", basepath);
 
 #ifdef DBUS_DEBUG
-    fprintf(stderr, "Using glob %s\n", basepath);
+    fprintf(stderr, "Using glob %s\n", artpath);
 #endif
     glob_t result;
-    if(glob(basepath, GLOB_NOSORT, NULL, &result) == 0)
+    if(glob(artpath, GLOB_NOSORT, NULL, &result) == 0)
     {
         if(result.gl_pathc > 0)
         {
-            strcpy(basepath, result.gl_pathv[0]);
+            snprintf(artpath, artpath_size, "%s", result.gl_pathv[0]);
             globfree(&result);
-            return;
+            ART_EXISTS(artpath);
         }
     }
     globfree(&result);
 
     // There's nothing else we can do. Return an empty string
-    RETURN_EMPTY_ART(basepath);
+    *artpath = '\0';
+    free(basepath);
 }
 
 static void DBusSendMetadata(DBusMessageIter* dict_root)
@@ -472,6 +431,7 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
         DBusSendMetadataArray(dict_root, NULL, 0);
         return;
     }
+
     // Prepare metadata
 
     // Album
@@ -498,7 +458,7 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
 
     // Try to get the cover art url
     if(*artpath == '\0')
-        getArtPath(utf8album, artpath);
+        getArtPath(utf8album, artpath, pathmax);
 
 #ifdef DBUS_DEBUG
     fprintf(stderr, "\nFinal art path %s\n", artpath);
@@ -590,22 +550,12 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
     }
 
     // URL encoded Filename
-    // First get the base path, then append the last separator
-    char* lastsep = NULL;
-    char* pathurl = malloc(MAX_PATH);
-    *pathurl = '\0';
-    getBasePath(&lastsep, pathurl);
-    // Skip the actual separator if it exists
-    if(lastsep && *lastsep != '\0')
-        lastsep++;
-    else
-        lastsep = VgmFileName;
+    char* abspath = realpath(VgmFileName, NULL);
+    if(abspath == NULL)
+        abspath = calloc(1, sizeof(char));
 
-    if(strlen(pathurl) + strlen(lastsep) < MAX_PATH)
-        strcat(pathurl, lastsep);
-
-    char* url = urlencode(pathurl);
-    free(pathurl);
+    char* url = urlencode(abspath);
+    free(abspath);
 
     // Stubs
     const char* trackid = "/org/mpris/MediaPlayer2/CurrentTrack";
@@ -662,7 +612,6 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
         free(ptr);
         free(ch);
     }
-
 }
 
 static void DBusSendPlaybackStatus(DBusMessageIter* args)
@@ -1255,7 +1204,13 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
 UINT8 MultimediaKeyHook_Init(void)
 {
     // Allocate memory for the art path cache
-    artpath = malloc(MAX_PATH);
+    long pathmax_s = pathconf("/", _PC_PATH_MAX);
+    if (pathmax_s <= 0)
+        pathmax = 4096;
+    else
+        pathmax = pathmax_s + 1;
+
+    artpath = malloc(pathmax);
     *artpath = '\0';
 
     connection = dbus_bus_get(DBUS_BUS_SESSION, NULL);
@@ -1285,7 +1240,8 @@ void MultimediaKeyHook_Deinit(void)
 {
     if(connection != NULL)
         dbus_connection_unref(connection);
-    invalidateArtCache();
+    free(artpath);
+    artpath = NULL;
 }
 
 void MultimediaKeyHook_SetCallback(mmkey_cbfunc callbackFunc)
