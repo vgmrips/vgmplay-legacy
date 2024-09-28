@@ -55,7 +55,6 @@ They weren't lying when they said that using libdbus directly signs you up for s
                                 }
 
 static mmkey_cbfunc evtCallback = NULL;
-INT32 VGMPbSmplCount;
 
 extern INT32 VGMSmplPlayed;
 extern UINT32 SampleRate;
@@ -76,7 +75,7 @@ extern char PLFileName[];
 extern UINT8 PlayingMode;
 extern bool PausePlay;
 
-DBusConnection* connection = NULL;
+DBusConnection* dbus_connection = NULL;
 
 // Seek Function
 extern void SeekVGM(bool Relative, INT32 PlayBkSamples);
@@ -101,15 +100,15 @@ typedef struct DBusMetadata_
 } DBusMetadata;
 
 // Cached art path
-static char* artpath = NULL;
-// Effectively the allocation size of artpath, including the terminator
+static char* cached_artpath = NULL;
+// Effectively the allocation size of cached_artpath, including the terminator
 static size_t pathmax = 0;
 
 // Misc Helper Functions
 
 static inline void invalidateArtCache()
 {
-    *artpath = '\0';
+    *cached_artpath = '\0';
 }
 
 static char* wcharToUTF8(wchar_t* GD3)
@@ -444,7 +443,7 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
 
     // Length
     int64_t len64 = 0;
-    VGMPbSmplCount = SampleVGM2Playback(VGMHead.lngTotalSamples);
+    INT32 VGMPbSmplCount = SampleVGM2Playback(VGMHead.lngTotalSamples);
     len64 = ReturnPosMsec(VGMPbSmplCount, SampleRate);
 
     // Artist
@@ -457,15 +456,15 @@ static void DBusSendMetadata(DBusMessageIter* dict_root)
         tracknum = (int32_t)(CurPLFile + 0x01);
 
     // Try to get the cover art url
-    if(*artpath == '\0')
-        getArtPath(utf8album, artpath, pathmax);
+    if(cached_artpath[0] == '\0')
+        getArtPath(utf8album, cached_artpath, pathmax);
 
 #ifdef DBUS_DEBUG
     fprintf(stderr, "\nFinal art path %s\n", artpath);
 #endif
 
     // URL encode the path to the png
-    char* arturlescaped = urlencode(artpath);
+    char* arturlescaped = urlencode(cached_artpath);
 
     // Game release date
     wchar_t* release = VGMTag.strReleaseDate;
@@ -628,7 +627,7 @@ static void DBusSendPlaybackStatus(DBusMessageIter* args)
     DBusReplyWithVariant(args, DBUS_TYPE_STRING, DBUS_TYPE_STRING_AS_STRING, &response);
 }
 
-void DBus_EmitSignal(UINT8 type)
+void DBus_EmitSignal_Internal(DBusConnection* connection, UINT8 type)
 {
 #ifdef DBUS_DEBUG
     fprintf(stderr, "Emitting signal type 0x%x\n", type);
@@ -734,6 +733,12 @@ void DBus_EmitSignal(UINT8 type)
     dbus_message_unref(msg);
 }
 
+
+void DBus_EmitSignal(UINT8 type)
+{
+    DBus_EmitSignal_Internal(dbus_connection, type);
+}
+
 static void DBusSendMimeTypes(DBusMessageIter* args)
 {
     DBusMessageIter variant, subargs;
@@ -764,7 +769,7 @@ static void DBusSendUriSchemes(DBusMessageIter* args)
     dbus_message_iter_close_container(args, &variant);
 }
 
-static void DBusSendEmptyMethodResponse(DBusMessage* message)
+static void DBusSendEmptyMethodResponse(DBusConnection* connection, DBusMessage* message)
 {
     DBusMessage* reply;
     DBusMessageIter args;
@@ -796,7 +801,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
     {
         printf("\a");
         fflush(stdout);
-        DBusSendEmptyMethodResponse(message);
+        DBusSendEmptyMethodResponse(connection, message);
         return DBUS_HANDLER_RESULT_HANDLED;
     }
     // Respond to Get
@@ -1139,7 +1144,7 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         DBusEmptyMethodResponse(connection, message);
 
         // Emit seeked signal
-        DBus_EmitSignal(SIGNAL_SEEK);
+        DBus_EmitSignal_Internal(connection, SIGNAL_SEEK);
 
         return DBUS_HANDLER_RESULT_HANDLED;
     }
@@ -1183,13 +1188,13 @@ static DBusHandlerResult DBusHandler(DBusConnection* connection, DBusMessage* me
         SeekVGM(false, seek_pos);
 
         DBusEmptyMethodResponse(connection, message);
-        DBus_EmitSignal(SIGNAL_SEEK);
+        DBus_EmitSignal_Internal(connection, SIGNAL_SEEK);
         return DBUS_HANDLER_RESULT_HANDLED;
     }
     else if(dbus_message_is_method_call(message, DBUS_INTERFACE_PROPERTIES, "Set"))
     {
         // Dummy Set to send a signal to revert Volume change attempts
-        DBus_EmitSignal(SIGNAL_VOLUME);
+        DBus_EmitSignal_Internal(connection, SIGNAL_VOLUME);
         return DBUS_HANDLER_RESULT_HANDLED;
     }
     else
@@ -1210,18 +1215,18 @@ UINT8 MultimediaKeyHook_Init(void)
     else
         pathmax = pathmax_s + 1;
 
-    artpath = malloc(pathmax);
-    *artpath = '\0';
+    cached_artpath = malloc(pathmax);
+    *cached_artpath = '\0';
 
-    connection = dbus_bus_get(DBUS_BUS_SESSION, NULL);
-    if(!connection)
+    dbus_connection = dbus_bus_get(DBUS_BUS_SESSION, NULL);
+    if(!dbus_connection)
         return 0x00;
 
     // If we're not the owners, don't bother with anything else
-    if(dbus_bus_request_name(connection, DBUS_MPRIS_VGMPLAY, DBUS_NAME_FLAG_DO_NOT_QUEUE, NULL) != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
+    if(dbus_bus_request_name(dbus_connection, DBUS_MPRIS_VGMPLAY, DBUS_NAME_FLAG_DO_NOT_QUEUE, NULL) != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
     {
-        dbus_connection_unref(connection);
-        connection = NULL;
+        dbus_connection_unref(dbus_connection);
+        dbus_connection = NULL;
         return 0x00;
     }
 
@@ -1231,17 +1236,17 @@ UINT8 MultimediaKeyHook_Init(void)
         .unregister_function = NULL,
     };
 
-    dbus_connection_try_register_object_path(connection, DBUS_MPRIS_PATH, &vtable, NULL, NULL);
+    dbus_connection_try_register_object_path(dbus_connection, DBUS_MPRIS_PATH, &vtable, NULL, NULL);
 
     return 0x00;
 }
 
 void MultimediaKeyHook_Deinit(void)
 {
-    if(connection != NULL)
-        dbus_connection_unref(connection);
-    free(artpath);
-    artpath = NULL;
+    if(dbus_connection != NULL)
+        dbus_connection_unref(dbus_connection);
+    free(cached_artpath);
+    cached_artpath = NULL;
 }
 
 void MultimediaKeyHook_SetCallback(mmkey_cbfunc callbackFunc)
@@ -1251,16 +1256,16 @@ void MultimediaKeyHook_SetCallback(mmkey_cbfunc callbackFunc)
 
 void DBus_ReadWriteDispatch(void)
 {
-    if(connection == NULL)
+    if(dbus_connection == NULL)
         return;
 
     // Detect loops and send the seeked signal when appropriate
     if(OldLoopCount != VGMCurLoop)
     {
         OldLoopCount = VGMCurLoop;
-        DBus_EmitSignal(SIGNAL_SEEK);
+        DBus_EmitSignal_Internal(dbus_connection, SIGNAL_SEEK);
     }
 
     // Wait at most for 1ms
-    dbus_connection_read_write_dispatch(connection, 1);
+    dbus_connection_read_write_dispatch(dbus_connection, 1);
 }
