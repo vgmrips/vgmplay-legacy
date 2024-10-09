@@ -2129,7 +2129,7 @@ void OPM_Reset(opm_t* chip, uint32_t rate, uint32_t clock)
 void OPM_SetMute(opm_t *chip, uint32_t mute)
 {
     uint32_t i;
-    for (i = 0; i < 7; i++)
+    for (i = 0; i < 8; i++)
     {
         chip->mute[i] = (mute >> i) & 0x01;
     }
