@@ -2074,7 +2074,7 @@ static void ShowVGMTag(void)
 #if (defined(_MSC_VER) && _MSC_VER < 1400) || defined(OLD_SWPRINTF)
 		swprintf(TitleStr + StrLen, L" (%.*ls)", 0x70 - 3 - StrLen, GameTag);
 #else
-		swprintf(TitleStr + StrLen, 0x80, L" (%.*ls)", 0x70 - 3 - StrLen, GameTag);
+		swprintf(TitleStr + StrLen, 0x80 - StrLen, L" (%.*ls)", 0x70 - 3 - StrLen, GameTag);
 #endif
 		StrLen = wcslen(TitleStr);
 	}
